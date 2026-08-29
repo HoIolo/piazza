@@ -1,0 +1,37 @@
+[package]
+name = "pi-codex"
+version = "0.1.0"
+description = "基于 pi coding agent 的 Codex 风格桌面 GUI"
+authors = ["pi-codex"]
+edition = "2021"
+# is_none_or 等 API 需要 1.82；本项目只面向桌面端自建，无需兼容更旧的工具链
+rust-version = "1.82"
+
+[lib]
+name = "pi_codex_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+# preserve_order：JSON 对象保留原始键顺序。默认的 BTreeMap 会按字母序重排，
+# 一次保存就把用户手写配置的字段顺序全打乱，diff 里全是无关变更。
+serde_json = { version = "1", features = ["preserve_order"] }
+# time：给等待子进程退出与写 stdin 加超时用。缺了它，任一方挂起都会把会话锁攥死
+tokio = { version = "1", features = ["process", "io-util", "sync", "rt", "macros", "time"] }
+dirs = "6"
+thiserror = "2"
+portable-pty = "0.9.0"
+base64 = "0.23.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
