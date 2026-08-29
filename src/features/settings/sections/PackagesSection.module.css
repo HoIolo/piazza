@@ -1,0 +1,62 @@
+.body {
+  padding: var(--sp-4);
+}
+
+.hint {
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.hint code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.remove:hover {
+  background: var(--bg-hover);
+  color: var(--diff-del);
+}
+
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border-radius: 6px;
+  font-size: var(--fs-desc);
+  color: var(--blue-link);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.add:hover {
+  background: var(--bg-hover);
+}

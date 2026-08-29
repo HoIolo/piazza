@@ -1,0 +1,77 @@
+@import '../../../design/keyframes/fade-in.css';
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.save {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-item);
+  background: var(--send-btn);
+  color: var(--text-on-dark);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    background var(--dur-base) var(--ease),
+    opacity var(--dur-base) var(--ease);
+}
+
+.save:disabled {
+  background: var(--send-btn-disabled);
+  cursor: default;
+}
+
+/* 读取配置时的占位卡片，尺寸对齐 ProviderCard 头部 */
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+.hint {
+  padding: var(--sp-4) 0;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}
+
+.error {
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--diff-del);
+  border-radius: var(--r-item);
+  font-size: var(--fs-desc);
+  color: var(--diff-del);
+}
+
+.saved {
+  margin-bottom: var(--sp-4);
+  font-size: var(--fs-desc);
+  color: var(--diff-add);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}

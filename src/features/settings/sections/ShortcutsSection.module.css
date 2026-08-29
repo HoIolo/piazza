@@ -1,0 +1,10 @@
+.keys {
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
