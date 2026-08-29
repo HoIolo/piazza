@@ -1,0 +1,136 @@
+.block {
+  margin: var(--sp-1) 0;
+}
+
+/* 折叠态就是一行普通文字，不要边框和背景 */
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 3px 4px;
+  margin-left: -4px;
+  border-radius: 6px;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.line:disabled {
+  cursor: default;
+}
+
+/* 悬停时整行转深色，提示它可以点开 */
+.line:hover:not(:disabled),
+.line:hover:not(:disabled) .text > span {
+  color: var(--text-primary);
+}
+
+.line:hover:not(:disabled) .icon,
+.line:hover:not(:disabled) .chevron {
+  color: var(--text-primary);
+}
+
+.icon,
+.chevron,
+.errorIcon {
+  flex: none;
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.errorIcon {
+  color: var(--diff-del);
+}
+
+.chevron {
+  transition:
+    transform var(--dur-base) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.chevron[data-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 参数用等宽字体，命令与路径才对得齐 */
+.arg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.detailWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-base) var(--ease);
+}
+
+.detailWrap[data-expanded='true'] {
+  grid-template-rows: 1fr;
+}
+
+.detailClip {
+  overflow: hidden;
+}
+
+.detail {
+  margin: var(--sp-2) 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.detailHead {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+.command {
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+.output {
+  max-height: 320px;
+  overflow: auto;
+  padding: 0 var(--sp-3) var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-desc);
+  color: var(--diff-add);
+}
+
+.status[data-error='true'] {
+  color: var(--diff-del);
+}

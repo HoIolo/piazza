@@ -1,0 +1,21 @@
+/*
+ * 会话区现在是纵向列里的一员（下面还有终端），高度必须由 flex 分配。
+ * 原来的 height:100% 会让它独占整列，把终端顶出视口底部。
+ */
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-canvas);
+}
+
+/* 提问卡片贴在输入框上方，与正文同宽 */
+.dialogSlot {
+  flex: none;
+  width: 100%;
+  max-width: var(--content-max-w);
+  margin: 0 auto;
+  padding: 0 var(--sp-4);
+}

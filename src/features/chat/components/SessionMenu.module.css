@@ -1,0 +1,25 @@
+@import '../../../design/keyframes/fade-in.css';
+
+.panel {
+  min-width: 200px;
+}
+
+.exported {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  margin-top: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-item);
+  font-size: var(--fs-desc);
+  color: var(--diff-add);
+  cursor: pointer;
+  text-align: left;
+  animation: fade-in var(--dur-base) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.exported:hover {
+  background: var(--bg-hover);
+}

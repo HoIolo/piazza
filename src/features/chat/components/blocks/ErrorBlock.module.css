@@ -1,0 +1,67 @@
+/*
+ * 容器中性、文字红。
+ *
+ * 对着 Codex 与 Cline 的做法调过来的：两家都不给错误加红框——
+ * Codex（TUI）是红色 ■ 加一行红字，Cline 唯一用容器的场景也是
+ * 中性引用块底色，红色只落在文字上。红框在长对话里会连成一串
+ * 抢眼的方块，而错误终究只是某一轮回答的附注。
+ */
+.block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-item);
+  background: var(--bg-code);
+}
+
+/* 实心点而非描边图标：两家的错误标记都是实心（■ / ⊗），靠颜色表意 */
+.dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--text-error);
+}
+
+/* 中止是用户自己按的停止键，不是故障：空心 + 中性色，与真错误区分开 */
+.block[data-aborted='true'] .dot {
+  background: none;
+  border: 1.5px solid var(--text-tertiary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  color: var(--text-error);
+}
+
+.block[data-aborted='true'] .title {
+  color: var(--text-secondary);
+}
+
+/* 上游原话多为英文长句，允许换行而不是截断——排查时需要看全 */
+.detail {
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+  word-break: break-word;
+  user-select: text;
+}
+
+/* 一串无意义的标识符，压到最低视觉层级；等宽是为了核对时不看错字符 */
+.requestId {
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  word-break: break-all;
+  user-select: text;
+}

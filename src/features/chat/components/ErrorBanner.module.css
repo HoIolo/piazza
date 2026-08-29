@@ -1,0 +1,114 @@
+@import '../../../design/keyframes/rise-in.css';
+
+.banner {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  margin: 0 var(--sp-5) var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--diff-del) 30%, transparent);
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--diff-del) 7%, var(--bg-surface));
+  animation: rise-in var(--dur-base) var(--ease-out);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+
+.icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--diff-del);
+}
+
+.text {
+  min-width: 0;
+  font-size: var(--fs-desc);
+  line-height: 1.5;
+  color: var(--text-primary);
+  word-break: break-word;
+  user-select: text;
+}
+
+/* 摘要占满中间，把动作与关闭按钮顶到右端 */
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row > .text {
+  flex: 1;
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.chevron[data-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+  height: 22px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-item);
+  background: var(--bg-surface);
+  font-size: var(--fs-desc);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.action:hover {
+  background: var(--bg-hover);
+}
+
+.close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-item);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.close:hover {
+  background: var(--bg-hover);
+}
+
+/*
+ * stderr 原样呈现：等宽、保留换行、可选中。
+ * 排查问题时要能整段复制出去，重排过的文本反而更难对照。
+ */
+.detail {
+  max-height: 180px;
+  margin-top: var(--sp-2);
+  margin-left: calc(15px + var(--sp-2));
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}

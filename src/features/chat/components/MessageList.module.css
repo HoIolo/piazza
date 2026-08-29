@@ -1,0 +1,49 @@
+/*
+ * 刻度条脱离滚动内容定位，因此需要一层不滚动的定位父级。
+ * 容器查询也挂在这里——刻度条已不在 .scroller 内，查询源必须跟着上移。
+ */
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  container-type: inline-size;
+
+  /* 底部渐隐高度。.inner 的下内边距要跟着它走，故提成变量 */
+  --fade-h: 40px;
+}
+
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+
+  /*
+   * 底部渐隐。内容原本被输入框上缘硬切一刀，切口与输入框同色，
+   * 圆角就读不出「一块面板的边」，看着像贴上去的假角。
+   * 让内容在贴近输入框前先淡出，硬边消失，圆角自然立住。
+   */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade-h)), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade-h)), transparent 100%);
+}
+
+/*
+ * 下内边距必须大于渐隐高度，否则滚到底时最后一条的复制/时间
+ * 正好落在渐隐区里被抹淡——那是能点的东西，不该看不清。
+ */
+.inner {
+  width: 100%;
+  max-width: var(--content-max-w);
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) calc(var(--fade-h) + var(--sp-2));
+}
+
+/*
+ * 发送后的底部留白。回答增长时它仍在，滚动条继续跟到底，
+ * 于是「新内容始终出现在视线高度」而不是贴着输入框冒出来。
+ */
+.tailSpace {
+  height: 40vh;
+}

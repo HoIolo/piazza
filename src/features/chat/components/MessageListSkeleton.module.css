@@ -1,0 +1,29 @@
+@import '../../../design/keyframes/fade-in.css';
+
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--content-max-w);
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-8);
+}
+
+/* 与 UserMessage 一致靠右，骨架形状才对得上真实布局 */
+.userRow {
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--sp-6) 0 var(--sp-5);
+}
+
+.assistant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}

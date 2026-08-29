@@ -1,0 +1,79 @@
+/*
+ * 触发按钮沿用顶栏 IconButton 的尺寸与手感（28×28 / 6px），但它自带 Popover
+ * 定位容器，不能直接复用 IconButton——那样会多套一层 relative，浮层贴错位置。
+ * 尺寸必须跟着 IconButton 走，否则在顶栏里会比左右两个按钮大出一圈。
+ */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.trigger:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.trigger[data-open='true'] {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+.panel {
+  min-width: 260px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 34px;
+  padding: 0 var(--sp-3);
+}
+
+/* 内嵌的选择器自带内边距，外层只负责对齐，避免左缘比上一行缩进 */
+.pickerRow {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin-left: calc(var(--sp-3) * -1 + var(--sp-1));
+}
+
+.icon {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.label {
+  font-size: var(--fs-nav);
+}
+
+.stat {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+  font-size: var(--fs-desc);
+  font-variant-numeric: tabular-nums;
+}
+
+.added {
+  color: var(--diff-add);
+}
+
+.removed {
+  color: var(--diff-del);
+}
+
+.muted {
+  margin-left: auto;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}

@@ -1,0 +1,128 @@
+@import '../../../../design/keyframes/fade-in.css';
+@import '../../../../design/keyframes/rise-in.css';
+
+.card {
+  margin: var(--sp-4) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  overflow: hidden;
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg-code);
+  color: var(--text-secondary);
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-semibold);
+}
+
+.stats,
+.fileStats {
+  display: flex;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.stats {
+  margin-top: 2px;
+}
+
+.add {
+  color: var(--diff-add);
+}
+
+.del {
+  color: var(--diff-del);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.files {
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  animation: fade-in var(--dur-base) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.file:hover {
+  background: var(--bg-hover);
+}
+
+.file + .file {
+  border-top: 1px solid var(--border);
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-desc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 目录浅、文件名深，形成截图里的双色路径 */
+.dir {
+  color: var(--text-tertiary);
+}
+
+.name {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+
+.fileStats {
+  flex: none;
+}
+
+.more {
+  display: block;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.more:hover {
+  background: var(--bg-hover);
+}

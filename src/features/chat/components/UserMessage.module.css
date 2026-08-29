@@ -1,0 +1,26 @@
+@import '../../../design/keyframes/rise-in.css';
+
+/*
+ * 只声明下间距。上间距一律由 .group 负责——两边都写会和 .group 的
+ * margin 折叠，实际值取谁最大要看上下文，节奏就不可控了。
+ *
+ * 下间距比组内其余间距大：「耗时」那行是下面这段回答的标题，
+ * 离提问远一点，它的归属才读得出来。
+ */
+.row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--sp-6);
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+.bubble {
+  max-width: 85%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-card);
+  background: var(--bg-bubble);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

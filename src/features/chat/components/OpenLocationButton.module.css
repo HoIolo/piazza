@@ -1,0 +1,51 @@
+/* 分体按钮：主区域直接打开，右侧箭头展开列表 */
+.group {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.main,
+.caret {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-desc);
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.main:hover:not(:disabled),
+.caret:hover,
+.caret[data-open='true'] {
+  background: var(--bg-hover);
+}
+
+.main:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.caret {
+  padding: 0 var(--sp-2);
+  border-left: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.panel {
+  min-width: 180px;
+}
+
+/* 系统图标本身带留白，尺寸对齐 lucide 的 16px 视觉重量 */
+.appIcon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}

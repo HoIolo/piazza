@@ -1,0 +1,113 @@
+@import '../../../design/keyframes/pop-in.css';
+
+/*
+ * 贴聊天区最左缘，脱离滚动内容独立定位。
+ *
+ * 之前是 float 在正文列里，位置就被 760px 的内容列绑住了——
+ * 窗口一宽，刻度跟着正文一起往中间跑，离左缘越来越远。
+ */
+.rail {
+  position: absolute;
+  left: var(--sp-5);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  /* 行距全部由 .slot 的上下内边距给，那部分同时也是命中区，不再叠加 gap */
+  gap: 0;
+  /* 悬到刻度上时预览卡要能压住正文 */
+  z-index: 20;
+  padding: var(--sp-2) 0;
+}
+
+.slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/*
+ * 命中区是按钮本身，可见的线由 ::before 画。
+ *
+ * 之前把内边距给了外层、按钮只有 2px 高，结果只有那条线能点中，
+ * 行与行之间全是死区。现在相邻按钮的命中区上下相接，没有点不到的位置。
+ *
+ * 宽度固定为最长刻度加余量，短刻度右侧同样可点。
+ */
+.tick {
+  display: flex;
+  align-items: center;
+  width: 36px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.tick::before {
+  content: '';
+  width: var(--tick-w);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-strong);
+  transition:
+    width var(--dur-base) var(--ease),
+    height var(--dur-base) var(--ease),
+    background var(--dur-base) var(--ease);
+}
+
+/* 当前指到的一道压黑并加粗，在一排细灰线里一眼可辨 */
+.tick[data-active='true']::before {
+  height: 3px;
+  background: var(--text-primary);
+}
+
+/*
+ * 预览卡：无描边、大圆角、重投影——靠阴影浮起而不是靠边框切分，
+ * 边框会让它在浅灰底上显得像嵌进去的一块，而不是浮在正文之上。
+ */
+.preview {
+  position: absolute;
+  left: calc(100% + var(--sp-3));
+  top: 50%;
+  width: 320px;
+  padding: var(--sp-5);
+  border-radius: var(--r-palette);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-palette);
+  transform: translateY(-50%);
+  animation: pop-in var(--dur-fast) var(--ease-out);
+  pointer-events: none;
+}
+
+.question,
+.answer {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/*
+ * 字号对齐 Codex：标题与正文只差一档，靠字重与颜色分主次，不靠拉大字号。
+ * 之前标题用了 15px 正文字号，在这张小卡里明显偏大。
+ */
+.question {
+  -webkit-line-clamp: 1;
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-medium);
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.answer {
+  margin-top: var(--sp-3);
+  -webkit-line-clamp: 3;
+  font-size: var(--fs-desc);
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+
+/* 主区窄到放不下时整体收起，正文优先 */
+@container (max-width: 900px) {
+  .rail {
+    display: none;
+  }
+}

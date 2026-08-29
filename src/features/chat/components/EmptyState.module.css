@@ -1,0 +1,120 @@
+@import '../../../design/keyframes/fade-in.css';
+@import '../../../design/keyframes/rise-in.css';
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  /* 左右内边距与 Composer 一致，卡片与输入框的边缘才真正对齐 */
+  padding: var(--sp-6) var(--sp-4) 0;
+  animation: fade-in var(--dur-slow) var(--ease-out);
+
+  /* 供卡片区做容器查询：右侧面板展开时主区变窄，卡片数量随之减少 */
+  container-type: inline-size;
+}
+
+.mark {
+  color: var(--text-tertiary);
+  margin-bottom: var(--sp-6);
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+.title {
+  margin-bottom: var(--sp-8);
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-normal);
+  letter-spacing: -0.02em;
+  text-align: center;
+  animation: rise-in var(--dur-slow) var(--ease-out) 40ms backwards;
+}
+
+.project {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-3);
+  width: 100%;
+  /* 与输入框同宽同轴——两者上下相邻，宽度不一致会很显眼 */
+  max-width: var(--content-inner-w);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  min-height: 96px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  cursor: pointer;
+  animation: rise-in var(--dur-slow) var(--ease-out) 80ms backwards;
+  transition:
+    background var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease),
+    transform var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease);
+}
+
+.card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* 按下时回落，形成可按压的手感 */
+.card:active {
+  transform: translateY(0);
+  transition-duration: var(--dur-fast);
+}
+
+.cardIcon {
+  flex: none;
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.card:hover .cardIcon {
+  transform: scale(1.08);
+}
+
+.cardIcon[data-accent='explore'] {
+  color: var(--accent-explore);
+}
+.cardIcon[data-accent='build'] {
+  color: var(--accent-build);
+}
+.cardIcon[data-accent='review'] {
+  color: var(--accent-review);
+}
+.cardIcon[data-accent='fix'] {
+  color: var(--accent-fix);
+}
+
+.cardLabel {
+  font-size: var(--fs-nav);
+  line-height: 1.45;
+}
+
+/* 主区变窄时（右侧面板展开）只保留前两张，与截图 3 一致 */
+@container (max-width: 860px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 620px;
+  }
+
+  .card:nth-child(n + 3) {
+    display: none;
+  }
+}

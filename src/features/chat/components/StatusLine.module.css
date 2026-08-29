@@ -1,0 +1,57 @@
+/*
+ * 状态行下方那条分隔线。
+ *
+ * 线必须横贯整列，所以由外层这一行来画——状态按钮本身是 inline-flex，
+ * 给它加 border-bottom 只会得到一小截跟文字同宽的线。
+ */
+.statusRow {
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+/*
+ * 还在等模型开口时不画这条线。
+ * 分隔线是用来把「过程」和它下面的内容隔开的，此刻下面什么都还没有，
+ * 画出来就是一条悬空的线。
+ */
+.statusRow[data-waiting='true'] {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* 顶部状态行，对应 Codex 的「已处理 17秒」/「耗时 22秒」 */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px 4px;
+  margin-left: -4px;
+  border-radius: 6px;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.status:disabled {
+  cursor: default;
+}
+
+.status:hover:not(:disabled),
+.status:hover:not(:disabled) > span,
+.status:hover:not(:disabled) .chevron {
+  color: var(--text-primary);
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  transition:
+    transform var(--dur-base) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.chevron[data-expanded='true'] {
+  transform: rotate(90deg);
+}

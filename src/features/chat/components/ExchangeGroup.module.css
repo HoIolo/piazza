@@ -1,0 +1,22 @@
+.group {
+  margin-bottom: var(--sp-8);
+}
+
+.processWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-slow) var(--ease);
+}
+
+.processWrap[data-expanded='true'] {
+  grid-template-rows: 1fr;
+}
+
+.processClip {
+  overflow: hidden;
+}
+
+.process {
+  /* 与状态行之间留一点距离，展开时才有层次 */
+  padding-top: var(--sp-1);
+}
