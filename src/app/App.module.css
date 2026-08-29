@@ -1,0 +1,59 @@
+.root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transition:
+    transform var(--dur-slow) var(--ease),
+    opacity var(--dur-slow) var(--ease);
+}
+
+/* 会话区与终端上下排列，共同占据侧栏与右侧面板之间的这一列 */
+.center {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 设置覆盖时主界面略微缩退，读起来像「压在下面一层」 */
+.shell[data-dimmed='true'] {
+  transform: scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settingsLayer {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-canvas);
+  opacity: 0;
+  transform: translateY(12px);
+  /*
+   * visibility 参与过渡，才能在关闭动画播完后真正移出可交互层。
+   * 打开时立即可见（0s 延迟），关闭时延后到位移结束。
+   */
+  visibility: hidden;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear var(--dur-base);
+}
+
+.settingsLayer[data-open='true'] {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear 0s;
+}
