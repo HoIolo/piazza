@@ -1,0 +1,130 @@
+@import '../../design/keyframes/fade-in.css';
+
+/*
+ * 用宽度过渡而非条件渲染，这样展开与收起两个方向都有动画。
+ * 内容用 min-width 撑住，避免收起过程中文字被挤压换行。
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: var(--rightpanel-w);
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--bg-canvas);
+  overflow: hidden;
+  transition:
+    width var(--dur-slow) var(--ease),
+    opacity var(--dur-base) var(--ease),
+    border-left-width var(--dur-slow) var(--ease);
+}
+
+.panel[data-open='false'] {
+  width: 0;
+  opacity: 0;
+  border-left-width: 0;
+  pointer-events: none;
+}
+
+.dragZone {
+  height: var(--titlebar-h);
+  flex: none;
+}
+
+/* ---------- 入口列表 ---------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-2);
+  min-width: var(--rightpanel-w);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-item);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.label {
+  font-size: var(--fs-nav);
+}
+
+.hint {
+  margin-left: auto;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-item);
+  background: var(--bg-hover);
+  font-family: var(--font-sans);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+.row:hover .hint {
+  background: var(--bg-selected);
+}
+
+/* ---------- 子视图 ---------- */
+
+.viewWrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: var(--rightpanel-w);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+.viewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  padding: 0 var(--sp-2) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-item);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.viewTitle {
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-medium);
+}
+
+.viewBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

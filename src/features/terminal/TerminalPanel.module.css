@@ -1,0 +1,103 @@
+/*
+ * 压在会话区下方，与会话同宽；左侧会话树不受影响。
+ *
+ * 开合走高度过渡而不是条件渲染：后者展开与收起都是瞬间跳变，
+ * 会话区被硬生生顶上去一截。边框宽度一并过渡，收起后不留一道残线。
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: var(--terminal-h);
+  border-top: 1px solid var(--border);
+  background: var(--bg-canvas);
+  overflow: hidden;
+  transition:
+    height var(--dur-slow) var(--ease),
+    border-top-width var(--dur-slow) var(--ease);
+}
+
+.panel[data-open='false'] {
+  height: 0;
+  border-top-width: 0;
+  pointer-events: none;
+}
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-item);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.tab:hover,
+.tab[data-active='true'] {
+  background: var(--bg-hover);
+}
+
+.tabButton {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 200px;
+  height: 28px;
+  padding: 0 var(--sp-1) 0 var(--sp-2);
+  font-size: var(--fs-desc);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tabIcon {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.tabLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tabClose,
+.add,
+.closePanel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.tabClose:hover,
+.add:hover,
+.closePanel:hover {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+/* 关闭整个面板的按钮推到最右，与关闭单个标签明确区分开 */
+.closePanel {
+  margin-left: auto;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--sp-3) var(--sp-2);
+}

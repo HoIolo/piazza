@@ -1,0 +1,47 @@
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.empty {
+  padding: var(--sp-6) var(--sp-4);
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* diff 不折行——折行会打乱对齐，读起来反而更难 */
+.diff {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-2) 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.line {
+  padding: 0 var(--sp-3);
+}
+
+.line[data-kind='add'] {
+  background: color-mix(in srgb, var(--diff-add) 12%, transparent);
+  color: var(--diff-add);
+}
+
+.line[data-kind='del'] {
+  background: color-mix(in srgb, var(--diff-del) 10%, transparent);
+  color: var(--diff-del);
+}
+
+.line[data-kind='hunk'] {
+  color: var(--blue-link);
+}
+
+.line[data-kind='meta'] {
+  color: var(--text-tertiary);
+}
