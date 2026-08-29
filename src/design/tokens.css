@@ -1,0 +1,196 @@
+/**
+ * 设计令牌：全部数值来自对 Codex 截图的逐项测量（2x 图已折算为 CSS px）。
+ * 组件里禁止出现硬编码色值/圆角/间距，一律引用这里的变量。
+ */
+
+:root {
+  /* ---------- 表面 ---------- */
+  /*
+   * Codex 浅色是一套**中性灰**（R=G=B）。此前用的是暖灰（#f2f1ed 之类，R>G>B），
+   * 整个界面泛黄，色相就不对，再怎么调明暗也对不上。
+   *
+   * 分工很明确：灰色只给左侧会话列表，右侧（顶栏、消息流、输入区）整片纯白。
+   * --bg-surface 仍与 --bg-canvas 分开：深色主题下浮起元素要靠提亮拉开层次，
+   * 合成一个令牌就没地方表达这一层。
+   */
+  --bg-canvas: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #f6f6f6;
+  --bg-settings-sidebar: #fafafa;
+  --bg-hover: #e8e8e8;
+  --bg-selected: #e0e0e0;
+  --bg-code: #f1f1f1;
+  --bg-bubble: #ececec; /* 用户消息气泡 */
+  --bg-input: #ffffff;
+  --bg-context-bar: #f6f6f6; /* 输入框上方的项目/分支条 */
+  --bg-overlay: rgba(0, 0, 0, 0.18); /* 命令面板遮罩 */
+
+  /* ---------- 描边 ---------- */
+  --border: #e3e3e3;
+  --border-strong: #d0d0d0;
+  /* 侧栏与主区之间的分隔，比普通描边略重才压得住大面积色块 */
+  --border-sidebar: #e0e0e0;
+
+  /* ---------- 文字 ---------- */
+  --text-primary: #1d1d1d;
+  --text-secondary: #6e6e6e;
+  --text-tertiary: #9b9b9b;
+  --text-on-dark: #ffffff;
+
+  /* ---------- 强调色 ---------- */
+  --blue-switch: #0a84ff;
+  --blue-link: #0b67d0;
+  --orange-access: #cc5500; /* 「完全访问」警示 */
+  /* 侧栏「需要用户输入」提示，取蓝色系与运行中的中性灰区分开 */
+  --badge-input-bg: #dbe9fb;
+  --badge-input-text: #1c5aa8;
+  --diff-add: #1a7f37;
+  --diff-del: #cf222e;
+  /*
+   * 错误文字色。不直接复用 --diff-del：那个值是配 diff 行底色的，
+   * 深色主题下压在近黑背景上亮度不够，读起来发闷。
+   */
+  --text-error: #cf222e;
+  --send-btn: #3c3c3c;
+  --send-btn-disabled: #c6c6c6;
+  /* 开关滑块在两种主题下都是白色（与 iOS 一致），故不随主题切换 */
+  --switch-thumb: #ffffff;
+  --switch-thumb-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+
+  /* 建议卡片图标色 */
+  --accent-explore: #2f6fed;
+  --accent-build: #8b5cf6;
+  --accent-review: #16a34a;
+  --accent-fix: #ea6a1e;
+
+  /* ---------- 圆角 ---------- */
+  --r-item: 8px;
+  --r-card: 12px;
+  --r-input: 14px;
+  --r-palette: 16px;
+  --r-pill: 999px;
+
+  /* ---------- 字号 ---------- */
+  --fs-nav: 14px;
+  --fs-session: 14px;
+  --fs-body: 15px;
+  --fs-desc: 13px;
+  --fs-group: 13px;
+  --fs-brand: 20px;
+  --fs-hero: 32px;
+  --fs-settings-title: 28px;
+  --fs-section: 17px;
+  --fs-code: 13px;
+
+  /* ---------- 字重 ---------- */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---------- 间距 ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-16: 64px;
+
+  /* ---------- 布局 ---------- */
+  --sidebar-w: 260px;
+  --settings-sidebar-w: 192px;
+  --rightpanel-w: 380px;
+  --titlebar-h: 52px;
+  --terminal-h: 300px;
+  --content-max-w: 760px;
+  /*
+   * 正文列的净宽度。--content-max-w 含左右各 --sp-4 的内边距，
+   * 直接定宽的元素（如建议卡片）必须减掉，否则会比输入框每边宽出 16px。
+   */
+  --content-inner-w: calc(var(--content-max-w) - var(--sp-4) * 2);
+
+  /* ---------- 阴影 ---------- */
+  /*
+   * 输入框：一层细描边 + 柔和外扩投影。
+   * 曾在这里再叠一条 0 0 0 1px 的描边环，和 .box 自己的 border 撞成 2px，
+   * 边缘比 Codex 明显重一档。描边归 border 管，这里只负责「浮起来」。
+   */
+  --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.04), 0 6px 20px rgba(0, 0, 0, 0.05);
+  /* Codex 的卡片几乎不投影，靠细描边分层；阴影重了会显得浮在纸上 */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-palette: 0 12px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.12);
+
+  /* ---------- 字体 ---------- */
+  /*
+   * system-ui 排在最前：它跟随系统的 UI 字体设定，
+   * 中英混排时的字重与间距匹配由系统的字体级联决定，比手动指定中文字体自然。
+   */
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue',
+    sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---------- 动效 ---------- */
+  /* 标准缓动：起步快、收尾慢，接近 macOS 原生控件的手感 */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  /* 进入动画用的缓出曲线 */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  /* 循环类动画的周期，reduced-motion 豁免规则要复用同一数值 */
+  --dur-spin: 0.7s;
+  --dur-skeleton: 1.4s;
+  --dur-shimmer: 2s;
+
+  /* 骨架屏微光 */
+  --skeleton-base: #e8e8e8;
+  --skeleton-shine: #f4f4f4;
+}
+
+[data-theme='dark'] {
+  --bg-sidebar: #1c1c1a;
+  --bg-settings-sidebar: #1a1a18;
+  --bg-canvas: #232321;
+  /* 深色下浮起表面比底色亮一档——浅色靠白，深色只能靠这点提亮拉开层次 */
+  --bg-surface: #2a2a28;
+  --bg-hover: #2c2c29;
+  --bg-selected: #34342f;
+  --bg-code: #2b2b28;
+  --bg-bubble: #2f2f2c;
+  --bg-input: #2a2a27;
+  --bg-context-bar: #262623;
+  --bg-overlay: rgba(0, 0, 0, 0.45);
+
+  --border: #383834;
+  --border-strong: #4a4a45;
+  /* 深色下侧栏本就比主区暗，分隔线取更暗的一档强化边界，纯黑会显得脏 */
+  --border-sidebar: #141412;
+
+  --text-primary: #f2f0ed;
+  --text-secondary: #a8a69f;
+  --text-tertiary: #7a7872;
+  /*
+   * 深色下提亮一档。GitHub Dark 的 #f85149 是配 #0d1117 那种近黑底的，
+   * 我们的块底 #2b2b28 亮得多，照搬只有 2.65:1，远不够看清；
+   * 这个值对 #2b2b28 是 4.96:1，过 WCAG AA，且仍是红不是粉。
+   */
+  --text-error: #fa6b5f;
+
+  --badge-input-bg: #1e3a5c;
+  --badge-input-text: #8fc0f5;
+
+  --send-btn: #e8e6e2;
+  --send-btn-disabled: #4d4d48;
+  --text-on-dark: #1d1d1b;
+
+  --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.35), 0 6px 20px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-palette: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  --skeleton-base: #2c2c29;
+  --skeleton-shine: #383834;
+}

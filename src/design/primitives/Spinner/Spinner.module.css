@@ -1,0 +1,11 @@
+@import '../../keyframes/spin.css';
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  border-style: solid;
+  /* 三面透明、一面着色，旋转起来即为常见的环形进度 */
+  border-color: currentColor transparent transparent transparent;
+  border-radius: 50%;
+  animation: spin var(--dur-spin) linear infinite;
+}

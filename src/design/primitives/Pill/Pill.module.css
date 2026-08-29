@@ -1,0 +1,33 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-item);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.pill[data-variant='outlined'] {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.pill[data-variant='ghost'] {
+  color: var(--text-secondary);
+}
+
+.pill:hover {
+  background: var(--bg-hover);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}

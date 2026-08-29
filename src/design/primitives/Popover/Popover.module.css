@@ -1,0 +1,37 @@
+@import '../../keyframes/pop-in.css';
+
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+.panel {
+  position: absolute;
+  z-index: 60;
+  min-width: 200px;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-palette);
+  animation: pop-in var(--dur-base) var(--ease-out);
+}
+
+/* 默认向上弹出：这些触发器多数贴在输入区底部，向下会超出窗口 */
+.panel[data-side='top'] {
+  bottom: calc(100% + var(--sp-2));
+}
+
+.panel[data-side='bottom'] {
+  top: calc(100% + var(--sp-2));
+}
+
+.panel[data-align='start'] {
+  left: 0;
+}
+
+.panel[data-align='end'] {
+  right: 0;
+}

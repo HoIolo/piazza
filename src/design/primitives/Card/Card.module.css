@@ -1,0 +1,17 @@
+.section {
+  margin-bottom: var(--sp-10);
+}
+
+.title {
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-section);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  overflow: hidden;
+}

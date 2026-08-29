@@ -1,0 +1,149 @@
+@import './tokens.css';
+
+/* ---------- reset ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+
+  /* 桌面应用：整体禁止文本选中与原生拖拽，消息正文再单独放开 */
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+a {
+  color: var(--blue-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* 允许选中的区域（消息正文、代码块等） */
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ---------- 滚动条：macOS 覆盖式细条 ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  background-clip: content-box;
+}
+
+[data-theme='dark'] :hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: content-box;
+}
+
+/* 无障碍：尊重系统的减弱动效设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * 尊重系统「减弱动态效果」。位移与缩放类动画对前庭敏感人群有实际影响，
+ * 开启后一律压掉。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /*
+   * 加载指示器是例外：它们不含位移，且一旦静止会被误读成程序卡死。
+   * 属性选择器特异性高于通配符，故能覆盖上面的 !important。
+   */
+  [data-loading-anim='spinner'] {
+    animation-duration: var(--dur-spin) !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  [data-loading-anim='skeleton'] {
+    animation-duration: var(--dur-skeleton) !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  [data-loading-anim='shimmer'] {
+    animation-duration: var(--dur-shimmer) !important;
+    animation-iteration-count: infinite !important;
+  }
+}

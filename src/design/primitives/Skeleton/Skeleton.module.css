@@ -1,0 +1,18 @@
+@import '../../keyframes/skeleton-sweep.css';
+
+.skeleton {
+  display: block;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 25%,
+    var(--skeleton-shine) 37%,
+    var(--skeleton-base) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep var(--dur-skeleton) ease-in-out infinite;
+}
+
+.skeleton[data-circle='true'] {
+  border-radius: 50%;
+}

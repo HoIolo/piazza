@@ -1,0 +1,11 @@
+/* 关键帧必须与引用它的 animation 声明同作用域：模块会给动画名加哈希，
+   定义留在全局就会指向不存在的关键帧——动画在播但一帧不动，且不报错。 */
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

@@ -1,0 +1,49 @@
+/* 行高由内边距决定。Codex 的设置行比这原来的 12px 舒展一档 */
+.row {
+  padding: var(--sp-4);
+}
+
+/* 分隔线画在相邻行之间，且左侧内缩对齐文字 */
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.description {
+  margin-top: 3px;
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.control {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.stackedControl {
+  margin-top: var(--sp-3);
+}
+
+/*
+ * 设置行不做 hover 变色：真正可点的是行内的控件（开关、下拉、输入框），
+ * 整行跟着变底色会让人以为哪儿都能点，鼠标扫过一列卡片也一路在闪。
+ */
