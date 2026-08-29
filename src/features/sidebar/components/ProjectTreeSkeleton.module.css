@@ -1,0 +1,32 @@
+@import '../../../design/keyframes/fade-in.css';
+
+.tree {
+  flex: 1;
+  padding: 0 var(--sp-2) var(--sp-4);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+.groupTitle {
+  padding: var(--sp-5) var(--sp-2) var(--sp-2);
+}
+
+.project {
+  margin-bottom: var(--sp-4);
+}
+
+/* 行高与 ProjectTree 保持一致，占位与实际内容才能无缝替换 */
+.projectRow,
+.sessionRow {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--sp-2);
+}
+
+.projectRow {
+  gap: var(--sp-2);
+}
+
+.sessionRow {
+  padding-left: var(--sp-8);
+}

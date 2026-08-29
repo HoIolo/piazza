@@ -1,0 +1,31 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-2) var(--sp-2) 0;
+  flex: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-item);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.item:hover {
+  background: var(--bg-hover);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-primary);
+}
+
+.label {
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-normal);
+}

@@ -1,0 +1,59 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex: none;
+  height: 48px;
+  padding: 0 var(--sp-3) 0 var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+
+/* 让 Popover 的定位容器撑满剩余宽度，选中范围才与 Codex 一致 */
+.profileSlot {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-item);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.profile:hover {
+  background: var(--bg-hover);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-primary);
+}
+
+.name {
+  font-size: var(--fs-nav);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.profile[data-open='true'] {
+  background: var(--bg-selected);
+}
+
+.menu {
+  min-width: 220px;
+}
+
+/* 菜单顶部重复一次档名，点开后仍知道自己在哪个配置档下 */
+.menuTitle {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-nav);
+  color: var(--text-primary);
+}

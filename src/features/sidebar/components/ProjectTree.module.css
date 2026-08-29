@@ -1,0 +1,179 @@
+@import '../../../design/keyframes/fade-in.css';
+
+.tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--sp-2) var(--sp-4);
+  min-height: 0;
+}
+
+.groupTitle {
+  padding: var(--sp-5) var(--sp-2) var(--sp-2);
+  font-size: var(--fs-group);
+  font-weight: var(--fw-normal);
+  color: var(--text-tertiary);
+}
+
+.project {
+  margin-bottom: var(--sp-4);
+}
+
+/* 折叠后只剩一行标题，还留 16px 会让几个项目之间散得不像一个列表 */
+.project[data-open='false'] {
+  margin-bottom: 0;
+}
+
+.projectRow,
+.sessionRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-item);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease);
+
+  /* 截图中长标题被侧栏边缘直接截断，既不换行也不显示省略号 */
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.projectRow {
+  gap: var(--sp-2);
+  /* 行本身可点（收起/展开），行尾两个按钮各自 stopPropagation */
+  cursor: pointer;
+}
+
+/* 折叠箭头。占位固定，展开时旋转 90°，收起不会让文字左右跳 */
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.chevron[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+/*
+ * 行尾操作区：平时不可见但仍占位。
+ * 若改成 display:none，悬停时按钮突然出现会把项目名挤短一截。
+ */
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.projectRow:hover .rowActions,
+.rowActions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.action:hover {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+.projectRow:hover,
+.sessionRow:hover {
+  background: var(--bg-hover);
+}
+
+.projectRow[data-active='true'],
+.sessionRow[data-active='true'] {
+  background: var(--bg-selected);
+}
+
+.folderIcon {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.projectName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-normal);
+}
+
+.sessionRow {
+  /* 会话缩进对齐项目名文字，而非文件夹图标 */
+  padding-left: var(--sp-8);
+  font-size: var(--fs-session);
+  color: var(--text-primary);
+  gap: var(--sp-2);
+}
+
+.sessionTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 等待用户回答时的提示，比转圈更明确地说明「卡在你这儿」 */
+.badge {
+  flex: none;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--badge-input-bg);
+  font-size: 11px;
+  color: var(--badge-input-text);
+  white-space: nowrap;
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+/* 「展开显示 / 收起」。与会话标题同缩进，弱化处理——它是控件不是内容 */
+.more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 30px;
+  /* 与会话标题同一缩进（对齐项目名文字），不是对齐行的左边缘 */
+  padding: 0 var(--sp-2) 0 var(--sp-8);
+  border-radius: var(--r-item);
+  font-size: var(--fs-session);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.more:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* 标题撞车时补的时间。弱化且不参与压缩，长标题先被裁 */
+.when {
+  flex: none;
+  margin-left: var(--sp-2);
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}
