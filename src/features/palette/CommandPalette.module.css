@@ -1,0 +1,99 @@
+@import '../../design/keyframes/fade-in.css';
+@import '../../design/keyframes/pop-in.css';
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 18vh;
+  background: var(--bg-overlay);
+  z-index: 100;
+  animation: fade-in var(--dur-fast) var(--ease-out);
+}
+
+.palette {
+  width: min(560px, 92vw);
+  border-radius: var(--r-palette);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-palette);
+  overflow: hidden;
+  animation: pop-in var(--dur-base) var(--ease-out);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.searchIcon {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.results {
+  list-style: none;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: var(--sp-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-item);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.item[data-active='true'] {
+  background: var(--bg-hover);
+}
+
+.label {
+  flex: none;
+  font-size: var(--fs-nav);
+}
+
+.hint {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shortcut {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}
+
+.empty {
+  padding: var(--sp-4);
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  text-align: center;
+}
