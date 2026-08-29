@@ -1,0 +1,25 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-5);
+  margin-bottom: -14px; /* 与输入框上缘叠合，形成截图里的连体效果 */
+  border-radius: var(--r-input) var(--r-input) 0 0;
+  background: var(--bg-context-bar);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+/* 无下拉可点的项，视觉与按钮一致但不响应 hover */
+.static {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 28px;
+  padding: 0 var(--sp-3);
+  white-space: nowrap;
+}
+
+.icon {
+  flex: none;
+}

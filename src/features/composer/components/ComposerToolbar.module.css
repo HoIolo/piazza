@@ -1,0 +1,79 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3) var(--sp-4);
+}
+
+.attach {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.attach:hover {
+  background: var(--bg-hover);
+}
+
+/* 权限提示用橙色，是全局风险信号，不随主题弱化 */
+.access {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  color: var(--orange-access);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-left: auto;
+}
+
+.model {
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.thinking {
+  margin-left: var(--sp-1);
+}
+
+.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--send-btn);
+  color: var(--text-on-dark);
+  cursor: pointer;
+  transition:
+    background var(--dur-base) var(--ease),
+    transform var(--dur-fast) var(--ease),
+    opacity var(--dur-base) var(--ease);
+}
+
+.send:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+/* 轻微下压，给出「按到了」的即时反馈 */
+.send:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.send:disabled {
+  background: var(--send-btn-disabled);
+  cursor: default;
+}

@@ -1,0 +1,45 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-item);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+/* 「始终信任」会自动执行项目下的扩展代码，用橙色提示风险 */
+.trigger[data-level='always'] {
+  color: var(--orange-access);
+}
+
+.trigger:hover,
+.trigger[data-open='true'] {
+  background: var(--bg-hover);
+}
+
+.panel {
+  min-width: 260px;
+}
+
+.head {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}
+
+.label {
+  display: block;
+}
+
+.desc {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+  white-space: normal;
+}
