@@ -1,9 +1,11 @@
 // 生成应用源图标（1024×1024 PNG）。
 // 纯 Node 手工构造 PNG，避免为了一张图标引入图形库依赖。
 //
-// 设计：pi 与 Codex 的融合。
-//   形——Codex 的终端提示符意象：squircle + 白色 ">_"。
-//   色——pi 的紫色径向渐变，中心亮、边缘沉。
+// 设计：Piazza —— 意大利语的「广场」。
+//   形——广场四周连拱廊的一道宽拱，拱下是终端提示符 ">_"。拱必须**宽大于高、
+//       拱脚不落地**：并排比过四种拱形，窄而落地的都会落进墓碑的轮廓。
+//   色——陶土（terracotta），意大利广场建筑的赭石色。中心亮、边缘沉的大跨度
+//       径向渐变，让它在 Dock 里读起来像一块烧制的陶，而不是一片平涂色块。
 //
 // 三条 macOS 规范，缺一条图标在 Dock 里就会显得比邻居大：
 //   1. 本体占画布 80.5%（1024 里的 824）。已实测：备忘录、终端都是这个值。
@@ -22,7 +24,7 @@ const CANVAS = 1024
  *
  * macOS 规范值是 80.5%（1024 里的 824），备忘录、终端都严格照此。
  * 但那两个一个近黑、一个低饱和且有内部结构，都是往后退的；
- * 我们是一整块高饱和亮紫、均匀无细节，同样几何下视觉上会明显涨出来
+ * 我们是一整块暖色、中心还提得很亮，同样几何下视觉上会明显涨出来
  * （已并排比对确认，不是错觉的错觉）。故按 76.5% 收，用真实尺寸抵消色彩的膨胀。
  */
 const BODY_RATIO = 0.765
@@ -39,12 +41,13 @@ const SQUIRCLE_N = 5
 /** 每像素 3×3 超采样，用来抗锯齿 */
 const SS = 3
 
-const FG = [255, 255, 255]
+/** 符号色。不用纯白：陶土是暖调，纯白压在上面会显得发青 */
+const FG = [255, 249, 242]
 
-// 径向渐变的两端。取 pi 的紫，但整体压深一档——高亮度高饱和的色块会向前膨胀，
-// 在 Dock 里和邻居摆一起时尤其明显
-const GRAD_INNER = [134, 112, 240]
-const GRAD_OUTER = [78, 56, 182]
+// 陶土径向渐变的两端。中心 #F5C09A 亮、边缘 #A85228 沉，跨度拉到最大——
+// 渐变本身就是这版图标的视觉特征，收窄了就退回成一块平涂的橙色
+const GRAD_INNER = [245, 192, 154]
+const GRAD_OUTER = [168, 82, 40]
 
 // 投影参数由实测反推（备忘录、终端的 256 档 ×4 折算到 1024）：
 // 四周外扩 16px、向下 28px → 下移 12、高斯 σ≈14.5；中轴峰值透明度 24%（本体正下方覆盖率约 0.78，故此处系数取 0.31）。
@@ -91,17 +94,37 @@ function gradientAt(x, y) {
   ]
 }
 
-/** ">_" 的笔画集合，坐标相对图形区域 */
-function buildStrokes() {
-  const half = BOX / 2
-  return {
-    width: BOX * 0.052,
-    segments: [
-      [half - BOX * 0.17, half - BOX * 0.14, half - BOX * 0.02, half],
-      [half - BOX * 0.02, half, half - BOX * 0.17, half + BOX * 0.14],
-      [half + BOX * 0.03, half + BOX * 0.13, half + BOX * 0.19, half + BOX * 0.13],
-    ],
-  }
+/**
+ * 符号几何，写在 64×64 的设计稿坐标系里——与前端的 BrandMark 是同一套坐标，
+ * 改形只需动这里，下面的栅格化不必碰。
+ */
+const ART = {
+  /** 设计稿整体映射到图形区域的比例。0.70 即符号四周留三成余量 */
+  FIT: 0.7,
+  /** 设计稿单位下的笔画宽度 */
+  STROKE: 3.9,
+  /** 图形包围盒中心，据此在图形区域内居中。注意不是 viewBox 中心 */
+  CX: 32,
+  CY: 33,
+  /** 拱：只画上半圆，下半平面交给两条拱脚 */
+  ARC: { cx: 32, cy: 37, r: 23 },
+  /** 直线段：两条拱脚 +「>」+「_」。端点天然是圆头，等价于 SVG 的 round linecap */
+  SEGMENTS: [
+    [9, 37, 9, 52],
+    [55, 37, 55, 52],
+    [24, 33, 30, 39],
+    [30, 39, 24, 45],
+    [34, 45, 41, 45],
+  ],
+}
+
+/** 点是否落在符号笔画上，入参为设计稿坐标 */
+function onGlyph(x, y) {
+  const half = ART.STROKE / 2
+  const { cx, cy, r } = ART.ARC
+  // 圆弧与拱脚的接缝正好在圆心高度，两边各管一侧，衔接处不会断也不会叠出疙瘩
+  if (y <= cy && Math.abs(Math.hypot(x - cx, y - cy) - r) <= half) return true
+  return ART.SEGMENTS.some((s) => distToSegment(x, y, ...s) <= half)
 }
 
 /** 逐像素超采样，得到本体与字形两张覆盖率图（0..1） */
@@ -111,25 +134,25 @@ function buildMasks() {
   const half = BOX / 2
   const step = 1 / SS
   const total = SS * SS
-  const { width, segments } = buildStrokes()
-  const halfWidth = width / 2
+  const scale = (BOX * ART.FIT) / 64
 
   for (let y = 0; y < CANVAS; y++) {
     for (let x = 0; x < CANVAS; x++) {
       let inside = 0
-      let onGlyph = 0
+      let onInk = 0
       for (let sy = 0; sy < SS; sy++) {
         const py = y + (sy + 0.5) * step - INSET
         for (let sx = 0; sx < SS; sx++) {
           const px = x + (sx + 0.5) * step - INSET
           if (!inSquircle(px, py, half)) continue
           inside++
-          if (segments.some((s) => distToSegment(px, py, ...s) <= halfWidth)) onGlyph++
+          // 反变换回设计稿坐标再判笔画，几何定义才能保持与前端一致
+          if (onGlyph((px - half) / scale + ART.CX, (py - half) / scale + ART.CY)) onInk++
         }
       }
       const i = y * CANVAS + x
       shape[i] = inside / total
-      glyph[i] = onGlyph / total
+      glyph[i] = onInk / total
     }
   }
   return { shape, glyph }
