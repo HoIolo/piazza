@@ -1,4 +1,4 @@
-# pi-codex
+# Piazza
 
 基于 [pi coding agent](https://github.com/earendil-works/pi) 的桌面 GUI，界面复刻 OpenAI Codex 桌面版，并把 pi 的自定义模型配置变成可视化编辑。
 

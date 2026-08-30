@@ -19,7 +19,7 @@ export function SidebarHeader({ onSearch }: SidebarHeaderProps) {
     <>
       <div className={styles.dragZone} data-tauri-drag-region />
       <header className={styles.header}>
-        <span className={styles.brandName}>PI-Codex</span>
+        <span className={styles.brandName}>Piazza</span>
 
         <div className={styles.actions}>
           <IconButton ariaLabel="搜索" onClick={onSearch}>
