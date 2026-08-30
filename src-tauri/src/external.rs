@@ -88,7 +88,7 @@ fn icns_path(app_path: &str) -> Option<PathBuf> {
 fn icon_data_uri(app_path: &str) -> Option<String> {
     let icns = icns_path(app_path)?;
     let tmp = std::env::temp_dir().join(format!(
-        "pi-codex-icon-{}.png",
+        "piazza-icon-{}.png",
         icns.file_stem()?.to_string_lossy()
     ));
 

@@ -106,7 +106,7 @@ mod tests {
     /// 文件不存在或为空都属首次使用，应给出空对象而不是报错
     #[test]
     fn reads_missing_file_as_empty_object() {
-        let path = std::env::temp_dir().join("pi_codex_absent_xyz.json");
+        let path = std::env::temp_dir().join("piazza_absent_xyz.json");
         let _ = std::fs::remove_file(&path);
         assert_eq!(read_json(&path).unwrap(), json!({}));
     }
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn write_creates_backup_and_survives_reread() {
-        let dir = std::env::temp_dir().join("pi_codex_cfg_test");
+        let dir = std::env::temp_dir().join("piazza_cfg_test");
         let _ = std::fs::remove_dir_all(&dir);
         let path = dir.join("models.json");
 
