@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Codex",
+  "productName": "Piazza",
   "version": "0.1.0",
-  "identifier": "com.pi.codex",
+  "identifier": "com.piazza.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Codex",
+        "title": "Piazza",
         "width": 1200,
         "height": 820,
         "minWidth": 900,

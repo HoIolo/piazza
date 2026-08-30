@@ -2453,7 +2453,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pi-codex"
+name = "piazza"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
