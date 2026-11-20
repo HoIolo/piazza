@@ -5,7 +5,7 @@ import { MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
 import styles from './SidebarFooter.module.css'
 
-const PI_DOCS_URL = 'https://github.com/earendil-works/pi'
+const README_URL = 'https://github.com/HoIolo/piazza#readme'
 
 export interface SidebarFooterProps {
   /** 当前配置档名称，对应截图底部的 “custom” */
@@ -51,17 +51,17 @@ export function SidebarFooter({ profileName, onOpenSettings }: SidebarFooterProp
             <MenuItem
               icon={<BookOpen size={16} />}
               onClick={() => {
-                void openUrl(PI_DOCS_URL)
+                void openUrl(README_URL)
                 close()
               }}
             >
-              pi 使用文档
+              GitHub README
             </MenuItem>
           </div>
         )}
       </Popover>
 
-      <IconButton ariaLabel="打开 pi 文档" size="sm" onClick={() => void openUrl(PI_DOCS_URL)}>
+      <IconButton ariaLabel="打开 GitHub README" size="sm" onClick={() => void openUrl(README_URL)}>
         <CircleHelp size={16} />
       </IconButton>
     </footer>

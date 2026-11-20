@@ -6,8 +6,8 @@ import { ProjectMenu } from './ProjectMenu'
 import { SessionRow, type SessionStatus } from './SessionRow'
 import styles from './ProjectTree.module.css'
 
-/** 折叠时每个项目最多露出的会话条数 */
-const COLLAPSED_COUNT = 5
+/** 初始露出及每次点击「展开显示」递增的会话条数（对齐 Codex：每次多展开 5 个） */
+const PAGE_SIZE = 5
 
 export interface ProjectNodeProps {
   project: ProjectGroup
@@ -22,18 +22,6 @@ export interface ProjectNodeProps {
   onDeleteSession: (sessionPath: string) => void
 }
 
-/** 每次展开项目时默认仅展示前 5 条会话（对齐 Codex） */
-function visibleSessions(sessions: ProjectGroup['sessions'], showAll: boolean) {
-  if (showAll || sessions.length <= COLLAPSED_COUNT) return sessions
-  return sessions.slice(0, COLLAPSED_COUNT)
-}
-
-/**
- * 一个项目及其会话列表。
- *
- * 项目行点击是「收起/展开这个项目」，不是「选中项目」——
- * 选中（即在该项目下开新对话）交给行尾那支笔，两件事分开才不会互相误触。
- */
 export function ProjectNode({
   project,
   currentCwd,
@@ -46,20 +34,21 @@ export function ProjectNode({
   onDeleteSession,
 }: ProjectNodeProps) {
   const [open, setOpen] = useState(true)
-  const [showAll, setShowAll] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  // 折叠项目或重新展开时，重置内部「展开显示」状态，确保每次打开只展示 5 个
+  // 折叠项目或重新展开时，重置内部展示数量为 5 个
   const toggleOpen = () => {
     setOpen((v) => !v)
-    setShowAll(false)
+    setVisibleCount(PAGE_SIZE)
   }
 
   // 置顶的提前，其余保持后端按最近修改排好的顺序（sort 是稳定的）
   const ordered = [...project.sessions].sort(
     (a, b) => Number(pinnedSessions.includes(b.path)) - Number(pinnedSessions.includes(a.path)),
   )
-  const sessions = visibleSessions(ordered, showAll)
-  const hidden = project.sessions.length - COLLAPSED_COUNT
+  const sessions = ordered.slice(0, visibleCount)
+  const total = ordered.length
+  const hasMore = total > visibleCount
 
   return (
     <div className={styles.project} data-open={open}>
@@ -120,9 +109,13 @@ export function ProjectNode({
             />
           ))}
 
-          {hidden > 0 && (
-            <button type="button" className={styles.more} onClick={() => setShowAll((v) => !v)}>
-              {showAll ? '收起' : '展开显示'}
+          {total > PAGE_SIZE && (
+            <button
+              type="button"
+              className={styles.more}
+              onClick={() => setVisibleCount((c) => (hasMore ? c + PAGE_SIZE : PAGE_SIZE))}
+            >
+              {hasMore ? '展开显示' : '收起'}
             </button>
           )}
         </div>
