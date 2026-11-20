@@ -2,13 +2,28 @@
  * 压在会话区下方，与会话同宽；左侧会话树不受影响。
  *
  * 开合走高度过渡而不是条件渲染：后者展开与收起都是瞬间跳变，
- * 会话区被硬生生顶上去一截。边框宽度一并过渡，收起后不留一道残线。
+ * 会话区被硬生生顶上去一截。外层 wrap 保持 relative 以放置上边缘拖拽分隔条。
  */
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+
+.wrap[data-sidebar-open='false'] .panel {
+  margin-left: var(--surface-gap);
+}
+
+.wrap[data-sidebar-open='false'] .resize {
+  left: var(--surface-gap);
+}
+
 .panel {
   display: flex;
   flex-direction: column;
   flex: none;
-  height: var(--terminal-h);
+  height: var(--terminal-height, var(--terminal-h));
   margin: 0 var(--split-gap, var(--surface-gap)) var(--surface-gap) 0;
   border-radius: var(--r-surface);
   background: var(--bg-canvas);
@@ -16,6 +31,7 @@
   overflow: hidden;
   transition:
     height var(--dur-slow) var(--ease),
+    margin-left var(--dur-slow) var(--ease),
     margin-bottom var(--dur-slow) var(--ease),
     margin-right var(--dur-slow) var(--ease),
     opacity var(--dur-base) var(--ease);
@@ -27,6 +43,83 @@
   margin-bottom: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+.wrap[data-dragging='true'] .panel {
+  transition: none;
+}
+
+.wrap[data-dragging='true'] {
+  cursor: row-resize;
+}
+
+.wrap[data-dragging='true'] .body {
+  pointer-events: none;
+}
+
+/* 居中在会话卡片与终端卡片之间 8px 缝隙内的横向拖拽把手 */
+.resize {
+  position: absolute;
+  z-index: 3;
+  inset: calc(var(--surface-gap) * -1) var(--split-gap, var(--surface-gap)) auto 0;
+  height: var(--surface-gap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.resize::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--border-strong) 18%,
+    var(--border-strong) 82%,
+    transparent
+  );
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.resize::after {
+  content: '';
+  position: relative;
+  width: 26px;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--text-activity);
+  opacity: 0.45;
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    width var(--dur-base) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.resize:hover::before,
+.resize:focus-visible::before,
+.wrap[data-dragging='true'] .resize::before {
+  opacity: 0.65;
+}
+
+.resize:hover::after,
+.resize:focus-visible::after {
+  opacity: 1;
+  width: 36px;
+  background: var(--text-tertiary);
+}
+
+.wrap[data-dragging='true'] .resize::after {
+  opacity: 1;
+  width: 44px;
+  background: var(--text-secondary);
 }
 
 .tabBar {
@@ -96,7 +189,6 @@
   color: var(--text-primary);
 }
 
-/* 关闭整个面板的按钮推到最右，与关闭单个标签明确区分开 */
 .closePanel {
   margin-left: auto;
 }
