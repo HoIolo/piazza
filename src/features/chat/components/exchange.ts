@@ -26,20 +26,59 @@ function isUser(m: ChatMessage): m is ChatUserMessage {
 
 function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   const assistants = mergeToolRounds(buffer)
-  const final = assistants.length > 0 ? assistants[assistants.length - 1] : null
+  const rawFinal = assistants.length > 0 ? assistants[assistants.length - 1] : null
+  const { intermediate, final } = splitToolRounds(assistants.slice(0, -1), rawFinal)
 
   // toolResult 由 ToolCallBlock 依 toolCallId 自行取用，不在这里重复渲染
   const others = buffer.filter((m) => m.role === 'bashExecution')
 
   const startedAt = user?.timestamp ?? assistants[0]?.timestamp ?? null
-  const endedAt = final?.timestamp ?? null
+  const endedAt = rawFinal?.timestamp ?? null
 
   return {
     user,
-    intermediate: assistants.slice(0, -1),
+    intermediate,
     final,
     others,
     durationMs: startedAt !== null && endedAt !== null ? Math.max(0, endedAt - startedAt) : null,
+  }
+}
+
+/**
+ * 将最后一轮消息内的工具调用拨入过程区，外层 final 只保留工具调用之后的正文总结：
+ * - 流式运行中：避免 mergeToolRounds 合并连续工具轮次时 intermediate 与 final 反复横跳导致列表跳回顶部；
+ * - 响应完成后：所有工具过程随 ProcessArea 一同折叠，外层仅展示最后一轮总结文案与改动卡片。
+ */
+function splitToolRounds(
+  intermediate: ChatAssistantMessage[],
+  final: ChatAssistantMessage | null,
+): { intermediate: ChatAssistantMessage[]; final: ChatAssistantMessage | null } {
+  if (!final) return { intermediate, final }
+
+  let lastToolIdx = -1
+  for (let i = final.content.length - 1; i >= 0; i -= 1) {
+    if (final.content[i]?.type === 'toolCall') {
+      lastToolIdx = i
+      break
+    }
+  }
+  if (lastToolIdx === -1) return { intermediate, final }
+
+  const processPart: ChatAssistantMessage = {
+    ...final,
+    content: final.content.slice(0, lastToolIdx + 1),
+    thinking: undefined,
+  }
+  const restContent = final.content.slice(lastToolIdx + 1)
+  const hasTrailingThinking = restContent.some((b) => b.type === 'thinking')
+  const summaryPart: ChatAssistantMessage = {
+    ...final,
+    content: restContent,
+    thinking: hasTrailingThinking ? final.thinking : undefined,
+  }
+  return {
+    intermediate: [...intermediate, processPart],
+    final: summaryPart,
   }
 }
 

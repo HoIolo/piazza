@@ -54,6 +54,12 @@
 
 .row:has(.badge) .title {
   padding-right: var(--sp-8);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 48px),
+    transparent calc(100% - 32px)
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent calc(100% - 32px));
 }
 
 .row:is(:hover, :focus-within, :has([data-open='true'])) .title {

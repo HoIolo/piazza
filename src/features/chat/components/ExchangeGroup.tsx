@@ -37,6 +37,7 @@ function ProcessArea({
   others,
   tools,
   cwd,
+  active,
   visible,
   mounted,
 }: {
@@ -44,11 +45,17 @@ function ProcessArea({
   others: Exchange['others']
   tools: Record<string, ToolExecution>
   cwd: string | null
+  active: boolean
   visible: boolean
   mounted: boolean
 }) {
   return (
-    <div className={styles.processWrap} data-expanded={visible} inert={!visible}>
+    <div
+      className={styles.processWrap}
+      data-active={active}
+      data-expanded={visible}
+      inert={!visible}
+    >
       <div className={styles.processClip}>
         {mounted && (
           <div className={styles.process}>
@@ -118,8 +125,8 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   const view = deriveView(exchange, active, elapsedMs, finishedMs)
   const processVisible = (active || expanded) && view.hasProcess
   const changes = useMemo(
-    () => (final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []),
-    [intermediate, final, tools, cwd],
+    () => (!active && final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []),
+    [active, intermediate, final, tools, cwd],
   )
 
   return (
@@ -146,6 +153,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
           others={others}
           tools={tools}
           cwd={cwd}
+          active={active}
           /* 进行中始终铺开，结束后交给用户决定 */
           visible={processVisible}
           mounted={processVisible || opened}

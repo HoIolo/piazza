@@ -19,9 +19,18 @@ export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
     const el = ref.current
     const content = el?.firstElementChild
     if (!el || !content) return
+    let lastScrollTop = el.scrollTop
 
     const onScroll = () => {
-      stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight <= THRESHOLD
+      const top = el.scrollTop
+      const dist = el.scrollHeight - top - el.clientHeight
+      if (top < lastScrollTop - 2) {
+        // 用户主动向上滚动阅读历史时解除贴底
+        stuck.current = dist <= THRESHOLD
+      } else if (dist <= THRESHOLD) {
+        stuck.current = true
+      }
+      lastScrollTop = top
     }
     el.addEventListener('scroll', onScroll, { passive: true })
 
@@ -29,10 +38,14 @@ export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
     const observer = new ResizeObserver(() => {
       if (el.dataset.restoringScroll === 'true') {
         delete el.dataset.restoringScroll
-        onScroll()
+        lastScrollTop = el.scrollTop
+        stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight <= THRESHOLD
         return
       }
-      if (stuck.current) el.scrollTop = el.scrollHeight
+      if (stuck.current) {
+        el.scrollTop = el.scrollHeight
+        lastScrollTop = el.scrollTop
+      }
     })
     observer.observe(content)
 

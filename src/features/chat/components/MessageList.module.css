@@ -49,12 +49,7 @@
   padding: var(--sp-8) var(--sp-4) calc(var(--fade-h) + var(--sp-4));
 }
 
-/*
- * 最后一轮至少占满一屏，对应 Codex 的做法：新发的提问顶在视口上缘，
- * 下面整屏留给回答往下长，而不是贴着输入框一行行往上挤。
- */
 .inner > section:last-of-type {
-  min-height: calc(100cqh - var(--sp-8) - var(--fade-h) - var(--sp-4));
   margin-bottom: 0;
 }
 

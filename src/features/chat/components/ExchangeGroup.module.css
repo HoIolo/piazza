@@ -16,6 +16,10 @@
   margin-block: 0;
 }
 
+.processWrap[data-active='true'] {
+  transition: none;
+}
+
 .processWrap[data-expanded='true'] {
   grid-template-rows: 1fr;
 }
