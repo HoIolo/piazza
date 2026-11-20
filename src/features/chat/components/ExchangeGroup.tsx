@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import type { ToolExecution } from '@/store/chat'
+import { useChatActions, type ToolExecution } from '@/store/chat'
 import { AssistantMessage } from './AssistantMessage'
 import { BashExecutionItem } from './BashExecutionItem'
 import { exchangeFileChanges } from './FileChangeCard/collect'
@@ -113,6 +113,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
 }: ExchangeGroupProps) {
   const [expanded, setExpanded] = useState(false)
   const [opened, setOpened] = useState(active)
+  const { forkFromTurn } = useChatActions()
   const { user, intermediate, final, others } = exchange
   const view = deriveView(exchange, active, elapsedMs, finishedMs)
   const processVisible = (active || expanded) && view.hasProcess
@@ -159,6 +160,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
           streaming={active}
           changes={changes}
           hideFooter={active}
+          onFork={() => void forkFromTurn(userIndex)}
         />
       )}
     </section>

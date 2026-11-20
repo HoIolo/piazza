@@ -22,6 +22,7 @@ export type RpcCommand =
   | { id?: string; type: 'get_session_stats' }
   | { id?: string; type: 'switch_session'; sessionPath: string }
   | { id?: string; type: 'fork'; entryId: string }
+  | { id?: string; type: 'clone' }
   | { id?: string; type: 'get_fork_messages' }
   | { id?: string; type: 'set_session_name'; name: string }
   | { id?: string; type: 'export_html'; outputPath?: string }

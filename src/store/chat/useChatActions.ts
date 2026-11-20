@@ -12,6 +12,7 @@ import type {
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { useProjectsStore } from '@/store/projects.store'
+import { putCachedSession } from './sessionCache'
 import { stopNow } from './stopConfirm'
 import { useChatStore } from './store'
 
@@ -41,9 +42,19 @@ async function syncForkedSession(): Promise<void> {
     rpcClient.send<MessagesData>({ type: 'get_messages' }),
   ])
   const store = useChatStore.getState()
+  const file = state.sessionFile ?? null
   store.setSession(state)
-  store.setMessages(messagesData.messages ?? [])
-  useAppStore.getState().setLiveSession(state.sessionFile ?? null)
+  store.setMessages(messagesData.messages ?? [], file ?? undefined)
+  useAppStore.getState().setLiveSession(file)
+  if (file) {
+    const next = useChatStore.getState()
+    putCachedSession(file, {
+      state,
+      sessionName: state.sessionName ?? null,
+      messages: next.messages,
+      tools: next.tools,
+    })
+  }
   void useProjectsStore.getState().refresh()
 }
 
@@ -94,7 +105,30 @@ async function forkAndResend(
   }
 }
 
-/** 对话流操作：发送、编辑分叉重发、排队与中断 */
+/**
+ * 从某轮助手回复末尾分叉出一条新会话（对齐 Codex 的 Fork 行为）：
+ * - 若后续还有下一轮用户提问，则在下一轮提问之前分叉（保留至本轮回复结尾）；
+ * - 若本轮已是最后一轮，则直接 clone 当前完整分支到新会话。
+ */
+async function forkAfterTurn(userIndex: number | undefined): Promise<boolean> {
+  if (useChatStore.getState().isStreaming) return false
+  try {
+    const { messages } = await rpcClient.send<ForkMessagesData>({ type: 'get_fork_messages' })
+    const list = messages ?? []
+    const nextUser = userIndex != null ? list[userIndex + 1] : undefined
+    const res = nextUser
+      ? await rpcClient.send<ForkResult>({ type: 'fork', entryId: nextUser.entryId })
+      : await rpcClient.send<{ cancelled?: boolean }>({ type: 'clone' })
+    if (res?.cancelled) return false
+    await syncForkedSession()
+    return true
+  } catch (error) {
+    useChatStore.getState().setError(errorMessage(error))
+    return false
+  }
+}
+
+/** 对话流操作：发送、编辑分叉重发、从助手回复分叉、排队与中断 */
 export function useChatActions() {
   const isStreaming = useChatStore((s) => s.isStreaming)
   const sendPrompt = useCallback(
@@ -107,5 +141,6 @@ export function useChatActions() {
       forkAndResend(userIndex, rawText, nextMessage, images),
     [],
   )
-  return { sendPrompt, editUserMessage, abort: stopNow, isStreaming }
+  const forkFromTurn = useCallback((userIndex?: number) => forkAfterTurn(userIndex), [])
+  return { sendPrompt, editUserMessage, forkFromTurn, abort: stopNow, isStreaming }
 }

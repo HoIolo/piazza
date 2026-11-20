@@ -18,6 +18,8 @@ export interface AssistantMessageProps {
   changes?: FileChange[]
   /** 过程轮次不显示操作栏——复制/分支只对整次交互的结论有意义 */
   hideFooter?: boolean
+  /** 从本轮回复末尾分叉出新会话 */
+  onFork?: () => void
 }
 
 /** 取消息的纯文本，供复制使用 */
@@ -67,6 +69,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   streaming = false,
   changes = [],
   hideFooter = false,
+  onFork,
 }: AssistantMessageProps) {
   const [copied, setCopied] = useState(false)
 
@@ -118,7 +121,14 @@ export const AssistantMessage = memo(function AssistantMessage({
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          <button type="button" className={styles.action} aria-label="从此分支">
+          <button
+            type="button"
+            className={styles.action}
+            onClick={onFork}
+            disabled={!onFork}
+            aria-label="从此分支"
+            title="从此分支"
+          >
             <GitBranch size={14} />
           </button>
           <time className={styles.time}>{formatTimestamp(message.timestamp)}</time>
