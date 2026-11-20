@@ -1,0 +1,118 @@
+/* 上下间距取 Codex 的 --markdown-space * 5，外观对齐 CodeSurface / X4Bv */
+.block {
+  margin-block: calc(var(--md-space) * 5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-code);
+  corner-shape: var(--corner-shape-card);
+  background: var(--bg-code);
+  overflow: hidden;
+}
+
+.block:first-child {
+  margin-top: 0;
+}
+
+.block:last-child {
+  margin-bottom: 0;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4);
+  user-select: none;
+}
+
+.language {
+  font-size: var(--fs-desc);
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-item);
+  font-size: var(--fs-code);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.actionBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.actionBtn[data-active='true'] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 头部已经占了上边距，正文只补左右与下方（16px / 12px） */
+.pre {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 20px;
+  overflow-x: auto;
+}
+
+.pre[data-wrap='true'] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+/* 没标语言的围栏会被当成行内代码渲染，这里把行内那套底色与内边距撤掉 */
+.pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: inherit;
+}
+
+.tokComment {
+  color: var(--syntax-comment);
+}
+
+.tokKeyword {
+  color: var(--syntax-keyword);
+}
+
+.tokLiteral {
+  color: var(--syntax-literal);
+}
+
+.tokString {
+  color: var(--syntax-string);
+}
+
+.tokVariable {
+  color: var(--syntax-variable);
+}
+
+.tokAttribute {
+  color: var(--syntax-attribute);
+}
+
+.tokName {
+  color: var(--syntax-name);
+}

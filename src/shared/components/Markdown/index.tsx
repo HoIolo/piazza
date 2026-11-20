@@ -1,8 +1,13 @@
+import { isValidElement, memo, useMemo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { FileText } from 'lucide-react'
 import { openLink } from '@/shared/utils/openLink'
+import { MarkdownImage } from './MarkdownImage'
+import { CodeBlock } from './CodeBlock'
 import styles from './Markdown.module.css'
+
+const REMARK_PLUGINS = [remarkGfm]
 
 export interface MarkdownProps {
   children: string
@@ -19,25 +24,23 @@ function looksLikeFilePath(href: string | undefined): boolean {
 }
 
 const components: Components = {
+  // 行内与围栏共用这一个渲染：围栏里的由 CodeBlock 的样式把行内那套外观撤掉
   code({ className, children, ...props }) {
-    // react-markdown v10 里没有 inline 标记，用是否带语言类名区分块级与行内
-    const isBlock = /language-/.test(className ?? '')
-    if (isBlock) {
-      return (
-        <code className={styles.codeBlock} {...props}>
-          {children}
-        </code>
-      )
-    }
     return (
-      <code className={styles.inlineCode} {...props}>
+      <code
+        className={className ? `${styles.inlineCode} ${className}` : styles.inlineCode}
+        {...props}
+      >
         {children}
       </code>
     )
   },
 
   pre({ children }) {
-    return <pre className={styles.pre}>{children}</pre>
+    // 语言名挂在里层 <code> 的 language-xxx 类名上
+    const inner = isValidElement<{ className?: string }>(children) ? children.props : null
+    const language = /language-([\w+#-]+)/.exec(inner?.className ?? '')?.[1] ?? ''
+    return <CodeBlock language={language}>{children}</CodeBlock>
   },
 
   a({ href, children, ...props }) {
@@ -62,9 +65,34 @@ const components: Components = {
     return <p className={styles.paragraph}>{children}</p>
   },
 
-  h1: ({ children }) => <h3 className={styles.heading}>{children}</h3>,
-  h2: ({ children }) => <h3 className={styles.heading}>{children}</h3>,
-  h3: ({ children }) => <h3 className={styles.heading}>{children}</h3>,
+  /*
+   * 标题降两级输出（# → h3），聊天正文不该往页面大纲里塞 h1；
+   * 视觉层级靠 data-level 区分，三级字号对应 Codex 的 1.5 / 1.25 / 1.125 倍。
+   */
+  h1: ({ children }) => (
+    <h3 className={styles.heading} data-level="1">
+      {children}
+    </h3>
+  ),
+  h2: ({ children }) => (
+    <h4 className={styles.heading} data-level="2">
+      {children}
+    </h4>
+  ),
+  h3: ({ children }) => (
+    <h5 className={styles.heading} data-level="3">
+      {children}
+    </h5>
+  ),
+  h4: ({ children }) => (
+    <h6 className={styles.heading} data-level="4">
+      {children}
+    </h6>
+  ),
+
+  blockquote: ({ children }) => <blockquote className={styles.quote}>{children}</blockquote>,
+
+  hr: () => <hr className={styles.rule} />,
 
   table({ children }) {
     return (
@@ -76,7 +104,11 @@ const components: Components = {
 }
 
 /** 助手消息正文渲染 */
-export function Markdown({ children, caret = false, cwd = null }: MarkdownProps) {
+export const Markdown = memo(function Markdown({
+  children,
+  caret = false,
+  cwd = null,
+}: MarkdownProps) {
   /*
    * 在容器上统一代理链接点击，而不是给每个 <a> 挂 onClick：
    * components 是模块级常量，挂上去就得让它随 cwd 重建，每条消息一份。
@@ -89,11 +121,20 @@ export function Markdown({ children, caret = false, cwd = null }: MarkdownProps)
     void openLink(href, cwd)
   }
 
+  const renderers = useMemo<Components>(
+    () => ({
+      ...components,
+      img: ({ src, alt }: { src?: string | Blob; alt?: string }) =>
+        typeof src === 'string' ? <MarkdownImage key={src} src={src} alt={alt} cwd={cwd} /> : null,
+    }),
+    [cwd],
+  )
+
   return (
     <div className={`${styles.root} selectable`} data-caret={caret} onClick={onClick}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={renderers}>
         {children}
       </ReactMarkdown>
     </div>
   )
-}
+})

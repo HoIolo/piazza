@@ -1,0 +1,45 @@
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  justify-content: flex-end;
+}
+.files > button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 240px;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  text-align: left;
+}
+.files > button:hover {
+  background: var(--bg-hover);
+}
+.files > button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-desc);
+}
+.files small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+.open {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border-radius: var(--r-item);
+  cursor: pointer;
+}
+.open:hover {
+  background: var(--bg-hover);
+}

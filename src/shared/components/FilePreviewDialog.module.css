@@ -1,0 +1,33 @@
+.dialog {
+  width: min(640px, calc(100vw - 48px));
+  max-height: 75vh;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-palette);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-palette);
+}
+.dialog::backdrop {
+  background: var(--bg-overlay);
+}
+.dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.dialog header button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+.dialog pre {
+  overflow: auto;
+  max-height: 50vh;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-desc);
+}
