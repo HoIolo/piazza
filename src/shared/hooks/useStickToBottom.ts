@@ -27,6 +27,11 @@ export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
 
     // 观察里面那一坨内容：滚动容器自己的高度是固定的，长高的是它的孩子
     const observer = new ResizeObserver(() => {
+      if (el.dataset.restoringScroll === 'true') {
+        delete el.dataset.restoringScroll
+        onScroll()
+        return
+      }
       if (stuck.current) el.scrollTop = el.scrollHeight
     })
     observer.observe(content)

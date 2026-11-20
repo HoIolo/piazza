@@ -58,6 +58,11 @@
   padding: var(--sp-3);
 }
 
+.list {
+  max-height: min(280px, 42vh);
+  overflow-y: auto;
+}
+
 /* git 拒绝切换时（如有冲突的未提交改动）原样展示它的说明 */
 .error {
   margin: var(--sp-1) var(--sp-2) var(--sp-2);

@@ -1,37 +1,64 @@
-@import '../../keyframes/pop-in.css';
-
 .root {
   position: relative;
   display: inline-flex;
 }
 
+/*
+ * 面板挂在 body 下、fixed 定位，坐标由组件按触发器位置算好写进 style。
+ * 外观取 Codex 的下拉菜单：半透明底 + 背景模糊，0.5px 的描边环，一层柔和投影。
+ */
 .panel {
-  position: absolute;
-  z-index: 60;
+  position: fixed;
+  z-index: 200;
   min-width: 200px;
-  max-height: min(420px, 60vh);
   overflow-y: auto;
-  padding: var(--sp-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-card);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-palette);
-  animation: pop-in var(--dur-base) var(--ease-out);
+  padding: var(--sp-1);
+  border-radius: var(--r-palette);
+  background: var(--bg-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-nav);
+  color: var(--text-primary);
 }
 
-/* 默认向上弹出：这些触发器多数贴在输入区底部，向下会超出窗口 */
-.panel[data-side='top'] {
-  bottom: calc(100% + var(--sp-2));
+/* 量高度的那一帧还没有坐标，先藏着，免得在左上角闪一下 */
+.panel[data-placed='false'] {
+  visibility: hidden;
 }
 
-.panel[data-side='bottom'] {
-  top: calc(100% + var(--sp-2));
+/*
+ * 从触发器那一侧「长」出来：缩放原点落在靠近触发器的角上。
+ * 时长与曲线对应 Codex 菜单的入场（scale .8 → 1 的弹性收尾，这里收敛成缓出）。
+ */
+.panel[data-placed='true'] {
+  animation: popover-in var(--dur-base) var(--ease-out);
 }
 
-.panel[data-align='start'] {
-  left: 0;
+.panel[data-side='top'][data-align='start'] {
+  transform-origin: bottom left;
+}
+.panel[data-side='top'][data-align='end'] {
+  transform-origin: bottom right;
+}
+.panel[data-side='bottom'][data-align='start'] {
+  transform-origin: top left;
+}
+.panel[data-side='bottom'][data-align='end'] {
+  transform-origin: top right;
 }
 
-.panel[data-align='end'] {
-  right: 0;
+.panel[data-overflow='visible'] {
+  overflow: visible;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

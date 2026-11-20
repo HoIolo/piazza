@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { GitBranch, Monitor, Plus } from 'lucide-react'
 import { MenuGroupLabel, MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
-import { Popover } from '@/design/primitives/Popover'
+import { Popover, type PopoverProps } from '@/design/primitives/Popover'
 import { addGitWorktree, listGitWorktrees, type Worktree } from '@/shared/api/git'
 import { errorMessage } from '@/shared/utils/error'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
@@ -36,7 +36,13 @@ function useWorktrees(cwd: string | null, enabled: boolean) {
  * pi 只在本地运行，没有云端可连，因此云端相关项不做；
  * 换成 git worktree——它才是本地并行开几条线的实际手段。
  */
-export function WorkModePicker() {
+export interface WorkModePickerProps {
+  /** 弹出方向。默认向上，贴着窗口上缘时要传 bottom */
+  side?: PopoverProps['side']
+  localLabel?: string
+}
+
+export function WorkModePicker({ side, localLabel = '本地' }: WorkModePickerProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const selectProject = useAppStore((s) => s.selectProject)
   const refreshGit = useAppStore((s) => s.refreshGit)
@@ -48,7 +54,7 @@ export function WorkModePicker() {
   const worktrees = useWorktrees(cwd, opened)
 
   const current = worktrees.find((w) => w.path === cwd)
-  const label = current && !current.isMain ? basename(current.path) : '本地'
+  const label = current && !current.isMain ? basename(current.path) : localLabel
 
   const create = useCallback(
     async (close: () => void) => {
@@ -69,6 +75,7 @@ export function WorkModePicker() {
 
   return (
     <Popover
+      side={side}
       trigger={({ toggle, open }) => (
         <button
           type="button"
@@ -83,7 +90,7 @@ export function WorkModePicker() {
           aria-expanded={open}
         >
           <Monitor size={15} className={styles.icon} />
-          {label}
+          <span>{label}</span>
         </button>
       )}
     >

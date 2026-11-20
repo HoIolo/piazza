@@ -2,10 +2,11 @@
    定义留在全局就会指向不存在的关键帧——动画在播但一帧不动，且不报错。 */
 
 @keyframes shimmer-sweep {
-  from {
-    background-position: 130% 0;
+  0% {
+    background-position: -100% 0;
   }
-  to {
-    background-position: -30% 0;
+  40%,
+  100% {
+    background-position: 250% 0;
   }
 }

@@ -14,11 +14,26 @@ body,
   margin: 0;
 }
 
+/*
+ * 窗口底色由 html 负责，侧栏自己是透明的，直接露出这一层。
+ *
+ * 桌面端窗口是透明的，底下垫着系统毛玻璃（见 tauri.conf.json 的 windowEffects），
+ * 此时 html 也必须透明，材质才透得上来；主区、右侧面板各自铺实色盖住。
+ * 浏览器里没有毛玻璃可透，就退回实色的侧栏灰。
+ */
+html {
+  background: var(--bg-sidebar);
+}
+
+html[data-vibrancy='true'] {
+  background: var(--bg-sidebar-vibrancy);
+}
+
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-body);
   color: var(--text-primary);
-  background: var(--bg-canvas);
+  background: transparent;
   -webkit-font-smoothing: antialiased;
 
   /* 桌面应用：整体禁止文本选中与原生拖拽，消息正文再单独放开 */
@@ -71,38 +86,21 @@ a:hover {
   text-decoration: underline;
 }
 
+/*
+ * lucide 图标默认 2px 线宽，摆在 13–18px 的尺寸上偏粗，和自绘的那套
+ * （design/icons，1.33 线宽）放在一起明显重一档。统一压细，全局一处生效。
+ */
+svg.lucide {
+  stroke-width: 1.6px;
+}
+
 /* 允许选中的区域（消息正文、代码块等） */
 .selectable {
   user-select: text;
   -webkit-user-select: text;
 }
 
-/* ---------- 滚动条：macOS 覆盖式细条 ---------- */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: var(--r-pill);
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-:hover::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.18);
-  background-clip: content-box;
-}
-
-[data-theme='dark'] :hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  background-clip: content-box;
-}
+/* ---------- 滚动条：交由 macOS 原生覆盖式滚动条（滚动显现、静止淡出） ---------- */
 
 /* 无障碍：尊重系统的减弱动效设置 */
 @media (prefers-reduced-motion: reduce) {

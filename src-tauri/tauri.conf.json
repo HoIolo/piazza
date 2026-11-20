@@ -22,12 +22,24 @@
         "fullscreen": false,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 20, "y": 22 }
+        "theme": "Light",
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 21
+        },
+        "transparent": true,
+        "windowEffects": {
+          "effects": [
+            "menu"
+          ],
+          "state": "followsWindowActiveState"
+        }
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

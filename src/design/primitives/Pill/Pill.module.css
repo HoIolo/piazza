@@ -23,8 +23,32 @@
   color: var(--text-secondary);
 }
 
-.pill:hover {
+.pill[data-variant='primary'] {
+  background: var(--send-btn);
+  color: var(--text-on-dark);
+}
+
+.pill:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+
+/* 深底按钮悬停不能变成浅灰，只把底色压暗一档 */
+.pill[data-variant='primary']:hover:not(:disabled) {
+  background: var(--send-btn);
+  filter: brightness(0.94);
+}
+
+.pill:disabled {
+  cursor: default;
+}
+
+.pill[data-variant='outlined']:disabled,
+.pill[data-variant='ghost']:disabled {
+  opacity: 0.45;
+}
+
+.pill[data-variant='primary']:disabled {
+  background: var(--send-btn-disabled);
 }
 
 .icon {

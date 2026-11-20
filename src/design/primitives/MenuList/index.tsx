@@ -9,6 +9,8 @@ export interface MenuItemProps {
   hint?: ReactNode
   selected?: boolean
   disabled?: boolean
+  /** danger 整行变红，给删除这类不可逆动作 */
+  tone?: 'default' | 'danger'
   onClick?: () => void
 }
 
@@ -19,6 +21,7 @@ export function MenuItem({
   hint,
   selected = false,
   disabled = false,
+  tone = 'default',
   onClick,
 }: MenuItemProps) {
   return (
@@ -26,6 +29,7 @@ export function MenuItem({
       type="button"
       className={styles.item}
       role="menuitem"
+      data-tone={tone}
       disabled={disabled}
       onClick={onClick}
     >

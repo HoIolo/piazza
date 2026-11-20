@@ -9,6 +9,7 @@ export interface TextFieldProps {
   type?: 'text' | 'number'
   ariaLabel?: string
   monospace?: boolean
+  autoFocus?: boolean
 }
 
 export function TextField({
@@ -19,6 +20,7 @@ export function TextField({
   type = 'text',
   ariaLabel,
   monospace = false,
+  autoFocus = false,
 }: TextFieldProps) {
   return (
     <input
@@ -28,6 +30,7 @@ export function TextField({
       value={value}
       placeholder={placeholder}
       aria-label={ariaLabel}
+      autoFocus={autoFocus}
       spellCheck={false}
       autoComplete="off"
       onChange={(e) => onChange(e.target.value)}

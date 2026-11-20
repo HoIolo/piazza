@@ -28,7 +28,7 @@ export interface ImeGuard {
  */
 export function useImeGuard(): ImeGuard {
   const composing = useRef(false)
-  const endedAt = useRef(0)
+  const endedAt = useRef(Number.NEGATIVE_INFINITY)
 
   return {
     bind: {

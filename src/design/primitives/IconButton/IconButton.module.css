@@ -1,9 +1,14 @@
+/*
+ * 幽灵图标按钮。圆角与悬停底色取 Codex 顶栏按钮的规格：
+ * 平时只有图标，悬停浮出一块半透明底，按下（active）时底色加深一档。
+ * 底色用半透明而非实色，压在毛玻璃侧栏上和压在白色主区上都成立。
+ */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  border-radius: 6px;
+  border-radius: var(--r-item);
   color: var(--text-secondary);
   cursor: pointer;
   transition:
@@ -14,6 +19,7 @@
 .button[data-size='sm'] {
   width: 24px;
   height: 24px;
+  border-radius: 6px;
 }
 
 .button[data-size='md'] {
@@ -22,11 +28,21 @@
 }
 
 .button:hover {
-  background: var(--bg-hover);
+  background: var(--bg-sidebar-hover);
   color: var(--text-primary);
 }
 
 .button[data-active='true'] {
-  background: var(--bg-selected);
+  background: var(--bg-sidebar-selected);
   color: var(--text-primary);
+}
+
+.button[data-tone='danger']:hover {
+  color: var(--diff-del);
+}
+
+.button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
 }

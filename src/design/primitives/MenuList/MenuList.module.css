@@ -1,11 +1,11 @@
 .item {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   width: 100%;
   min-height: 32px;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-item);
+  padding: 6px var(--sp-2);
+  border-radius: var(--r-row);
   font-size: var(--fs-nav);
   color: var(--text-primary);
   text-align: left;
@@ -14,7 +14,7 @@
 }
 
 .item:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--bg-sidebar-hover);
 }
 
 .item:disabled {
@@ -26,6 +26,11 @@
   display: flex;
   flex: none;
   color: var(--text-secondary);
+}
+
+.item[data-tone='danger'],
+.item[data-tone='danger'] .icon {
+  color: var(--text-error);
 }
 
 .label {
@@ -48,14 +53,14 @@
 }
 
 .groupLabel {
-  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-desc);
   color: var(--text-tertiary);
 }
 
 .separator {
   height: 1px;
-  margin: var(--sp-2) 0;
+  margin: var(--sp-1) var(--sp-2);
   background: var(--border);
 }
 
