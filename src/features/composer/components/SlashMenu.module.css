@@ -1,0 +1,46 @@
+.list {
+  max-height: min(280px, 36vh);
+  overflow: auto;
+  padding: var(--sp-1);
+}
+
+.list button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-item);
+  text-align: left;
+  font-size: var(--fs-desc);
+  cursor: pointer;
+}
+
+.list button[aria-selected='true'],
+.list button:hover {
+  background: var(--bg-hover);
+}
+
+.list svg {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.list strong,
+.list span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.list span,
+.empty {
+  color: var(--text-secondary);
+}
+
+.empty {
+  padding: var(--sp-2);
+  font-size: var(--fs-desc);
+}

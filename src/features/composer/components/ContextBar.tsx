@@ -8,16 +8,13 @@ export interface ContextBarProps {
   branch: string | null
 }
 
-/**
- * 输入框上方的上下文条。
- * 仅在空状态出现——截图 1 的对话进行中并没有这一条。
- */
+/** 新会话输入框上方的工作区工具栏。 */
 export function ContextBar({ projectName, branch }: ContextBarProps) {
   return (
-    <div className={styles.bar}>
+    <div className={styles.bar} role="group" aria-label="对话工作区">
+      <WorkModePicker localLabel="此计算机" />
       <ProjectPicker projectName={projectName} />
-      <WorkModePicker />
-      {branch && <BranchPicker branch={branch} />}
+      {branch && <BranchPicker branch={branch} compact />}
     </div>
   )
 }

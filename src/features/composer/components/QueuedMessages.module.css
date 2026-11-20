@@ -1,0 +1,40 @@
+/* 贴在输入框上方，比输入框略窄一圈，读作「挂在它上面的附属物」 */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 var(--sp-3) var(--sp-2);
+  padding: var(--sp-1);
+  border-radius: var(--r-card);
+  background: var(--bg-context-bar);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 28px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}

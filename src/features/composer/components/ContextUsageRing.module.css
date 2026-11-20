@@ -1,0 +1,114 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: default;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  background: var(--bg-hover);
+}
+
+.ring {
+  transform: rotate(-90deg);
+}
+
+.track {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.14);
+  stroke-width: 2.2;
+}
+
+[data-theme='dark'] .track {
+  stroke: rgba(255, 255, 255, 0.18);
+}
+
+.fill {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.48);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 260ms var(--ease-out),
+    stroke var(--dur-fast) var(--ease);
+}
+
+[data-theme='dark'] .fill {
+  stroke: rgba(255, 255, 255, 0.56);
+}
+
+.fill[data-tone='warn'] {
+  stroke: #d97706;
+}
+
+[data-theme='dark'] .fill[data-tone='warn'] {
+  stroke: #f59e0b;
+}
+
+.fill[data-tone='danger'] {
+  stroke: var(--diff-del);
+}
+
+/* 对齐 Codex 深色圆角气泡提示 */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 40;
+  padding: 8px 12px;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1a1a1a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+[data-theme='dark'] .tooltip {
+  background: #262626;
+}
+
+.wrap:hover .tooltip,
+.wrap:focus-within .tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.tipMuted {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.tipPercent {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.tipDetail {
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  line-height: 1.45;
+  color: #ffffff;
+}

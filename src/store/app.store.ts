@@ -1,5 +1,12 @@
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { create } from 'zustand'
 import { readProjectPrefs, writeProjectPrefs } from '@/shared/utils/projectPrefs'
+import {
+  createPanelActions,
+  panelInitialState,
+  type PanelActions,
+  type PanelState,
+} from './panel.slice'
 import {
   createSessionActions,
   sessionInitialState,
@@ -15,15 +22,15 @@ import {
 
 export type Theme = 'light' | 'dark'
 
-/** 右侧面板的子视图。null 表示停在入口列表 */
-export type RightPanelView = 'review' | 'files'
+export type { RightPanelView } from './panel.slice'
 
-interface AppState extends TerminalState, TerminalActions, SessionState, SessionActions {
+interface AppState
+  extends TerminalState, TerminalActions, SessionState, SessionActions, PanelState, PanelActions {
   theme: Theme
-  /** 右侧面板（审阅/终端/文件）是否展开 */
-  rightPanelOpen: boolean
-  /** 面板内当前子视图，null 为入口列表 */
-  rightPanelView: RightPanelView | null
+  /** 左侧栏是否展开 */
+  sidebarOpen: boolean
+  /** 环境信息是否停靠在会话区右侧。只在主区够宽时生效，窄时一律走顶栏弹窗 */
+  envPanelOpen: boolean
   /** ⌘K 命令面板 */
   paletteOpen: boolean
   /** git 状态的刷新信号。切换分支等改动仓库的操作后自增，促使相关 hook 重取 */
@@ -32,6 +39,8 @@ interface AppState extends TerminalState, TerminalActions, SessionState, Session
   pinnedProjects: string[]
   /** 从侧栏隐藏的项目 cwd。只是不显示，不动任何会话文件 */
   hiddenProjects: string[]
+  /** 置顶的会话文件路径，排在所属项目的最前 */
+  pinnedSessions: string[]
   /** 设置视图是否展开 */
   settingsOpen: boolean
   /**
@@ -41,19 +50,39 @@ interface AppState extends TerminalState, TerminalActions, SessionState, Session
   settingsMounted: boolean
   /** 打开设置时指定的分区 id；null 表示用默认分区 */
   settingsSection: string | null
+  /** 按模型（provider/modelId）记住的上下文窗口档位（200k / 500k / 1M） */
+  modelContextWindows: Record<string, number>
 
   setTheme: (theme: Theme) => void
-  toggleRightPanel: () => void
-  /** 打开某个子视图；面板收起时一并展开，快捷键才能一步到位 */
-  openRightPanelView: (view: RightPanelView) => void
-  /** 返回入口列表 */
-  closeRightPanelView: () => void
+  setModelContextWindow: (key: string, contextWindow: number) => void
+  setModelContextWindows: (map: Record<string, number>) => void
+  toggleSidebar: () => void
+  toggleEnvPanel: () => void
   setPaletteOpen: (open: boolean) => void
   refreshGit: () => void
   togglePinnedProject: (cwd: string) => void
   hideProject: (cwd: string) => void
+  togglePinnedSession: (path: string) => void
   openSettings: (section?: string) => void
   closeSettings: () => void
+}
+
+type SidebarPrefs = Pick<AppState, 'pinnedProjects' | 'hiddenProjects' | 'pinnedSessions'>
+
+/** 有则去掉，无则加上 */
+function toggled(list: string[], item: string): string[] {
+  return list.includes(item) ? list.filter((v) => v !== item) : [...list, item]
+}
+
+/** 把改动并进侧栏偏好并落盘，返回要写回 store 的那部分 */
+function persistPrefs(state: SidebarPrefs, patch: Partial<SidebarPrefs>): Partial<SidebarPrefs> {
+  const next = { ...state, ...patch }
+  writeProjectPrefs({
+    pinned: next.pinnedProjects,
+    hidden: next.hiddenProjects,
+    pinnedSessions: next.pinnedSessions,
+  })
+  return patch
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -61,45 +90,60 @@ export const useAppStore = create<AppState>((set) => ({
   ...createTerminalActions(set),
   ...sessionInitialState,
   ...createSessionActions(set),
+  ...panelInitialState,
+  ...createPanelActions(set),
   theme: 'light',
-  rightPanelOpen: false,
-  rightPanelView: null,
+  sidebarOpen: true,
+  envPanelOpen: true,
   paletteOpen: false,
   gitNonce: 0,
   pinnedProjects: readProjectPrefs().pinned,
   hiddenProjects: readProjectPrefs().hidden,
+  pinnedSessions: readProjectPrefs().pinnedSessions,
   settingsOpen: false,
   settingsMounted: false,
   settingsSection: null,
+  modelContextWindows: {},
+
+  setModelContextWindow: (key, contextWindow) =>
+    set((s) => ({ modelContextWindows: { ...s.modelContextWindows, [key]: contextWindow } })),
+
+  setModelContextWindows: (modelContextWindows) => set({ modelContextWindows }),
 
   setTheme: (theme) => {
     document.documentElement.dataset.theme = theme
+    /*
+     * 窗口外观跟着应用主题走。毛玻璃的明暗由窗口外观决定而不是由网页决定——
+     * 不同步的话，系统是浅色而应用切了深色，侧栏就是浅色材质上压着浅色字。
+     */
+    try {
+      void getCurrentWindow()
+        .setTheme(theme)
+        .catch(() => undefined)
+    } catch {
+      // 不在 Tauri 里（浏览器调试、探针）时取不到窗口，主题照常切换即可
+    }
     set({ theme })
   },
 
-  toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
-  openRightPanelView: (rightPanelView) => set({ rightPanelOpen: true, rightPanelView }),
-
-  closeRightPanelView: () => set({ rightPanelView: null }),
+  toggleEnvPanel: () => set((s) => ({ envPanelOpen: !s.envPanelOpen })),
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
 
   togglePinnedProject: (cwd) =>
-    set((s) => {
-      const pinned = s.pinnedProjects.includes(cwd)
-        ? s.pinnedProjects.filter((p) => p !== cwd)
-        : [...s.pinnedProjects, cwd]
-      writeProjectPrefs({ pinned, hidden: s.hiddenProjects })
-      return { pinnedProjects: pinned }
-    }),
+    set((s) => persistPrefs(s, { pinnedProjects: toggled(s.pinnedProjects, cwd) })),
 
   hideProject: (cwd) =>
-    set((s) => {
-      const hidden = s.hiddenProjects.includes(cwd) ? s.hiddenProjects : [...s.hiddenProjects, cwd]
-      writeProjectPrefs({ pinned: s.pinnedProjects, hidden })
-      return { hiddenProjects: hidden }
-    }),
+    set((s) =>
+      s.hiddenProjects.includes(cwd)
+        ? {}
+        : persistPrefs(s, { hiddenProjects: [...s.hiddenProjects, cwd] }),
+    ),
+
+  togglePinnedSession: (path) =>
+    set((s) => persistPrefs(s, { pinnedSessions: toggled(s.pinnedSessions, path) })),
 
   refreshGit: () => set((s) => ({ gitNonce: s.gitNonce + 1 })),
 

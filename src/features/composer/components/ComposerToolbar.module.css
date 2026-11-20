@@ -1,65 +1,36 @@
+/* 对应 Codex 的 ComposerLayoutFooter：左右各 8px、底 8px，控件间距 5px */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3) var(--sp-3) var(--sp-4);
-}
-
-.attach {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
-}
-
-.attach:hover {
-  background: var(--bg-hover);
-}
-
-/* 权限提示用橙色，是全局风险信号，不随主题弱化 */
-.access {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font-size: var(--fs-desc);
-  font-weight: var(--fw-medium);
-  color: var(--orange-access);
+  gap: 5px;
+  padding: 0 var(--sp-2) var(--sp-2);
+  user-select: none;
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
+  min-width: 0;
   margin-left: auto;
 }
 
-.model {
-  font-size: var(--fs-desc);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.thinking {
-  margin-left: var(--sp-1);
-}
-
+/*
+ * 主按钮：32px 实心圆，前景色打底、反色图标。
+ * 发送 / 引导 / 停止共用这一个按钮，只换图标。
+ */
 .send {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--send-btn);
-  color: var(--text-on-dark);
+  background: var(--composer-primary);
+  color: var(--composer-primary-text);
   cursor: pointer;
   transition:
-    background var(--dur-base) var(--ease),
     transform var(--dur-fast) var(--ease),
     opacity var(--dur-base) var(--ease);
 }
@@ -70,10 +41,42 @@
 
 /* 轻微下压，给出「按到了」的即时反馈 */
 .send:active:not(:disabled) {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
+/* Codex 的禁用态只是半透明，不换颜色 */
 .send:disabled {
-  background: var(--send-btn-disabled);
+  opacity: 0.5;
   cursor: default;
+}
+
+/* 等待第二次 Esc 确认停止时，图标位置换成这两个字 */
+.escHint {
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+}
+
+.stopBtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.stopBtn:hover {
+  background: var(--bg-hover);
+}
+
+.stopBtn:active {
+  transform: scale(0.92);
 }

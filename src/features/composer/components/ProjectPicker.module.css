@@ -57,3 +57,8 @@
   gap: var(--sp-3);
   padding: var(--sp-3);
 }
+
+.list {
+  max-height: min(280px, 42vh);
+  overflow-y: auto;
+}

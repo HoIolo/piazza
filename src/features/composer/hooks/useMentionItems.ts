@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { rpcClient } from '@/rpc/client'
-import type { CommandsData, PiCommand } from '@/rpc/types'
+import type { PiCommand } from '@/rpc/types'
 import { searchProjectFiles, type FileHit } from '@/shared/api/files'
 import { useProjectsStore } from '@/store/projects.store'
-import { useChatStore } from '@/store/chat'
+import { usePiCommands } from './usePiCommands'
 import type { ProjectGroup } from '@/shared/api/sessions'
 
 /** 提及候选项。三类来源共用一种形状，列表渲染才不必分支 */
@@ -71,10 +70,8 @@ function filterSessions(projects: ProjectGroup[], keyword: string): MentionItem[
  */
 export function useMentionItems(cwd: string | null, query: string) {
   const [files, setFiles] = useState<FileHit[]>([])
-  const [commands, setCommands] = useState<PiCommand[]>([])
+  const commands = usePiCommands()
   const projects = useProjectsStore((s) => s.projects)
-  // 会话就绪才去问 pi 要命令列表，否则命令发不出去、白等一次超时
-  const sessionId = useChatStore((s) => s.session?.sessionId ?? null)
 
   useEffect(() => {
     let cancelled = false
@@ -89,24 +86,11 @@ export function useMentionItems(cwd: string | null, query: string) {
     }
   }, [cwd, query])
 
-  useEffect(() => {
-    if (!sessionId) return
-    let cancelled = false
-    rpcClient
-      .send<CommandsData>({ type: 'get_commands' })
-      .then((data) => {
-        if (!cancelled) setCommands(data.commands ?? [])
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId])
-
   const keyword = query.trim().toLowerCase()
 
   return {
     files: files.map(fileToItem),
+    commands,
     skills: filterSkills(commands, keyword),
     sessions: filterSessions(projects, keyword),
   }

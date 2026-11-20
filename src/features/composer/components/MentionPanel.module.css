@@ -31,6 +31,6 @@
 
 /* 候选可能很多，列表自身滚动，搜索框保持可见 */
 .list {
-  max-height: 340px;
+  max-height: min(320px, 42vh);
   overflow-y: auto;
 }

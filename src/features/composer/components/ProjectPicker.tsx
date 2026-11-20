@@ -43,7 +43,7 @@ export function ProjectPicker({ projectName }: { projectName: string }) {
           aria-expanded={isOpen}
         >
           <Folder size={15} className={styles.icon} />
-          {projectName}
+          <span>{projectName}</span>
         </button>
       )}
     >
@@ -60,28 +60,30 @@ export function ProjectPicker({ projectName }: { projectName: string }) {
             />
           </div>
 
-          {loading ? (
-            <div className={styles.loading}>
-              <Skeleton width="70%" height="14px" />
-              <Skeleton width="52%" height="14px" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <MenuEmpty>没有匹配的项目</MenuEmpty>
-          ) : (
-            filtered.map((project) => (
-              <MenuItem
-                key={project.cwd}
-                icon={<Folder size={16} />}
-                selected={project.cwd === currentCwd}
-                onClick={() => {
-                  selectProject(project.cwd)
-                  close()
-                }}
-              >
-                {project.name}
-              </MenuItem>
-            ))
-          )}
+          <div className={styles.list}>
+            {loading ? (
+              <div className={styles.loading}>
+                <Skeleton width="70%" height="14px" />
+                <Skeleton width="52%" height="14px" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <MenuEmpty>没有匹配的项目</MenuEmpty>
+            ) : (
+              filtered.map((project) => (
+                <MenuItem
+                  key={project.cwd}
+                  icon={<Folder size={16} />}
+                  selected={project.cwd === currentCwd}
+                  onClick={() => {
+                    selectProject(project.cwd)
+                    close()
+                  }}
+                >
+                  {project.name}
+                </MenuItem>
+              ))
+            )}
+          </div>
 
           <MenuSeparator />
           <MenuItem icon={<FolderPlus size={16} />} onClick={() => void pickDirectory(close)}>

@@ -1,0 +1,83 @@
+/*
+ * 轨道 24px 高、滑块 28px。--ratio 是当前档位在 0..1 上的位置；
+ * 滑块圆心只在「左右各缩进半个滑块」的区间里走，填充与刻度都按这个区间算，
+ * 否则两端的刻度点会和滑块圆心对不上。
+ */
+.slider {
+  --thumb: 28px;
+
+  position: relative;
+  height: 32px;
+  margin: 2px var(--sp-2) var(--sp-2);
+}
+
+.range {
+  position: absolute;
+  inset: 2px 0;
+  width: 100%;
+  height: var(--thumb);
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(
+    to right,
+    var(--blue-switch) calc(var(--thumb) / 2 + var(--ratio) * (100% - var(--thumb))),
+    var(--slider-track) 0
+  );
+  box-shadow: inset 0 0 0 0.5px var(--border);
+}
+
+.range::-webkit-slider-thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  /* 滑块比轨道高 4px，上移一半才居中 */
+  margin-top: -2px;
+  appearance: none;
+  border: 0.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--switch-thumb);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.range:hover::-webkit-slider-thumb,
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+.range:focus-visible {
+  outline: none;
+}
+
+.range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--blue-switch);
+  outline-offset: 1px;
+}
+
+/* 刻度点只是装饰，不能挡住下面的 range 接收指针 */
+.ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tick {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--thumb) / 2 + var(--at) * (100% - var(--thumb)));
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--slider-tick);
+}
+
+.tick[data-on='true'] {
+  background: var(--slider-tick-on);
+}
