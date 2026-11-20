@@ -20,6 +20,9 @@ function useAgentEvents(): void {
       const store = useChatStore.getState()
       if (!store.rpcReady || !store.session) return
       store.applyEvent(event)
+      if (event.type === 'message_end' && event.message.role === 'user') {
+        void useProjectsStore.getState().refresh()
+      }
       if (event.type === 'agent_settled') {
         snapshotCurrentSession()
         void useProjectsStore.getState().refresh()
@@ -67,6 +70,7 @@ function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: stri
   })
     .then((loaded) => {
       if (!cancelled && loaded) commitLoadedSession(viewKey, loaded)
+      if (wasStreaming) void useProjectsStore.getState().refresh()
     })
     .catch((e: unknown) => {
       if (!cancelled) useChatStore.getState().setError(errorMessage(e))
