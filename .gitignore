@@ -7,6 +7,7 @@ src-tauri/gen/schemas/
 
 # 探针运行时落下的临时产物
 .playwright-mcp/
+e2e/.shots/
 
 # 系统与编辑器
 .DS_Store
