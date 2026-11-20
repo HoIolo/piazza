@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Diff, Undo2 } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
+import { openLink } from '@/shared/utils/openLink'
+import { useAppStore } from '@/store/app.store'
 import styles from './FileChangeCard.module.css'
 
 export interface FileChange {
@@ -11,6 +13,7 @@ export interface FileChange {
 
 export interface FileChangeCardProps {
   changes: FileChange[]
+  cwd?: string | null
   onReview?: () => void
   onUndo?: () => void
 }
@@ -24,10 +27,11 @@ function splitPath(path: string): [string, string] {
   return index === -1 ? ['', path] : [path.slice(0, index + 1), path.slice(index + 1)]
 }
 
-export function FileChangeCard({ changes, onReview, onUndo }: FileChangeCardProps) {
+export function FileChangeCard({ changes, cwd = null, onReview, onUndo }: FileChangeCardProps) {
   const [expanded, setExpanded] = useState(false)
   if (changes.length === 0) return null
 
+  const handleReview = onReview ?? (() => useAppStore.getState().openRightPanelView('review'))
   const visible = expanded ? changes : changes.slice(0, VISIBLE_COUNT)
   const hidden = changes.length - visible.length
   const totals = changes.reduce(
@@ -52,7 +56,7 @@ export function FileChangeCard({ changes, onReview, onUndo }: FileChangeCardProp
           <Pill variant="ghost" icon={<Undo2 size={14} />} onClick={onUndo}>
             撤销
           </Pill>
-          <Pill onClick={onReview}>审核</Pill>
+          <Pill onClick={handleReview}>审核</Pill>
         </div>
       </header>
 
@@ -60,7 +64,19 @@ export function FileChangeCard({ changes, onReview, onUndo }: FileChangeCardProp
         {visible.map((change) => {
           const [dir, name] = splitPath(change.path)
           return (
-            <li key={change.path} className={styles.file}>
+            <li
+              key={change.path}
+              className={styles.file}
+              role="button"
+              tabIndex={0}
+              onClick={() => void openLink(change.path, cwd)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  void openLink(change.path, cwd)
+                }
+              }}
+            >
               <span className={styles.path}>
                 <span className={styles.dir}>{dir}</span>
                 <span className={styles.name}>{name}</span>

@@ -3,23 +3,31 @@ import { prepareAttachments, type DraftAttachment } from '@/shared/api/attachmen
 import { useAppStore } from '@/store/app.store'
 import { useChatActions, useChatStore } from '@/store/chat'
 
+let submitting = false
+
 export function useComposerSubmit(closePanel: () => void) {
   const { sendPrompt } = useChatActions()
   const submit = async (behavior: StreamingBehavior = 'steer') => {
+    if (submitting) return
     const store = useChatStore.getState()
-    if (store.sessionLoading || store.pendingDialog) return
+    if (!store.rpcReady || store.sessionLoading || store.pendingDialog) return
     const { message, images } = prepareAttachments(store.draft, store.attachments)
     if (!message && !images.length) return
     if (rejectUnsupportedImages(images.length)) return
     const text = store.draft
     const files = store.attachments
     const nonce = useAppStore.getState().sessionNonce
-    // 同步清空防止连续 Enter 重发；失败时恢复原草稿和附件。
+    // 同步清空加锁，防止连续 Enter 重发；失败时恢复原草稿和附件。
+    submitting = true
     store.setDraft('')
     store.setAttachments([])
     closePanel()
-    const sent = await sendPrompt(message, behavior, images)
-    if (!sent) restoreDraft(nonce, text, files)
+    try {
+      const sent = await sendPrompt(message, behavior, images)
+      if (!sent) restoreDraft(nonce, text, files)
+    } finally {
+      submitting = false
+    }
   }
   return { submit }
 }

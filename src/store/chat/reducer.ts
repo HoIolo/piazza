@@ -187,18 +187,23 @@ function sealThinking(message: AgentMessage, streaming: ChatAssistantMessage | n
 }
 
 /**
- * pi 回传的用户消息若与末尾的本地回显是同一句，就把回显顶掉。
+ * pi 回传的用户消息若与最近的本地回显是同一句，就把回显顶掉。
  *
- * 只看末尾一条：回显总是紧挨着发送动作追加的，pi 的回传也紧随其后，
- * 中间不会插进别的消息。往前扫反而可能误删历史里凑巧重复的同一句话。
+ * 从末尾向前找最后一条 local 回显：切换模型后首次发送时，pi 会在 user 的
+ * message_end 之前先推一条空的 system 消息，若只看 messages[length - 1]
+ * 就会漏掉夹在前面的 local 回显，导致界面出现两条一模一样的用户气泡。
  */
 function dropLocalEcho(messages: ChatMessage[], incoming: AgentMessage): ChatMessage[] {
   if (incoming.role !== 'user') return messages
-
-  const last = messages[messages.length - 1]
-  if (!last?.local || last.role !== 'user') return messages
-
-  return userText(last) === userText(incoming) ? messages.slice(0, -1) : messages
+  const incomingText = userText(incoming)
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const item = messages[i]
+    if (!item?.local || item.role !== 'user') continue
+    return userText(item) === incomingText
+      ? [...messages.slice(0, i), ...messages.slice(i + 1)]
+      : messages
+  }
+  return messages
 }
 
 function upsertTool(state: ChatSnapshot, tool: ToolExecution): ChatSnapshot {

@@ -82,6 +82,7 @@
   gap: var(--sp-2);
   height: 36px;
   padding: var(--sp-1) var(--sp-4);
+  cursor: pointer;
   animation: fade-in var(--dur-base) var(--ease-out);
   transition: background var(--dur-fast) var(--ease);
 }

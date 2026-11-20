@@ -107,7 +107,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         />
       ))}
 
-      <FileChangeCard changes={changes} />
+      <FileChangeCard changes={changes} cwd={cwd} />
 
       <ErrorBlock text={failureOf(message)} />
 

@@ -103,6 +103,16 @@
   -webkit-box-decoration-break: clone;
 }
 
+.clickableCode {
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.clickableCode:hover {
+  background: var(--bg-selected);
+  color: var(--blue-link);
+}
+
 .link {
   color: var(--blue-link);
 }

@@ -23,14 +23,32 @@ function looksLikeFilePath(href: string | undefined): boolean {
   return !/^[a-z]+:\/\//i.test(href) && /\.[a-z0-9]{1,8}$/i.test(href)
 }
 
+const CLICKABLE_CODE_RE =
+  /^(?:https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/.*)?|[^\s]+\.(?:html?)(?::\d+(?::\d+)?)?|(?:\/|~\/|[^\s/]+\/)[^\s]*\.[a-z0-9]{1,8}(?::\d+(?::\d+)?)?)$/i
+
+/** 行内代码若本身是 .html/.htm 路径、localhost 地址或本地文件路径，则允许直接点击打开 */
+function extractClickableCodeTarget(
+  className: string | undefined,
+  children: React.ReactNode,
+): string | null {
+  if (className || typeof children !== 'string') return null
+  const text = children.trim()
+  return CLICKABLE_CODE_RE.test(text) ? text : null
+}
+
 const components: Components = {
   // 行内与围栏共用这一个渲染：围栏里的由 CodeBlock 的样式把行内那套外观撤掉
   code({ className, children, ...props }) {
+    const target = extractClickableCodeTarget(className, children)
+    const cls = [
+      styles.inlineCode,
+      className,
+      target ? styles.clickableCode : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
     return (
-      <code
-        className={className ? `${styles.inlineCode} ${className}` : styles.inlineCode}
-        {...props}
-      >
+      <code className={cls} data-code-link={target ?? undefined} {...props}>
         {children}
       </code>
     )
@@ -115,7 +133,10 @@ export const Markdown = memo(function Markdown({
    * 冒泡上来的都能接住，代理一次就够。
    */
   const onClick = (e: React.MouseEvent<HTMLElement>) => {
-    const href = (e.target as HTMLElement).closest('a')?.getAttribute('href')
+    const target = e.target as HTMLElement
+    const href =
+      target.closest('a')?.getAttribute('href') ??
+      target.closest<HTMLElement>('[data-code-link]')?.dataset.codeLink
     if (!href) return
     e.preventDefault()
     void openLink(href, cwd)

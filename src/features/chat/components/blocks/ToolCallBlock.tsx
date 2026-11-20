@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { CodexIcon } from '@/design/icons/CodexIcon'
 import { ShimmerText } from '@/design/primitives/ShimmerText'
+import { openLink } from '@/shared/utils/openLink'
+import { useAppStore } from '@/store/app.store'
 import type { ToolExecution } from '@/store/chat'
 import { summarizeArgs, toolKind, toolVerb, type ToolKind } from './toolFormat'
 import { isImageView, toolImages } from './toolImages'
@@ -27,10 +29,26 @@ export interface ToolCallBlockProps {
 function renderLabel(source: string | null, execution: ToolExecution, running: boolean) {
   if (source) return `${running ? '正在使用' : '已使用'} ${source} 集成`
   const summary = summarizeArgs(execution.toolName, execution.args)
+  const isHtml = Boolean(summary && /\.(?:html?)$/i.test(summary.trim()))
   return (
     <>
       {toolVerb(execution.toolName, running)}
-      {summary && <span className={styles.arg}> {summary}</span>}
+      {summary && (
+        <span
+          className={styles.arg}
+          onClick={
+            isHtml
+              ? (e) => {
+                  e.stopPropagation()
+                  void openLink(summary.trim(), useAppStore.getState().currentCwd)
+                }
+              : undefined
+          }
+        >
+          {' '}
+          {summary}
+        </span>
+      )}
     </>
   )
 }
