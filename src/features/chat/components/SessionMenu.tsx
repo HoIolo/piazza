@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Download, Ellipsis, FolderOpen, Pencil } from 'lucide-react'
+import { Download, FolderOpen, Pencil } from 'lucide-react'
+import { MoreIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
 import { MenuItem } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
@@ -20,7 +21,7 @@ export function SessionMenu({ onRename, onExport }: SessionMenuProps) {
       side="bottom"
       trigger={({ toggle, open }) => (
         <IconButton ariaLabel="更多操作" size="sm" active={open} onClick={toggle}>
-          <Ellipsis size={16} />
+          <MoreIcon size={18} />
         </IconButton>
       )}
     >

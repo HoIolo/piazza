@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AppWindow, ChevronDown, FolderOpen } from 'lucide-react'
+import { AppWindow, ChevronDown } from 'lucide-react'
+import { FolderIcon } from '@/design/icons'
 import { MenuItem } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
 import { listExternalApps, openPathWith, type ExternalApp } from '@/shared/api/pi'
@@ -52,7 +53,7 @@ export function OpenLocationButton({ target }: OpenLocationButtonProps) {
            带上应用名会让宽度随所选应用变化，顶栏跟着一起抖 */
         title={preferred ? `用 ${preferred.name} 打开` : undefined}
       >
-        <FolderOpen size={14} />
+        <FolderIcon size={16} />
         打开位置
       </button>
 

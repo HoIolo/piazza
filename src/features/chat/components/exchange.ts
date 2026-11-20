@@ -1,3 +1,4 @@
+import { mergeToolRounds } from './mergeToolRounds'
 import type { ChatAssistantMessage, ChatMessage, ChatUserMessage } from '@/store/chat'
 
 /**
@@ -23,12 +24,8 @@ function isUser(m: ChatMessage): m is ChatUserMessage {
   return m.role === 'user'
 }
 
-function isAssistant(m: ChatMessage): m is ChatAssistantMessage {
-  return m.role === 'assistant'
-}
-
 function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
-  const assistants = buffer.filter(isAssistant)
+  const assistants = mergeToolRounds(buffer)
   const final = assistants.length > 0 ? assistants[assistants.length - 1] : null
 
   // toolResult 由 ToolCallBlock 依 toolCallId 自行取用，不在这里重复渲染

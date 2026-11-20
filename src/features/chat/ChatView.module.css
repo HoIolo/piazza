@@ -8,12 +8,44 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+
+/*
+ * 顶栏之下：会话列与停靠的环境信息卡片左右并排。
+ * 这一块是浮在毛玻璃上的内容卡片；侧栏展开时左缘贴着侧栏，不留缝。
+ */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin: 0 var(--split-gap, var(--surface-gap)) var(--surface-gap) 0;
+  border-radius: var(--r-surface);
   background: var(--bg-canvas);
+  box-shadow: var(--shadow-surface);
+  overflow: hidden;
+  transition:
+    margin-left var(--dur-slow) var(--ease),
+    margin-right var(--dur-slow) var(--ease);
+}
+
+/* 侧栏收起后卡片左边就是窗口边缘，得补上同样的缝 */
+.main[data-sidebar-open='false'] .body {
+  margin-left: var(--surface-gap);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* 提问卡片贴在输入框上方，与正文同宽 */
 .dialogSlot {
   flex: none;
+  max-height: 55%;
+  overflow-y: auto;
   width: 100%;
   max-width: var(--content-max-w);
   margin: 0 auto;

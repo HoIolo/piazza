@@ -7,7 +7,7 @@ export interface StatusLineProps {
   /** 本轮仍在进行 */
   active: boolean
   durationMs: number | null
-  /** 模型是否已经开口。没开口时只说「正在思考」 */
+  /** 模型是否已经开口。没开口时显示等待回复 */
   responded: boolean
   expandable: boolean
   expanded: boolean
@@ -17,7 +17,7 @@ export interface StatusLineProps {
 /**
  * 一轮交互的状态文案。
  *
- * 模型吐出第一个字之前只说「正在思考」——这段时间是在等 API 回话，
+ * 模型吐出第一个字之前显示「等待回复」——这段时间是在等 API 回话，
  * 说「处理中」等于把干等谎报成进展。等它真开口了才转「处理中」。
  *
  * 但计时一路从发问那一刻算起，不在转换时重置：用户关心的是「我等了多久」，
@@ -25,7 +25,7 @@ export interface StatusLineProps {
  */
 function statusLabel(active: boolean, durationMs: number | null, responded: boolean): string {
   if (!active) return durationMs !== null ? `耗时 ${formatDuration(durationMs)}` : '已完成'
-  if (!responded) return '正在思考'
+  if (!responded) return '等待回复'
   return durationMs ? `处理中 ${formatDuration(durationMs)}` : '处理中'
 }
 

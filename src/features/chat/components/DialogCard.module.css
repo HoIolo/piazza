@@ -3,8 +3,9 @@
 .card {
   margin: 0 auto var(--sp-3);
   padding: var(--sp-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--r-card);
+  corner-shape: var(--corner-shape-card);
   background: var(--bg-surface);
   box-shadow: var(--shadow-palette);
   animation: rise-in var(--dur-slow) var(--ease-out);
@@ -12,9 +13,14 @@
 
 .head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--sp-3);
   margin-bottom: var(--sp-3);
+}
+
+.questionIcon {
+  flex: none;
+  color: var(--blue-link);
 }
 
 .title {
@@ -88,6 +94,7 @@
   min-width: 0;
   font-size: var(--fs-body);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .go {
@@ -139,8 +146,7 @@
 }
 
 .primary,
-.secondary,
-.skip {
+.secondary {
   height: 30px;
   padding: 0 var(--sp-4);
   border-radius: var(--r-item);
@@ -163,32 +169,11 @@
   cursor: default;
 }
 
-.secondary,
-.skip {
+.secondary {
   border: 1px solid var(--border);
   color: var(--text-primary);
 }
 
-.secondary:hover,
-.skip:hover {
+.secondary:hover {
   background: var(--bg-hover);
-}
-
-.foot {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-top: var(--sp-3);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border);
-}
-
-.hint {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-desc);
-  color: var(--text-tertiary);
 }

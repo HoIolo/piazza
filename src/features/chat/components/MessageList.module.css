@@ -8,7 +8,8 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  container-type: inline-size;
+  /* size 而非 inline-size：下面要用 cqh 取这块区域的高度 */
+  container-type: size;
 
   /* 底部渐隐高度。.inner 的下内边距要跟着它走，故提成变量 */
   --fade-h: 40px;
@@ -16,9 +17,11 @@
 
 .scroller {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  scroll-behavior: smooth;
+  scrollbar-width: none;
 
   /*
    * 底部渐隐。内容原本被输入框上缘硬切一刀，切口与输入框同色，
@@ -29,21 +32,50 @@
   mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade-h)), transparent 100%);
 }
 
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
 /*
  * 下内边距必须大于渐隐高度，否则滚到底时最后一条的复制/时间
  * 正好落在渐隐区里被抹淡——那是能点的东西，不该看不清。
  */
 .inner {
   width: 100%;
+  min-width: 0;
   max-width: var(--content-max-w);
   margin: 0 auto;
-  padding: var(--sp-6) var(--sp-4) calc(var(--fade-h) + var(--sp-2));
+  /* 对齐 Codex --thread-content-top-inset: calc(var(--spacing) * 8) = 32px */
+  padding: var(--sp-8) var(--sp-4) calc(var(--fade-h) + var(--sp-4));
 }
 
 /*
- * 发送后的底部留白。回答增长时它仍在，滚动条继续跟到底，
- * 于是「新内容始终出现在视线高度」而不是贴着输入框冒出来。
+ * 最后一轮至少占满一屏，对应 Codex 的做法：新发的提问顶在视口上缘，
+ * 下面整屏留给回答往下长，而不是贴着输入框一行行往上挤。
  */
-.tailSpace {
-  height: 40vh;
+.inner > section:last-of-type {
+  min-height: calc(100cqh - var(--sp-8) - var(--fade-h) - var(--sp-4));
+  margin-bottom: 0;
+}
+
+.olderBar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--sp-5);
+}
+
+.olderBtn {
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--ink-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.olderBtn:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
 }

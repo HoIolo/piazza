@@ -1,14 +1,12 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Check, Copy, GitBranch } from 'lucide-react'
-import type { ToolCallContent } from '@/rpc/types'
 import type { ChatAssistantMessage, ToolExecution } from '@/store/chat'
 import { formatTimestamp } from '@/shared/utils/format'
-import { Markdown } from './Markdown'
 import { ErrorBlock } from './blocks/ErrorBlock'
 import { ThinkingBlock } from './blocks/ThinkingBlock'
-import { ToolCallBlock } from './blocks/ToolCallBlock'
-import { FileChangeCard } from './FileChangeCard'
-import { collectFileChanges, relativize } from './FileChangeCard/collect'
+import { MessageSegment } from './MessageSegment'
+import { messageSegments } from './messageSegments'
+import { FileChangeCard, type FileChange } from './FileChangeCard'
 import styles from './AssistantMessage.module.css'
 
 export interface AssistantMessageProps {
@@ -16,6 +14,8 @@ export interface AssistantMessageProps {
   tools: Record<string, ToolExecution>
   cwd: string | null
   streaming?: boolean
+  /** 本次交互的文件改动。只有结论那条消息带，过程轮次不挂卡片 */
+  changes?: FileChange[]
   /** 过程轮次不显示操作栏——复制/分支只对整次交互的结论有意义 */
   hideFooter?: boolean
 }
@@ -55,25 +55,20 @@ function thinkingStateOf(message: ChatAssistantMessage, streaming: boolean) {
 
   return {
     content,
-    timing: message.thinking ?? null,
     active: streaming && message.thinking?.startedAt != null,
   }
 }
 
 /** 助手消息。思考内容合并到顶部折叠行，正文与工具调用按 content 原顺序渲染 */
-export function AssistantMessage({
+export const AssistantMessage = memo(function AssistantMessage({
   message,
   tools,
   cwd,
   streaming = false,
+  changes = [],
   hideFooter = false,
 }: AssistantMessageProps) {
   const [copied, setCopied] = useState(false)
-
-  const changes = collectFileChanges(tools).map((change) => ({
-    ...change,
-    path: relativize(change.path, cwd),
-  }))
 
   // 光标只跟在最后一个文本块末尾；用下标标记而非 CSS 选兄弟节点，
   // 后者会被 FileChangeCard 等同为 div 的块干扰
@@ -94,25 +89,20 @@ export function AssistantMessage({
 
   return (
     <article className={styles.message} data-streaming={streaming}>
-      {/* 没有思考内容就不出这一行——「在等模型开口」由上面的状态行负责说，两处都说就重复了 */}
-      {think.content.length > 0 && (
-        <ThinkingBlock content={think.content} active={think.active} timing={think.timing} />
+      {/* 仅在思考进行中展示一行「正在思考」与最新预览，思考完成后移除 */}
+      {think.active && think.content.length > 0 && (
+        <ThinkingBlock content={think.content} active={think.active} />
       )}
 
-      {message.content.map((block, index) => {
-        if (block.type === 'text') {
-          return (
-            <Markdown key={index} caret={streaming && index === lastTextIndex} cwd={cwd}>
-              {block.text}
-            </Markdown>
-          )
-        }
-        if (block.type === 'toolCall') {
-          const execution = tools[(block as ToolCallContent).id]
-          return execution ? <ToolCallBlock key={index} execution={execution} /> : null
-        }
-        return null
-      })}
+      {messageSegments(message.content).map((segment) => (
+        <MessageSegment
+          key={segment.index}
+          segment={segment}
+          tools={tools}
+          cwd={cwd}
+          caret={streaming && segment.index === lastTextIndex}
+        />
+      ))}
 
       <FileChangeCard changes={changes} />
 
@@ -136,4 +126,4 @@ export function AssistantMessage({
       )}
     </article>
   )
-}
+})

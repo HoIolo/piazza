@@ -69,3 +69,50 @@ const TOOL_TITLES: Record<string, string> = {
 export function toolTitle(toolName: string): string {
   return TOOL_TITLES[toolName] ?? toolName
 }
+
+/** 工具的大类，决定折叠行的图标与汇总时归到哪一项 */
+export type ToolKind = 'command' | 'read' | 'search' | 'list' | 'edit' | 'web' | 'other'
+
+const TOOL_KINDS: Record<string, ToolKind> = {
+  bash: 'command',
+  read: 'read',
+  grep: 'search',
+  glob: 'search',
+  find: 'search',
+  list: 'list',
+  ls: 'list',
+  edit: 'edit',
+  write: 'edit',
+  multi_edit: 'edit',
+  apply_patch: 'edit',
+  fetch: 'web',
+  web_search: 'web',
+}
+
+export function toolKind(toolName: string): ToolKind {
+  return TOOL_KINDS[toolName] ?? 'other'
+}
+
+/** 汇总里各类的说法与出现顺序，对应 Codex 的 “Explored 3 files, ran 2 commands” */
+const SUMMARY_PARTS: Array<[ToolKind, (count: number) => string]> = [
+  ['read', (n) => `读取 ${n} 个文件`],
+  ['search', (n) => `搜索 ${n} 次`],
+  ['list', (n) => `列出 ${n} 次目录`],
+  ['edit', (n) => `编辑 ${n} 个文件`],
+  ['command', (n) => `运行 ${n} 条命令`],
+  ['web', (n) => `请求 ${n} 次网络`],
+  ['other', (n) => `调用 ${n} 次工具`],
+]
+
+/** 一组工具调用的一句话汇总，如「已读取 3 个文件，运行 2 条命令」 */
+export function summarizeGroup(toolNames: string[]): string {
+  const counts = new Map<ToolKind, number>()
+  for (const name of toolNames) {
+    const kind = toolKind(name)
+    counts.set(kind, (counts.get(kind) ?? 0) + 1)
+  }
+  const parts = SUMMARY_PARTS.filter(([kind]) => counts.has(kind)).map(([kind, say]) =>
+    say(counts.get(kind) ?? 0),
+  )
+  return `已${parts.join('，')}`
+}

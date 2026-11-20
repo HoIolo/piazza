@@ -1,72 +1,81 @@
 import { useState } from 'react'
-import { Check, ChevronRight, CircleAlert, Square } from 'lucide-react'
+import { CircleAlert } from 'lucide-react'
+import { CodexIcon } from '@/design/icons/CodexIcon'
 import { ShimmerText } from '@/design/primitives/ShimmerText'
 import type { ToolExecution } from '@/store/chat'
-import { resultToText, summarizeArgs, toolTitle, toolVerb } from './toolFormat'
+import { summarizeArgs, toolKind, toolVerb, type ToolKind } from './toolFormat'
+import { isImageView, toolImages } from './toolImages'
+import { integrationSource } from './toolIntegration'
+import { ToolImageResult } from './ToolImageResult'
+import { ToolDetails } from './ToolDetails'
 import styles from './ToolCallBlock.module.css'
+
+const KIND_ICONS = {
+  command: 'terminal',
+  read: 'file',
+  search: 'search',
+  list: 'folder',
+  edit: 'edit',
+  web: 'web',
+  other: 'code',
+} as const satisfies Record<ToolKind, string>
 
 export interface ToolCallBlockProps {
   execution: ToolExecution
 }
 
-/**
- * 工具调用。折叠态是一行文字（「正在运行 pwd」/「已运行 pwd」），
- * 与 Codex 一致——工具调用是过程信息，不该用卡片抢正文的视觉权重。
- * 展开后才显示带结果的卡片。
- */
+function renderLabel(source: string | null, execution: ToolExecution, running: boolean) {
+  if (source) return `${running ? '正在使用' : '已使用'} ${source} 集成`
+  const summary = summarizeArgs(execution.toolName, execution.args)
+  return (
+    <>
+      {toolVerb(execution.toolName, running)}
+      {summary && <span className={styles.arg}> {summary}</span>}
+    </>
+  )
+}
+
 export function ToolCallBlock({ execution }: ToolCallBlockProps) {
   const [expanded, setExpanded] = useState(false)
-
-  const running = !execution.result && !execution.isError
-  const summary = summarizeArgs(execution.toolName, execution.args)
-  const output = resultToText(execution)
-  const canExpand = !running && Boolean(output)
-
+  const [opened, setOpened] = useState(false)
+  const running = execution.status === 'running'
+  const images = toolImages(execution)
+  const source = integrationSource(execution.toolName)
+  if (isImageView(execution))
+    return (
+      <div data-tool-call={execution.toolCallId}>
+        <ToolImageResult images={images} running={running} />
+      </div>
+    )
   return (
-    <div className={styles.block}>
+    <div className={styles.block} data-tool-call={execution.toolCallId}>
       <button
         type="button"
         className={styles.line}
         data-running={running}
-        onClick={() => canExpand && setExpanded((v) => !v)}
-        disabled={!canExpand}
-        aria-expanded={canExpand ? expanded : undefined}
+        onClick={() => {
+          setOpened(true)
+          setExpanded((value) => !value)
+        }}
+        aria-expanded={expanded}
       >
-        <Square size={13} className={styles.icon} />
+        <CodexIcon
+          name={source ? 'integration' : KIND_ICONS[toolKind(execution.toolName)]}
+          size={16}
+          className={styles.icon}
+        />
         <span className={styles.text}>
-          <ShimmerText active={running}>
-            {toolVerb(execution.toolName, running)}
-            {summary && <span className={styles.arg}> {summary}</span>}
-          </ShimmerText>
+          <ShimmerText active={running}>{renderLabel(source, execution, running)}</ShimmerText>
         </span>
-        {canExpand && (
-          <ChevronRight size={13} className={styles.chevron} data-expanded={expanded} />
-        )}
+        <CodexIcon name="chevron" size={12} className={styles.chevron} />
         {execution.isError && <CircleAlert size={13} className={styles.errorIcon} />}
       </button>
-
-      <div className={styles.detailWrap} data-expanded={expanded && canExpand}>
+      <div className={styles.detailWrap} data-expanded={expanded} inert={!expanded}>
         <div className={styles.detailClip}>
-          <div className={styles.detail}>
-            <div className={styles.detailHead}>{toolTitle(execution.toolName)}</div>
-            {summary && <div className={styles.command}>$ {summary}</div>}
-            <pre className={`${styles.output} selectable`}>{output}</pre>
-            <div className={styles.status} data-error={execution.isError}>
-              {execution.isError ? (
-                <>
-                  <CircleAlert size={13} />
-                  失败
-                </>
-              ) : (
-                <>
-                  <Check size={13} />
-                  成功
-                </>
-              )}
-            </div>
-          </div>
+          {(expanded || opened) && <ToolDetails execution={execution} />}
         </div>
       </div>
+      {images.length > 0 && <ToolImageResult images={images} running={running} />}
     </div>
   )
 }

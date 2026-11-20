@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import type { ToolExecution } from '@/store/chat'
 import { AssistantMessage } from './AssistantMessage'
 import { BashExecutionItem } from './BashExecutionItem'
+import { exchangeFileChanges } from './FileChangeCard/collect'
 import { StatusLine } from './StatusLine'
 import { UserMessage } from './UserMessage'
 import type { Exchange } from './exchange'
@@ -9,10 +10,13 @@ import styles from './ExchangeGroup.module.css'
 
 export interface ExchangeGroupProps {
   exchange: Exchange
+  userIndex?: number
   tools: Record<string, ToolExecution>
   cwd: string | null
   /** 本次交互仍在进行中 */
   active?: boolean
+  /** 任意轮次运行中，禁止对历史用户消息发起编辑分叉 */
+  disabled?: boolean
   /** 进行中的实时耗时，用于「处理中 Ns」 */
   elapsedMs?: number | null
   /**
@@ -27,33 +31,37 @@ export interface ExchangeGroupProps {
   ref?: React.Ref<HTMLElement>
 }
 
-/** 过程区：折叠时高度归零，展开播放高度过渡 */
+/** 过程区：折叠态不挂载子节点，避免数百条中间消息与工具输出拖垮会话切换 */
 function ProcessArea({
   intermediate,
   others,
   tools,
   cwd,
   visible,
+  mounted,
 }: {
   intermediate: Exchange['intermediate']
   others: Exchange['others']
   tools: Record<string, ToolExecution>
   cwd: string | null
   visible: boolean
+  mounted: boolean
 }) {
   return (
-    <div className={styles.processWrap} data-expanded={visible}>
+    <div className={styles.processWrap} data-expanded={visible} inert={!visible}>
       <div className={styles.processClip}>
-        <div className={styles.process}>
-          {others.map((message, index) =>
-            message.role === 'bashExecution' ? (
-              <BashExecutionItem key={`b${index}`} message={message} />
-            ) : null,
-          )}
-          {intermediate.map((message, index) => (
-            <AssistantMessage key={index} message={message} tools={tools} cwd={cwd} hideFooter />
-          ))}
-        </div>
+        {mounted && (
+          <div className={styles.process}>
+            {others.map((message, index) =>
+              message.role === 'bashExecution' ? (
+                <BashExecutionItem key={`b${index}`} message={message} />
+              ) : null,
+            )}
+            {intermediate.map((message, index) => (
+              <AssistantMessage key={index} message={message} tools={tools} cwd={cwd} hideFooter />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -92,22 +100,30 @@ function deriveView(
  * 一次交互。进行中铺开全部轮次，结束后收起过程、只留最后一轮汇报——
  * 中间轮次多是「我要调用某工具」这类过场，读者真正要看的是结论。
  */
-export function ExchangeGroup({
+export const ExchangeGroup = memo(function ExchangeGroup({
   exchange,
+  userIndex,
   tools,
   cwd,
   active = false,
+  disabled = false,
   elapsedMs,
   finishedMs,
   ref,
 }: ExchangeGroupProps) {
   const [expanded, setExpanded] = useState(false)
+  const [opened, setOpened] = useState(active)
   const { user, intermediate, final, others } = exchange
   const view = deriveView(exchange, active, elapsedMs, finishedMs)
+  const processVisible = (active || expanded) && view.hasProcess
+  const changes = useMemo(
+    () => (final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []),
+    [intermediate, final, tools, cwd],
+  )
 
   return (
     <section className={styles.group} ref={ref}>
-      {user && <UserMessage message={user} />}
+      {user && <UserMessage message={user} userIndex={userIndex} editable={!disabled} />}
 
       {view.showStatus && (
         <StatusLine
@@ -116,18 +132,24 @@ export function ExchangeGroup({
           responded={view.responded}
           expandable={view.expandable}
           expanded={expanded}
-          onToggle={() => setExpanded((v) => !v)}
+          onToggle={() => {
+            setOpened(true)
+            setExpanded((v) => !v)
+          }}
         />
       )}
 
-      <ProcessArea
-        intermediate={intermediate}
-        others={others}
-        tools={tools}
-        cwd={cwd}
-        /* 进行中始终铺开，结束后交给用户决定 */
-        visible={(active || expanded) && view.hasProcess}
-      />
+      {view.hasProcess && (
+        <ProcessArea
+          intermediate={intermediate}
+          others={others}
+          tools={tools}
+          cwd={cwd}
+          /* 进行中始终铺开，结束后交给用户决定 */
+          visible={processVisible}
+          mounted={processVisible || opened}
+        />
+      )}
 
       {final && (
         <AssistantMessage
@@ -135,9 +157,10 @@ export function ExchangeGroup({
           tools={tools}
           cwd={cwd}
           streaming={active}
+          changes={changes}
           hideFooter={active}
         />
       )}
     </section>
   )
-}
+})

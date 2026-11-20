@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Pencil, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import type { ExtensionUiDialog } from '@/rpc/types'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
 import styles from './DialogCard.module.css'
@@ -17,7 +17,7 @@ function SelectBody({ options, onPick }: { options: string[]; onPick: (v: string
         <button key={option} type="button" className={styles.option} onClick={() => onPick(option)}>
           <span className={styles.index}>{index + 1}</span>
           <span className={styles.optionText}>{option}</span>
-          <ArrowRight size={16} className={styles.go} />
+          <ChevronRight aria-hidden="true" size={16} className={styles.go} />
         </button>
       ))}
     </>
@@ -52,6 +52,9 @@ function TextBody({
 }) {
   const [value, setValue] = useState(prefill ?? '')
   const ime = useImeGuard()
+  const submit = () => {
+    if (value.trim()) onSubmit(value)
+  }
 
   return (
     <div className={styles.textBody}>
@@ -71,16 +74,11 @@ function TextBody({
           placeholder={placeholder}
           autoFocus
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !ime.isComposing(e) && onSubmit(value)}
+          onKeyDown={(e) => e.key === 'Enter' && !ime.isComposing(e) && submit()}
           {...ime.bind}
         />
       )}
-      <button
-        type="button"
-        className={styles.primary}
-        disabled={!value.trim()}
-        onClick={() => onSubmit(value)}
-      >
+      <button type="button" className={styles.primary} disabled={!value.trim()} onClick={submit}>
         提交
       </button>
     </div>
@@ -95,12 +93,14 @@ export function DialogCard({ dialog, onAnswer }: DialogCardProps) {
   return (
     <div className={styles.card} role="dialog" aria-label={dialog.title ?? '需要你的输入'}>
       <header className={styles.head}>
+        <Check className={styles.questionIcon} aria-hidden="true" size={16} />
         <h4 className={styles.title}>{dialog.title ?? '需要你的输入'}</h4>
         <button
           type="button"
           className={styles.close}
           onClick={() => onAnswer({ cancelled: true })}
-          aria-label="跳过"
+          aria-label="跳过提问"
+          title="跳过提问"
         >
           <X size={16} />
         </button>
@@ -122,16 +122,6 @@ export function DialogCard({ dialog, onAnswer }: DialogCardProps) {
           onSubmit={(value) => onAnswer({ value })}
         />
       )}
-
-      <footer className={styles.foot}>
-        <span className={styles.hint}>
-          <Pencil size={14} />
-          不选也可以直接在下方输入框告诉它该怎么做
-        </span>
-        <button type="button" className={styles.skip} onClick={() => onAnswer({ cancelled: true })}>
-          跳过
-        </button>
-      </footer>
     </div>
   )
 }

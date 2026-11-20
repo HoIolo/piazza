@@ -1,41 +1,81 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useElapsed } from '@/shared/hooks/useElapsed'
 import { useStickToBottom } from '@/shared/hooks/useStickToBottom'
-import { useChatStore } from '@/store/chat'
 import { useAppStore } from '@/store/app.store'
+import { useChatStore } from '@/store/chat'
 import { useActiveExchange } from '../hooks/useActiveExchange'
+import { useExchangeWindow } from '../hooks/useExchangeWindow'
 import { ExchangeGroup } from './ExchangeGroup'
 import { ExchangeRail } from './ExchangeRail'
-import { groupIntoExchanges } from './exchange'
+import { ScrollThumb } from './ScrollThumb'
+import { groupIntoExchanges, type Exchange } from './exchange'
 import styles from './MessageList.module.css'
+
+/** 预先计算每轮对应的用户消息序号，分页截断前半段后序号仍保持准确 */
+function computeUserOrdinals(exchanges: Exchange[]): Array<number | undefined> {
+  let ordinal = 0
+  return exchanges.map((exchange) => (exchange.user ? ordinal++ : undefined))
+}
 
 /** 消息流滚动容器 */
 export function MessageList() {
   const containerRef = useRef<HTMLDivElement>(null)
   const groupRefs = useRef<Array<HTMLElement | null>>([])
+  const pendingJumpRef = useRef<number | null>(null)
 
   const messages = useChatStore((s) => s.messages)
+  const viewKey = useChatStore((s) => s.viewKey)
   const streaming = useChatStore((s) => s.streaming)
   const tools = useChatStore((s) => s.tools)
   const isStreaming = useChatStore((s) => s.isStreaming)
   const turnStartedAt = useChatStore((s) => s.turnStartedAt)
   const lastTurnDurationMs = useChatStore((s) => s.lastTurnDurationMs)
   const cwd = useAppStore((s) => s.currentCwd)
+  const sessionKey = viewKey
+  const sessionPath = viewKey.startsWith('new:') || viewKey === 'init' ? null : viewKey
 
   const elapsedMs = useElapsed(isStreaming ? turnStartedAt : null)
 
   // 流式中的消息尚未进入 messages，先并进去再分组，
   // 这样进行中的这次交互与历史走同一套渲染，不必写两份
-  const exchanges = groupIntoExchanges(streaming ? [...messages, streaming] : messages)
+  const exchanges = useMemo(
+    () => groupIntoExchanges(streaming ? [...messages, streaming] : messages),
+    [messages, streaming],
+  )
+  const userOrdinals = useMemo(() => computeUserOrdinals(exchanges), [exchanges])
+
+  const { start, loadOlder, ensureVisible } = useExchangeWindow(
+    containerRef,
+    sessionKey,
+    sessionPath,
+    exchanges.length,
+  )
 
   // 内容长高就贴底，由 ResizeObserver 直接盯高度
   useStickToBottom(containerRef)
 
-  const activeIndex = useActiveExchange(containerRef, groupRefs, exchanges.length)
+  const activeIndex = useActiveExchange(containerRef, groupRefs, exchanges.length - start)
 
-  const jumpTo = useCallback((index: number) => {
-    groupRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
+  const jumpTo = useCallback(
+    (index: number) => {
+      if (index < start) {
+        pendingJumpRef.current = index
+        ensureVisible(index)
+        return
+      }
+      groupRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    },
+    [ensureVisible, start],
+  )
+
+  useEffect(() => {
+    const target = pendingJumpRef.current
+    if (target === null || target < start) return
+    pendingJumpRef.current = null
+    groupRefs.current[target]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [start])
+
+  const visibleExchanges = start > 0 ? exchanges.slice(start) : exchanges
 
   return (
     <div className={styles.wrap}>
@@ -44,31 +84,37 @@ export function MessageList() {
 
       <div className={styles.scroller} ref={containerRef}>
         <div className={styles.inner}>
-          {exchanges.map((exchange, index) => (
-            <ExchangeGroup
-              key={index}
-              ref={(el) => {
-                groupRefs.current[index] = el
-              }}
-              exchange={exchange}
-              tools={tools}
-              cwd={cwd}
-              active={isStreaming && index === exchanges.length - 1}
-              elapsedMs={elapsedMs}
-              /* 本地量的耗时只属于刚跑完的那一轮，更早的没有 */
-              finishedMs={
-                !isStreaming && index === exchanges.length - 1 ? lastTurnDurationMs : null
-              }
-            />
-          ))}
-
-          {/*
-            发送后留出约 40vh 空白，让新消息从视口上方开始，
-            而不是紧贴输入框往上挤。回答变长时这块空白被自然吃掉。
-          */}
-          {isStreaming && <div className={styles.tailSpace} />}
+          {start > 0 && (
+            <div className={styles.olderBar}>
+              <button type="button" className={styles.olderBtn} onClick={loadOlder}>
+                显示更早的 {start} 轮对话
+              </button>
+            </div>
+          )}
+          {visibleExchanges.map((exchange, offset) => {
+            const index = start + offset
+            const isLast = index === exchanges.length - 1
+            return (
+              <ExchangeGroup
+                key={`${sessionKey}:${index}`}
+                ref={(el) => {
+                  groupRefs.current[index] = el
+                }}
+                exchange={exchange}
+                userIndex={userOrdinals[index]}
+                tools={tools}
+                cwd={cwd}
+                active={isStreaming && isLast}
+                disabled={isStreaming}
+                elapsedMs={isLast ? elapsedMs : null}
+                /* 本地量的耗时只属于刚跑完的那一轮，更早的没有 */
+                finishedMs={!isStreaming && isLast ? lastTurnDurationMs : null}
+              />
+            )
+          })}
         </div>
       </div>
+      <ScrollThumb containerRef={containerRef} />
     </div>
   )
 }

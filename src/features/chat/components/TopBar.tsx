@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderOpen, PanelBottom, PanelRight } from 'lucide-react'
+import { EnvIcon, FolderIcon, PanelLeftIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
 import { EnvMenu } from './EnvMenu'
@@ -8,33 +8,32 @@ import { SessionMenu } from './SessionMenu'
 import styles from './TopBar.module.css'
 
 export interface TopBarProps {
-  terminalOpen: boolean
-  onToggleTerminal: () => void
   /** 会话标题，空状态下为 null */
   title: string | null
   cwd: string | null
-  rightPanelOpen: boolean
-  onToggleRightPanel: () => void
+  /** 侧栏收起时，展开它的按钮移到顶栏最左，并给交通灯让出位置 */
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
+  /**
+   * 环境信息是否停靠在会话区右侧。停靠时顶栏这个位置只是它的开关；
+   * 不停靠（主区太窄）时同一位置换成弹窗入口。
+   */
+  envDocked: boolean
+  envPanelOpen: boolean
+  onToggleEnvPanel: () => void
   onRename: (name: string) => void
   onExport: () => Promise<string | null>
 }
 
-/**
- * 主区顶栏。整条是窗口拖拽区，按钮区域单独排除。
- *
- * 空状态只留终端与右侧面板两个开关：标题、「打开位置」、环境信息
- * 都是针对某次会话的，没有会话时它们无所指。
- *
- * 不放最小化按钮——窗口交通灯已在侧栏左上角，再来一个是重复的。
- * Codex 原版右侧还有「任务列表」，pi 没有任务概念，故不保留。
- */
+/** 会话标题与环境操作。窗口级工具由主窗口统一定位。 */
 export function TopBar({
   title,
   cwd,
-  terminalOpen,
-  onToggleTerminal,
-  rightPanelOpen,
-  onToggleRightPanel,
+  sidebarOpen,
+  onToggleSidebar,
+  envDocked,
+  envPanelOpen,
+  onToggleEnvPanel,
   onRename,
   onExport,
 }: TopBarProps) {
@@ -48,15 +47,21 @@ export function TopBar({
   }
 
   return (
-    <header className={styles.bar} data-tauri-drag-region>
+    <header className={styles.bar} data-sidebar-open={sidebarOpen} data-tauri-drag-region>
+      {!sidebarOpen && (
+        <IconButton ariaLabel="展开侧栏" title="展开侧栏（⌘B）" onClick={onToggleSidebar}>
+          <PanelLeftIcon />
+        </IconButton>
+      )}
       {title && (
         <div className={styles.left}>
-          <FolderOpen size={16} className={styles.folder} />
+          <FolderIcon size={18} className={styles.folder} />
           {editing ? (
             <input
               className={styles.titleInput}
               defaultValue={title}
               autoFocus
+              onFocus={(e) => e.target.select()}
               onBlur={(e) => commit(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !ime.isComposing(e)) commit(e.currentTarget.value)
@@ -82,15 +87,15 @@ export function TopBar({
         {title && (
           <>
             <OpenLocationButton target={cwd} />
-            <EnvMenu />
+            {envDocked ? (
+              <IconButton ariaLabel="环境信息" active={envPanelOpen} onClick={onToggleEnvPanel}>
+                <EnvIcon />
+              </IconButton>
+            ) : (
+              <EnvMenu />
+            )}
           </>
         )}
-        <IconButton ariaLabel="切换终端" active={terminalOpen} onClick={onToggleTerminal}>
-          <PanelBottom size={17} />
-        </IconButton>
-        <IconButton ariaLabel="切换右侧面板" active={rightPanelOpen} onClick={onToggleRightPanel}>
-          <PanelRight size={17} />
-        </IconButton>
       </div>
     </header>
   )

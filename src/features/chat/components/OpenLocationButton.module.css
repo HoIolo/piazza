@@ -3,9 +3,10 @@
   display: inline-flex;
   align-items: stretch;
   height: 28px;
+  margin-right: 2px;
+  background: var(--bg-sidebar-hover);
   border: 1px solid var(--border);
   border-radius: var(--r-pill);
-  background: var(--bg-surface);
   overflow: hidden;
 }
 
@@ -13,8 +14,8 @@
 .caret {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-3);
+  gap: 6px;
+  padding: 0 var(--sp-2);
   font-size: var(--fs-desc);
   color: var(--text-primary);
   cursor: pointer;
@@ -25,7 +26,7 @@
 .main:hover:not(:disabled),
 .caret:hover,
 .caret[data-open='true'] {
-  background: var(--bg-hover);
+  background: var(--bg-sidebar-hover);
 }
 
 .main:disabled {
@@ -34,13 +35,15 @@
 }
 
 .caret {
-  padding: 0 var(--sp-2);
+  padding: 0 6px;
   border-left: 1px solid var(--border);
   color: var(--text-secondary);
 }
 
 .panel {
   min-width: 180px;
+  max-height: min(300px, 42vh);
+  overflow-y: auto;
 }
 
 /* 系统图标本身带留白，尺寸对齐 lucide 的 16px 视觉重量 */

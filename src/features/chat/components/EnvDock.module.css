@@ -1,0 +1,18 @@
+@import '../../../design/keyframes/fade-in.css';
+
+/*
+ * 卡片是会话列的兄弟列而不是覆盖层：正文在余下的宽度里居中，
+ * 不会被卡片压住——与 Codex 一致。右缘对齐顶栏按钮列（顶栏右内边距 --sp-3）。
+ */
+.dock {
+  flex: none;
+  align-self: flex-start;
+  width: var(--envpanel-w);
+  margin: var(--sp-2) var(--sp-3) 0 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}

@@ -1,4 +1,4 @@
-import type { ToolExecution } from '@/store/chat'
+import type { ChatAssistantMessage, ToolExecution } from '@/store/chat'
 import type { FileChange } from './index'
 
 /** 会产生文件改动的工具 */
@@ -58,4 +58,27 @@ export function collectFileChanges(tools: Record<string, ToolExecution>): FileCh
 export function relativize(path: string, cwd: string | null): string {
   if (!cwd || !path.startsWith(cwd)) return path
   return path.slice(cwd.length).replace(/^\//, '')
+}
+
+/**
+ * 一次交互里的文件改动，路径已转成相对项目根。
+ *
+ * tools 是整个会话的执行表，直接拿去汇总会把之前每一轮的改动都算进来——
+ * 于是每条回答下面都挂着同一张越来越长的卡片。这里只挑本次交互发起的调用。
+ */
+export function exchangeFileChanges(
+  messages: ChatAssistantMessage[],
+  tools: Record<string, ToolExecution>,
+  cwd: string | null,
+): FileChange[] {
+  const own: Record<string, ToolExecution> = {}
+  for (const message of messages) {
+    for (const block of message.content) {
+      if (block.type === 'toolCall' && tools[block.id]) own[block.id] = tools[block.id]
+    }
+  }
+  return collectFileChanges(own).map((change) => ({
+    ...change,
+    path: relativize(change.path, cwd),
+  }))
 }

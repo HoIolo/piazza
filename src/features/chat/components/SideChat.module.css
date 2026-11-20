@@ -1,0 +1,138 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  flex: none;
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-desc);
+  overflow-wrap: anywhere;
+}
+
+.header span,
+.empty,
+.status {
+  color: var(--text-secondary);
+  font-size: var(--fs-desc);
+}
+
+.feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-3);
+}
+
+.feed > article + article {
+  margin-top: var(--sp-3);
+}
+
+.controls {
+  flex: none;
+  max-height: 60%;
+  overflow-y: auto;
+  padding: var(--sp-3);
+}
+
+.empty {
+  padding: var(--sp-2);
+}
+
+.error,
+.status {
+  margin-bottom: var(--sp-2);
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: var(--text-error);
+  font-size: var(--fs-desc);
+}
+
+.retry {
+  margin-bottom: var(--sp-2);
+  color: var(--blue-link);
+  cursor: pointer;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-radius: var(--r-input);
+  corner-shape: var(--corner-shape);
+  background: var(--bg-input);
+  box-shadow: var(--shadow-input);
+}
+
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-body);
+  line-height: 20px;
+  resize: none;
+  background: transparent;
+}
+
+.composer button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--composer-primary);
+  color: var(--composer-primary-text);
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.composer button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.welcome {
+  display: grid;
+  min-height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: var(--sp-2);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--fs-desc);
+}
+
+.welcome h2 {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-section);
+}
+
+.quote {
+  margin-bottom: var(--sp-2);
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
+  background: var(--bg-code);
+  color: var(--text-secondary);
+  font-size: var(--fs-code);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.quote:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

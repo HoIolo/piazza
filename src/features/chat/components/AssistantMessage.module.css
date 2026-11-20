@@ -1,23 +1,39 @@
 @import '../../../design/keyframes/rise-in.css';
 
 .message {
-  margin-bottom: var(--sp-6);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: var(--message-gap);
+  font-family: var(--message-font);
+  /* Codex 正文为常规字重 400，加粗才是 600 */
+  font-weight: var(--fw-normal);
   animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+/* 消息块的外部间距统一由父级控制，保留块内排版。 */
+.message > * {
+  margin-block: 0;
+}
+
+.message:empty {
+  display: none;
 }
 
 .footer {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
+  gap: 2px;
+  margin-left: -4px;
+  font-weight: var(--fw-normal);
 }
 
 .action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   color: var(--text-tertiary);
   cursor: pointer;
@@ -32,7 +48,14 @@
 }
 
 .time {
-  margin-left: var(--sp-1);
+  margin-left: 6px;
   font-size: 12px;
   color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.message:hover .time,
+.message:focus-within .time {
+  opacity: 1;
 }
