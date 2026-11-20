@@ -2,18 +2,21 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: none;
+  margin-right: -5px;
 }
 
 .trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   color: var(--text-secondary);
   cursor: default;
+  transform: translateY(0.5px);
   transition: background var(--dur-fast) var(--ease);
 }
 
@@ -23,6 +26,7 @@
 }
 
 .ring {
+  display: block;
   transform: rotate(-90deg);
 }
 

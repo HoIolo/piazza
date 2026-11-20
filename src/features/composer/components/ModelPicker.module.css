@@ -2,14 +2,14 @@
 .trigger {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-1);
+  gap: 4px;
   min-width: 0;
   max-width: 256px;
-  height: 32px;
-  padding: 0 var(--sp-2);
+  height: 28px;
+  padding: 0 7px;
   border-radius: var(--r-pill);
   font-size: var(--fs-desc);
-  line-height: 18px;
+  line-height: 20px;
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
@@ -24,17 +24,21 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 20px;
   color: var(--text-primary);
 }
 
 .triggerLevel {
   flex: none;
+  line-height: 20px;
   color: var(--text-tertiary);
 }
 
 .chevron {
+  display: block;
   flex: none;
   color: var(--text-tertiary);
+  transform: translateY(0.5px);
 }
 
 /*
