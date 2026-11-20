@@ -29,7 +29,7 @@ export function SidebarFooter({ profileName, onOpenSettings }: SidebarFooterProp
             aria-haspopup="menu"
             aria-expanded={open}
           >
-            <Settings size={17} className={styles.icon} />
+            <Settings size={18} className={styles.icon} />
             <span className={styles.name}>{profileName}</span>
           </button>
         )}

@@ -19,7 +19,7 @@
 
 .trigger:hover,
 .trigger[data-open='true'] {
-  background: var(--bg-selected);
+  background: var(--bg-sidebar-selected);
   color: var(--text-primary);
 }
 

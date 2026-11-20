@@ -1,4 +1,4 @@
-import { Package, SquarePen } from 'lucide-react'
+import { ComposeIcon, PackageIcon } from '@/design/icons'
 import styles from './SidebarNav.module.css'
 
 export interface SidebarNavProps {
@@ -15,16 +15,17 @@ export interface SidebarNavProps {
  */
 export function SidebarNav({ onNewChat, onOpenPackages }: SidebarNavProps) {
   const items = [
-    { icon: SquarePen, label: '新对话', onClick: onNewChat },
-    { icon: Package, label: '扩展包', onClick: onOpenPackages },
+    { icon: ComposeIcon, label: '新对话', hint: '⌘N', onClick: onNewChat },
+    { icon: PackageIcon, label: '扩展包', hint: null, onClick: onOpenPackages },
   ]
 
   return (
     <nav className={styles.nav}>
-      {items.map(({ icon: Icon, label, onClick }) => (
+      {items.map(({ icon: Icon, label, hint, onClick }) => (
         <button key={label} type="button" className={styles.item} onClick={onClick} title={label}>
-          <Icon size={17} className={styles.icon} />
+          <Icon className={styles.icon} />
           <span className={styles.label}>{label}</span>
+          {hint && <kbd className={styles.hint}>{hint}</kbd>}
         </button>
       ))}
     </nav>

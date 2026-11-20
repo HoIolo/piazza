@@ -1,6 +1,8 @@
+import { trashSession } from '@/shared/api/sessions'
+import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { useProjectsStore } from '@/store/projects.store'
-import { useChatStore } from '@/store/chat'
+import { evictCachedSession, useChatStore } from '@/store/chat'
 import { ProjectTree } from './components/ProjectTree'
 import { ProjectTreeSkeleton } from './components/ProjectTreeSkeleton'
 import { SidebarFooter } from './components/SidebarFooter'
@@ -19,13 +21,24 @@ export function Sidebar() {
   const liveSessionPath = useAppStore((s) => s.liveSessionPath)
   const pinned = useAppStore((s) => s.pinnedProjects)
   const hiddenProjects = useAppStore((s) => s.hiddenProjects)
+  const pinnedSessions = useAppStore((s) => s.pinnedSessions)
+  const togglePinnedSession = useAppStore((s) => s.togglePinnedSession)
   const selectProject = useAppStore((s) => s.selectProject)
   const selectSession = useAppStore((s) => s.selectSession)
   const startNewSession = useAppStore((s) => s.startNewSession)
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen)
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const openSettings = useAppStore((s) => s.openSettings)
-  const isStreaming = useChatStore((s) => s.isStreaming)
-  const awaitingInput = useChatStore((s) => s.pendingDialog !== null)
+  const status = useChatStore((s) => {
+    if (s.sessionLoading) return 'loading'
+    if (s.pendingDialog) return s.pendingDialog.method === 'confirm' ? 'confirm' : 'input'
+    if (!s.isStreaming) return null
+    return s.streaming?.content.length ||
+      Object.values(s.tools).some((tool) => tool.status === 'running')
+      ? 'working'
+      : 'reply'
+  })
 
   // 隐藏的剔除、置顶的提前；其余保持后端按最近活跃排好的顺序
   const visible = withPendingSession(projects, usePendingSession())
@@ -38,26 +51,40 @@ export function Sidebar() {
    */
   const activeSessionPath = liveSessionPath ?? currentSessionPath
 
+  const deleteSession = async (path: string) => {
+    try {
+      await trashSession(path)
+      evictCachedSession(path)
+      // 删的正是开着的这条：pi 还攥着那个文件，得先切到新会话，否则它下一轮又把文件写回来
+      if (path === activeSessionPath) startNewSession()
+      await useProjectsStore.getState().refresh()
+    } catch (e) {
+      useChatStore.getState().setError(`删除对话失败：${errorMessage(e)}`)
+    }
+  }
+
   return (
-    <aside className={styles.sidebar}>
-      <SidebarHeader onSearch={() => setPaletteOpen(true)} />
+    <aside className={styles.sidebar} data-open={sidebarOpen} inert={!sidebarOpen}>
+      <SidebarHeader onSearch={() => setPaletteOpen(true)} onToggleSidebar={toggleSidebar} />
       <SidebarNav onNewChat={startNewSession} onOpenPackages={() => openSettings('packages')} />
 
       {/*
         有内容就先把树摆出来。列表现在每轮对话结束都会重扫，
         偶尔一次失败不该把好端端的树换成一行报错。
       */}
-      {loading ? (
+      {loading && visible.length === 0 ? (
         <ProjectTreeSkeleton />
       ) : visible.length > 0 ? (
         <ProjectTree
           projects={visible}
           currentCwd={currentCwd}
           activeSessionPath={activeSessionPath}
-          running={isStreaming}
-          awaitingInput={awaitingInput}
+          status={status}
+          pinnedSessions={pinnedSessions}
           onSelectProject={selectProject}
           onSelectSession={selectSession}
+          onTogglePinSession={togglePinnedSession}
+          onDeleteSession={(path) => void deleteSession(path)}
         />
       ) : error ? (
         <div className={styles.hint}>读取会话失败：{error}</div>

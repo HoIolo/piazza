@@ -1,12 +1,27 @@
+/*
+ * 侧栏没有自己的底色：它是透明的，直接露出窗口底下那层系统毛玻璃
+ * （浏览器里则露出 html 上的侧栏灰）。主区在右边铺实色，两者的分界
+ * 就是主区左缘那条发丝线，所以这里也不画右边框。
+ */
 .sidebar {
   display: flex;
   flex-direction: column;
   flex: none;
   width: var(--sidebar-w);
   height: 100%;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-sidebar);
   overflow: hidden;
+  transition:
+    margin-left var(--dur-slow) var(--ease),
+    opacity var(--dur-base) var(--ease);
+}
+
+/*
+ * 收起时整块向左滑出，用负外边距而不是把宽度压到 0：
+ * 压宽度会让里面的文字跟着被挤扁换行，滑出去则内容原样不动。
+ */
+.sidebar[data-open='false'] {
+  margin-left: calc(var(--sidebar-w) * -1);
+  opacity: 0;
 }
 
 .hint {

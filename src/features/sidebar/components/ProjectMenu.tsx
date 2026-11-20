@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Folder, MoreHorizontal, Pin, PinOff, Split, X } from 'lucide-react'
+import { Folder, Pin, PinOff, Split, X } from 'lucide-react'
+import { MoreIcon } from '@/design/icons'
 import { MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
 import { addGitWorktree } from '@/shared/api/git'
@@ -101,7 +102,7 @@ export function ProjectMenu({ cwd }: ProjectMenuProps) {
           aria-expanded={open}
           aria-label="项目菜单"
         >
-          <MoreHorizontal size={16} />
+          <MoreIcon size={18} />
         </button>
       )}
     >

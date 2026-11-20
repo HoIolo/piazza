@@ -1,47 +1,14 @@
-/* 顶部留白：给 macOS 交通灯让位，同时作为窗口拖拽区 */
-.dragZone {
-  height: 38px;
-  flex: none;
-}
-
 .header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--sp-3) 0 var(--sp-4);
-  height: 40px;
   flex: none;
-}
-
-.brand {
-  display: flex;
   align-items: center;
-  gap: var(--sp-1);
-  cursor: pointer;
-  border-radius: 6px;
-  padding: 2px 4px 2px 0;
-}
-
-.brandName {
-  font-size: var(--fs-brand);
-  font-weight: var(--fw-semibold);
-  letter-spacing: -0.01em;
-}
-
-.brandChevron {
-  color: var(--text-secondary);
+  justify-content: flex-end;
+  height: var(--titlebar-h);
+  padding: 0 var(--sp-2);
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-
-.brand[data-open='true'] {
-  background: var(--bg-hover);
-}
-
-.brandMenu {
-  min-width: 220px;
 }

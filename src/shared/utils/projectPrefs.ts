@@ -1,5 +1,5 @@
 /**
- * 界面自己的项目偏好（置顶、隐藏）。
+ * 界面自己的侧栏偏好（项目的置顶与隐藏、会话的置顶）。
  *
  * 存 localStorage 而不是 pi 的 settings.json：那是 pi 的运行配置，
  * 把纯界面状态写进去会污染用户手写的配置，也会让 pi 读到它不认识的键。
@@ -13,9 +13,16 @@ export interface ProjectPrefs {
   pinned: string[]
   /** 从列表隐藏的项目 cwd。只是不显示，不动任何会话文件 */
   hidden: string[]
+  /** 置顶的会话文件路径，排在所属项目的最前 */
+  pinnedSessions: string[]
 }
 
-const EMPTY: ProjectPrefs = { pinned: [], hidden: [] }
+const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [] }
+
+/** 只留字符串项。存储可能被手改过，不能假定里面的形状 */
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v) => typeof v === 'string') : []
+}
 
 /**
  * 取原始值，顺带把旧键搬到新键。
@@ -45,10 +52,11 @@ export function readProjectPrefs(): ProjectPrefs {
     if (!raw) return EMPTY
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return EMPTY
-    const { pinned, hidden } = parsed as Partial<ProjectPrefs>
+    const { pinned, hidden, pinnedSessions } = parsed as Partial<ProjectPrefs>
     return {
-      pinned: Array.isArray(pinned) ? pinned.filter((v) => typeof v === 'string') : [],
-      hidden: Array.isArray(hidden) ? hidden.filter((v) => typeof v === 'string') : [],
+      pinned: strings(pinned),
+      hidden: strings(hidden),
+      pinnedSessions: strings(pinnedSessions),
     }
   } catch {
     // 存储损坏或不可用时退回空偏好，不该让侧栏因此打不开

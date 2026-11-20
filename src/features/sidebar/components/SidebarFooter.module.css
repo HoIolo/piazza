@@ -5,8 +5,8 @@
   gap: var(--sp-2);
   flex: none;
   height: 48px;
+  /* 不画上边线：列表在底部已经渐隐，再压一条线反而把毛玻璃切成两截 */
   padding: 0 var(--sp-3) 0 var(--sp-2);
-  border-top: 1px solid var(--border);
 }
 
 /* 让 Popover 的定位容器撑满剩余宽度，选中范围才与 Codex 一致 */
@@ -18,18 +18,18 @@
 .profile {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   width: 100%;
   min-width: 0;
   height: 32px;
   padding: 0 var(--sp-2);
-  border-radius: var(--r-item);
+  border-radius: var(--r-row);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
 }
 
 .profile:hover {
-  background: var(--bg-hover);
+  background: var(--bg-sidebar-hover);
 }
 
 .icon {
@@ -44,7 +44,7 @@
 }
 
 .profile[data-open='true'] {
-  background: var(--bg-selected);
+  background: var(--bg-sidebar-selected);
 }
 
 .menu {

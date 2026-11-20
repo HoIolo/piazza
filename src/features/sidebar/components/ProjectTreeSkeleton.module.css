@@ -7,11 +7,15 @@
 }
 
 .groupTitle {
-  padding: var(--sp-5) var(--sp-2) var(--sp-2);
+  display: flex;
+  align-items: center;
+  height: var(--sidebar-row-h);
+  margin-bottom: var(--sp-1);
+  padding: 0 var(--sp-2);
 }
 
 .project {
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-2);
 }
 
 /* 行高与 ProjectTree 保持一致，占位与实际内容才能无缝替换 */
@@ -19,7 +23,7 @@
 .sessionRow {
   display: flex;
   align-items: center;
-  height: 30px;
+  height: var(--sidebar-row-h);
   padding: 0 var(--sp-2);
 }
 
@@ -28,5 +32,6 @@
 }
 
 .sessionRow {
-  padding-left: var(--sp-8);
+  padding-left: var(--sidebar-label-inset);
+  margin-top: var(--sidebar-row-gap);
 }

@@ -1,21 +1,53 @@
-@import '../../../design/keyframes/fade-in.css';
-
 .tree {
   flex: 1;
   overflow-y: auto;
   padding: 0 var(--sp-2) var(--sp-4);
   min-height: 0;
+  color: var(--sidebar-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 20px;
+
+  /*
+   * 滚动内容在底部渐隐；顶部标题保持完整显示。
+   * 侧栏是透明的，没法像实色面板那样用一条同色渐变盖住边缘，只能遮罩内容本身。
+   */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--sp-6)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - var(--sp-6)), transparent 100%);
 }
 
 .groupTitle {
-  padding: var(--sp-5) var(--sp-2) var(--sp-2);
-  font-size: var(--fs-group);
+  display: flex;
+  align-items: center;
+  height: var(--sidebar-row-h);
+  margin-bottom: var(--sp-1);
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-nav);
   font-weight: var(--fw-normal);
-  color: var(--text-tertiary);
+  color: var(--sidebar-muted);
+}
+
+.groupToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  cursor: pointer;
+}
+
+.groupToggle svg {
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.groupToggle svg[data-open='false'] {
+  transform: rotate(-90deg);
 }
 
 .project {
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-2);
 }
 
 /* 折叠后只剩一行标题，还留 16px 会让几个项目之间散得不像一个列表 */
@@ -23,14 +55,16 @@
   margin-bottom: 0;
 }
 
-.projectRow,
-.sessionRow {
+.projectRow {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 30px;
-  padding: 0 var(--sp-2);
-  border-radius: var(--r-item);
+  height: var(--sidebar-row-h);
+  padding: 0 var(--sp-1) 0 var(--sp-2);
+  border-radius: var(--r-row);
+  gap: var(--sp-2);
+  outline: none;
+  /* 行本身可点（收起/展开），行尾两个按钮各自 stopPropagation */
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-fast) var(--ease);
@@ -40,40 +74,54 @@
   overflow: hidden;
 }
 
-.projectRow {
-  gap: var(--sp-2);
-  /* 行本身可点（收起/展开），行尾两个按钮各自 stopPropagation */
-  cursor: pointer;
+.projectIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--sp-4);
+  height: var(--sp-5);
 }
 
-/* 折叠箭头。占位固定，展开时旋转 90°，收起不会让文字左右跳 */
+/* Codex 的折叠箭头在悬停时替换文件夹，不额外占据一列。 */
 .chevron {
-  flex: none;
-  color: var(--text-tertiary);
-  transition: transform var(--dur-base) var(--ease);
+  position: absolute;
+  opacity: 0;
+  color: var(--sidebar-muted);
+  transition: transform var(--dur-fast) var(--ease);
 }
 
 .chevron[data-open='true'] {
   transform: rotate(90deg);
 }
 
-/*
- * 行尾操作区：平时不可见但仍占位。
- * 若改成 display:none，悬停时按钮突然出现会把项目名挤短一截。
- */
+.projectRow:is(:hover, :focus-visible) .chevron {
+  opacity: 1;
+}
+
+.projectRow:is(:hover, :focus-visible) .folderIcon {
+  opacity: 0;
+}
+
+/* 项目操作仅在悬停或键盘聚焦时展开，与 Codex 行尾行为一致。 */
 .rowActions {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
   flex: none;
   margin-left: auto;
+  width: 0;
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease);
 }
 
 .projectRow:hover .rowActions,
-.rowActions:focus-within {
+.rowActions:focus-within,
+.rowActions:has([data-open='true']) {
+  width: auto;
   opacity: 1;
   pointer-events: auto;
 }
@@ -94,23 +142,22 @@
 }
 
 .action:hover {
-  background: var(--bg-selected);
+  background: var(--bg-sidebar-selected);
   color: var(--text-primary);
 }
 
 .projectRow:hover,
-.sessionRow:hover {
-  background: var(--bg-hover);
+.projectRow:focus-visible {
+  background: var(--sidebar-row-highlight);
 }
 
-.projectRow[data-active='true'],
-.sessionRow[data-active='true'] {
-  background: var(--bg-selected);
+.projectRow[data-active='true'] {
+  background: var(--sidebar-row-highlight);
 }
 
 .folderIcon {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 }
 
 .projectName {
@@ -121,43 +168,17 @@
   font-weight: var(--fw-normal);
 }
 
-.sessionRow {
-  /* 会话缩进对齐项目名文字，而非文件夹图标 */
-  padding-left: var(--sp-8);
-  font-size: var(--fs-session);
-  color: var(--text-primary);
-  gap: var(--sp-2);
-}
-
-.sessionTitle {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* 等待用户回答时的提示，比转圈更明确地说明「卡在你这儿」 */
-.badge {
-  flex: none;
-  padding: 1px var(--sp-2);
-  border-radius: var(--r-pill);
-  background: var(--badge-input-bg);
-  font-size: 11px;
-  color: var(--badge-input-text);
-  white-space: nowrap;
-  animation: fade-in var(--dur-base) var(--ease-out);
-}
-
 /* 「展开显示 / 收起」。与会话标题同缩进，弱化处理——它是控件不是内容 */
 .more {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 30px;
+  height: var(--sidebar-row-h);
   /* 与会话标题同一缩进（对齐项目名文字），不是对齐行的左边缘 */
-  padding: 0 var(--sp-2) 0 var(--sp-8);
-  border-radius: var(--r-item);
+  padding: 0 var(--sp-2) 0 var(--sidebar-label-inset);
+  border-radius: var(--r-row);
   font-size: var(--fs-session);
-  color: var(--text-tertiary);
+  color: var(--sidebar-muted);
   cursor: pointer;
   text-align: left;
   transition:
@@ -166,14 +187,13 @@
 }
 
 .more:hover {
-  background: var(--bg-hover);
+  background: var(--bg-sidebar-hover);
   color: var(--text-secondary);
 }
 
-/* 标题撞车时补的时间。弱化且不参与压缩，长标题先被裁 */
-.when {
-  flex: none;
-  margin-left: var(--sp-2);
-  font-size: var(--fs-desc);
-  color: var(--text-tertiary);
+.sessionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sidebar-row-gap);
+  margin-top: var(--sidebar-row-gap);
 }
