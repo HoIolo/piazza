@@ -5,10 +5,12 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-canvas);
 }
 
+/* 内容区是实色面，左缘的发丝线与主界面的侧栏分界一致 */
 .content {
+  background: var(--bg-canvas);
+  box-shadow: -0.5px 0 0 var(--border-sidebar);
   position: relative;
   display: flex;
   flex-direction: column;

@@ -1,0 +1,15 @@
+/* Provider 与模型两个对话框共用的表单排版 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.error {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--diff-del) 30%, transparent);
+  border-radius: var(--r-item);
+  background: color-mix(in srgb, var(--diff-del) 7%, var(--bg-surface));
+  font-size: var(--fs-desc);
+  color: var(--text-error);
+}

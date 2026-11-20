@@ -1,14 +1,6 @@
-import type { ProviderConfig } from '@/shared/api/config'
+import type { ModelConfig, ProviderConfig } from '@/shared/api/config'
 
 export type ProviderMap = Record<string, ProviderConfig>
-
-const NEW_PROVIDER: ProviderConfig = {
-  name: '新 Provider',
-  baseUrl: '',
-  api: 'openai-completions',
-  apiKey: '',
-  models: [],
-}
 
 /**
  * 重命名 provider 的键名。
@@ -22,24 +14,43 @@ export function renameKey(providers: ProviderMap, from: string, to: string): Pro
   )
 }
 
-/** 追加一个空 provider，键名自动去重 */
-export function appendProvider(providers: ProviderMap): ProviderMap {
-  let key = 'new-provider'
-  let index = 2
-  while (providers[key]) key = `new-provider-${index++}`
-  return { ...providers, [key]: { ...NEW_PROVIDER, models: [] } }
-}
-
 export function removeKey(providers: ProviderMap, key: string): ProviderMap {
   const next = { ...providers }
   delete next[key]
   return next
 }
 
-export function replaceProvider(
+/** 新建或整体替换一个 provider */
+export function putProvider(
   providers: ProviderMap,
   key: string,
   provider: ProviderConfig,
 ): ProviderMap {
   return { ...providers, [key]: provider }
+}
+
+/** 替换 provider 下的模型列表，其余字段原样保留 */
+function withModels(providers: ProviderMap, key: string, models: ModelConfig[]): ProviderMap {
+  return putProvider(providers, key, { ...providers[key], models })
+}
+
+/** index 为 null 时追加，否则替换该位置的模型 */
+export function putModel(
+  providers: ProviderMap,
+  key: string,
+  index: number | null,
+  model: ModelConfig,
+): ProviderMap {
+  const models = providers[key]?.models ?? []
+  const next = index === null ? [...models, model] : models.map((m, i) => (i === index ? model : m))
+  return withModels(providers, key, next)
+}
+
+export function removeModel(providers: ProviderMap, key: string, index: number): ProviderMap {
+  const models = providers[key]?.models ?? []
+  return withModels(
+    providers,
+    key,
+    models.filter((_, i) => i !== index),
+  )
 }

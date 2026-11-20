@@ -32,8 +32,8 @@ export function SettingsView({ initialSection }: SettingsViewProps) {
     if (theme === 'dark' || theme === 'light') setTheme(theme)
   }, [settings.settings.theme, setTheme])
 
-  // 模型分区自带保存按钮，避免底部再出现一条重复的保存栏
-  const showSaveBar = settings.dirty && current !== 'models'
+  // 保存栏只管 settings.json；模型页改的是 models.json，在对话框里各自落盘
+  const showSaveBar = settings.dirty
 
   return (
     <div className={styles.shell}>

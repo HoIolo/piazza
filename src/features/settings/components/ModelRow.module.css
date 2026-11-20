@@ -1,91 +1,65 @@
 .row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+}
+
+.row + .row {
   border-top: 1px solid var(--border);
 }
 
-.head {
+.text {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2);
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--sp-2);
   flex: 1;
   min-width: 0;
-  padding: var(--sp-1) var(--sp-2);
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--dur-fast) var(--ease);
 }
 
-.toggle:hover {
-  background: var(--bg-hover);
-}
-
-.chevron {
-  flex: none;
-  color: var(--text-tertiary);
-  transition: transform var(--dur-fast) var(--ease);
-}
-
-.chevron[data-expanded='true'] {
-  transform: rotate(90deg);
-}
-
-.id {
-  font-family: var(--font-mono);
-  font-size: var(--fs-code);
+.name {
+  font-size: var(--fs-nav);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.name {
-  font-size: var(--fs-desc);
+.id {
+  font-family: var(--font-mono);
+  font-size: 12px;
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
-}
-
-.remove:hover {
-  background: var(--bg-hover);
-  color: var(--diff-del);
-}
-
-.form {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-3);
-  padding: var(--sp-1) var(--sp-4) var(--sp-4) var(--sp-6);
-}
-
-.field {
+.tags {
   display: flex;
-  flex-direction: column;
   gap: var(--sp-1);
-  min-width: 0;
+  flex: none;
 }
 
-.labelText {
+.tag {
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-item);
+  background: var(--bg-hover);
   font-size: 12px;
   color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 操作按钮平时淡出、悬停整行才显出来，标签才不至于被一排图标抢眼 */
+.actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+  opacity: 1;
 }

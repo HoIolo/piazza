@@ -16,7 +16,8 @@ export interface EditableConfig<T> {
 /**
  * 「读取 → 本地草稿 → 显式保存」的配置编辑状态机。
  *
- * models.json 与 settings.json 的编辑流程完全一致，抽出来避免两份实现各自漂移。
+ * 目前只有 settings.json 走这套：它的字段散在几个分区里，需要攒成草稿再一次保存；
+ * models.json 的每次改动都在一个对话框里完成，直接落盘，见 useModelsConfig。
  * 全程只改本地副本，显式保存时才落盘——避免编辑中途的半成品配置让 pi 起不来。
  *
  * `load` 与 `write` 必须是稳定引用（模块级函数），否则加载 effect 会反复触发。

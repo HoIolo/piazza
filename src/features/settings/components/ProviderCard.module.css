@@ -8,83 +8,88 @@
 
 .header {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
 
-.remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
-}
-
-.remove:hover {
-  background: var(--bg-hover);
-  color: var(--diff-del);
-}
-
-.fields {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-}
-
-.field,
-.fieldWide {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
+.headText {
+  flex: 1;
   min-width: 0;
 }
 
-.fieldWide {
-  grid-column: 1 / -1;
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
 }
 
-.labelText {
+.name {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.key,
+.url {
+  font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 3px;
+  min-width: 0;
+  font-size: var(--fs-desc);
   color: var(--text-secondary);
 }
 
-.modelsHead {
+/* 地址往往很长，只让它省略，API 类型名保持完整 */
+.meta > span {
+  flex: none;
+}
+
+.actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
-  border-top: 1px solid var(--border);
-  background: var(--bg-settings-sidebar);
+  gap: var(--sp-1);
+  flex: none;
 }
 
-.modelsTitle {
+.models {
+  list-style: none;
+}
+
+.empty {
+  padding: var(--sp-4);
   font-size: var(--fs-desc);
-  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
 }
 
-.addModel {
+.add {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  height: 26px;
-  padding: 0 var(--sp-2);
-  border-radius: 6px;
+  height: 36px;
+  width: 100%;
+  padding: 0 var(--sp-4);
+  border-top: 1px solid var(--border);
   font-size: var(--fs-desc);
   color: var(--blue-link);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
 }
 
-.addModel:hover {
+.add:hover {
   background: var(--bg-hover);
 }

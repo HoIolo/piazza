@@ -1,10 +1,24 @@
+import { useState } from 'react'
+import { ask } from '@tauri-apps/plugin-dialog'
 import { Plus } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
 import { Skeleton } from '@/design/primitives/Skeleton'
-import { Spinner } from '@/design/primitives/Spinner'
+import { errorMessage } from '@/shared/utils/error'
+import { ModelsEditor, type Editor } from '../components/ModelsEditor'
 import { ProviderCard } from '../components/ProviderCard'
+import { removeKey, removeModel, type ProviderMap } from '../hooks/providerOps'
 import { useModelsConfig } from '../hooks/useModelsConfig'
 import styles from './ModelsSection.module.css'
+
+/** 删除走系统确认框：这是整页唯一不可逆的动作，值得打断一下 */
+function confirmDelete(what: string): Promise<boolean> {
+  return ask(`原文件会备份为 models.json.bak，但界面上不会再出现它。`, {
+    title: `删除${what}？`,
+    kind: 'warning',
+    okLabel: '删除',
+    cancelLabel: '取消',
+  })
+}
 
 /** 读取配置期间的占位，形状贴合 Provider 卡片 */
 function ModelsSkeleton() {
@@ -21,58 +35,76 @@ function ModelsSkeleton() {
   )
 }
 
-/** 模型与 Provider 配置页：可视化编辑 ~/.pi/agent/models.json */
+/**
+ * 模型与 Provider 配置页。
+ *
+ * 页面只是概览：每个 provider 一张卡，列出它的模型和几个能力标签。
+ * 所有输入框都在对话框里，按「保存」即写入 ~/.pi/agent/models.json——
+ * 没有页面级的草稿与保存按钮，改一处就落一处。
+ */
 export function ModelsSection() {
-  const {
-    config,
-    loading,
-    error,
-    saved,
-    saving,
-    dirty,
-    updateProvider,
-    renameProvider,
-    removeProvider,
-    addProvider,
-    save,
-  } = useModelsConfig()
+  const { providers, loading, error, saved, commit } = useModelsConfig()
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const run = (transform: (p: ProviderMap) => ProviderMap) =>
+    commit(transform).catch((e: unknown) => setActionError(errorMessage(e)))
+
+  const deleteProvider = async (key: string) => {
+    if (!(await confirmDelete(`Provider「${providers[key].name?.trim() || key}」`))) return
+    void run((p) => removeKey(p, key))
+  }
+
+  const deleteModel = async (key: string, index: number) => {
+    const model = providers[key].models?.[index]
+    if (!model || !(await confirmDelete(`模型「${model.name?.trim() || model.id}」`))) return
+    void run((p) => removeModel(p, key, index))
+  }
 
   if (loading) return <ModelsSkeleton />
 
-  const providers = Object.entries(config.providers ?? {})
+  const entries = Object.entries(providers)
+  const problem = error ?? actionError
 
   return (
     <div>
       <div className={styles.toolbar}>
-        <p className={styles.path}>配置文件：~/.pi/agent/models.json</p>
-        <div className={styles.actions}>
-          <Pill icon={<Plus size={14} />} onClick={addProvider}>
-            添加 Provider
-          </Pill>
-          <button type="button" className={styles.save} disabled={!dirty || saving} onClick={save}>
-            {saving && <Spinner size={13} ariaLabel="正在保存" />}
-            {saving ? '保存中' : '保存'}
-          </button>
-        </div>
+        <p className={styles.path}>
+          配置文件：~/.pi/agent/models.json
+          {saved && <span className={styles.saved}>已保存，原文件备份为 .bak</span>}
+        </p>
+        <Pill icon={<Plus size={14} />} onClick={() => setEditor({ kind: 'provider', key: null })}>
+          添加 Provider
+        </Pill>
       </div>
 
-      {error && <p className={styles.error}>{error}</p>}
-      {saved && !dirty && <p className={styles.saved}>已保存，原文件已备份为 models.json.bak</p>}
+      {problem && <p className={styles.error}>{problem}</p>}
 
-      {providers.length === 0 && (
+      {entries.length === 0 && (
         <p className={styles.hint}>还没有自定义 Provider，点击「添加 Provider」开始配置。</p>
       )}
 
-      {providers.map(([key, provider]) => (
+      {entries.map(([key, provider]) => (
         <ProviderCard
           key={key}
           providerKey={key}
           provider={provider}
-          onChange={(next) => updateProvider(key, next)}
-          onRename={(nextKey) => renameProvider(key, nextKey)}
-          onRemove={() => removeProvider(key)}
+          onEdit={() => setEditor({ kind: 'provider', key })}
+          onRemove={() => void deleteProvider(key)}
+          onAddModel={() => setEditor({ kind: 'model', key, index: null })}
+          onEditModel={(index) => setEditor({ kind: 'model', key, index })}
+          onRemoveModel={(index) => void deleteModel(key, index)}
         />
       ))}
+
+      {editor && (
+        <ModelsEditor
+          editor={editor}
+          providers={providers}
+          onClose={() => setEditor(null)}
+          onCommit={commit}
+        />
+      )}
     </div>
   )
 }

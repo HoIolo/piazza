@@ -5,12 +5,11 @@
   width: var(--settings-sidebar-w);
   height: 100%;
   padding: 0 var(--sp-2) var(--sp-4);
-  background: var(--bg-settings-sidebar);
   overflow-y: auto;
 }
 
 .dragZone {
-  height: 38px;
+  height: var(--titlebar-h);
   flex: none;
 }
 

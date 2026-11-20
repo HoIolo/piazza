@@ -14,32 +14,10 @@
   color: var(--text-tertiary);
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.save {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: 30px;
-  padding: 0 var(--sp-4);
-  border-radius: var(--r-item);
-  background: var(--send-btn);
-  color: var(--text-on-dark);
-  font-size: var(--fs-desc);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  transition:
-    background var(--dur-base) var(--ease),
-    opacity var(--dur-base) var(--ease);
-}
-
-.save:disabled {
-  background: var(--send-btn-disabled);
-  cursor: default;
+.saved {
+  margin-left: var(--sp-3);
+  color: var(--diff-add);
+  animation: fade-in var(--dur-base) var(--ease-out);
 }
 
 /* 读取配置时的占位卡片，尺寸对齐 ProviderCard 头部 */
@@ -66,12 +44,5 @@
   border: 1px solid var(--diff-del);
   border-radius: var(--r-item);
   font-size: var(--fs-desc);
-  color: var(--diff-del);
-}
-
-.saved {
-  margin-bottom: var(--sp-4);
-  font-size: var(--fs-desc);
-  color: var(--diff-add);
-  animation: fade-in var(--dur-base) var(--ease-out);
+  color: var(--text-error);
 }
