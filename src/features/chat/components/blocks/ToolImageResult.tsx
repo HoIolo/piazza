@@ -14,12 +14,16 @@ export function ToolImageResult({
   running?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [opened, setOpened] = useState(false)
   return (
     <div className={styles.block}>
       <button
         type="button"
         className={styles.summary}
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() => {
+          setOpened(true)
+          setExpanded((value) => !value)
+        }}
         aria-expanded={expanded}
       >
         <CodexIcon name="photos" size={16} />
@@ -32,16 +36,18 @@ export function ToolImageResult({
       </button>
       <div className={styles.galleryWrap} data-expanded={expanded} inert={!expanded}>
         <div className={styles.clip}>
-          <div className={styles.gallery}>
-            {images.map((image, index) => (
-              <ImagePreview
-                key={index}
-                className={styles.thumbnail}
-                src={imageSource(image)}
-                alt={`已查看的图像 ${index + 1}`}
-              />
-            ))}
-          </div>
+          {(expanded || opened) && (
+            <div className={styles.gallery}>
+              {images.map((image, index) => (
+                <ImagePreview
+                  key={index}
+                  className={styles.thumbnail}
+                  src={imageSource(image)}
+                  alt={`已查看的图像 ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
