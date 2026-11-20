@@ -132,6 +132,7 @@ class PiRpcClient {
 
   /** 发送命令并等待其应答 */
   async send<T = unknown>(command: RpcCommand): Promise<T> {
+    await this.bind()
     const id = crypto.randomUUID()
     const payload = { ...command, id }
 

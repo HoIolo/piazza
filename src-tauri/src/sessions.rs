@@ -258,6 +258,9 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
     let mut messages = Vec::new();
     for idx in active_indices {
         if let Some(mut msg) = entries[idx].message.take() {
+            if msg.get("role").and_then(|r| r.as_str()) == Some("system") {
+                continue;
+            }
             normalize_snapshot_message(&mut msg);
             messages.push(msg);
         }

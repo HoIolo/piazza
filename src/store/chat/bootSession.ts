@@ -90,8 +90,6 @@ export interface BootOptions {
   previous: SessionState | null
   wasStreaming: boolean
   forceCold: boolean
-  /** 进程就绪后若内存缓存或磁盘快照已水合完毕，则跳过 get_messages 跨进程大包传输 */
-  hasHydratedMessages?: () => Promise<boolean> | boolean
 }
 
 /**
@@ -105,7 +103,6 @@ export async function bootSession({
   previous,
   wasStreaming,
   forceCold,
-  hasHydratedMessages,
 }: BootOptions) {
   const startup = launch.then(async () => {
     if (!current()) return
@@ -118,10 +115,9 @@ export async function bootSession({
   await startup
   if (!current()) return null
 
-  const skipMessages = (await hasHydratedMessages?.()) ?? false
   const [state, messagesData] = await Promise.all([
     rpcClient.send<SessionState>({ type: 'get_state' }),
-    sessionPath && !skipMessages
+    sessionPath
       ? rpcClient.send<MessagesData>({ type: 'get_messages' })
       : Promise.resolve<MessagesData | null>(null),
   ])

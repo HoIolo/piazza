@@ -56,6 +56,7 @@ export function groupIntoExchanges(messages: ChatMessage[]): Exchange[] {
   let started = false
 
   for (const message of messages) {
+    if ((message as { role?: string }).role === 'system') continue
     if (isUser(message)) {
       if (started) result.push(build(user, buffer))
       user = message

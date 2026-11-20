@@ -59,20 +59,36 @@ export function getSessionScroll(path: string | null): SavedScroll | null {
   return path ? (scrolls.get(path) ?? null) : null
 }
 
+function contentSize(raw: unknown): number {
+  if (typeof raw === 'string') return raw.length
+  if (!Array.isArray(raw)) return 0
+  let total = raw.length
+  for (const item of raw) {
+    if (item && typeof item === 'object') {
+      if ('text' in item && typeof item.text === 'string') total += item.text.length
+      if ('thinking' in item && typeof item.thinking === 'string') total += item.thinking.length
+    }
+  }
+  return total
+}
+
 function signatureOf(message: AgentMessage | undefined): string {
   if (!message) return ''
   const raw = 'content' in message ? message.content : undefined
-  const size = typeof raw === 'string' ? raw.length : Array.isArray(raw) ? raw.length : 0
-  return `${message.role}:${message.timestamp}:${size}`
+  const local = 'local' in message && message.local ? 'L' : ''
+  const stop = 'stopReason' in message ? String(message.stopReason ?? '') : ''
+  return `${message.role}:${local}:${stop}:${message.timestamp}:${contentSize(raw)}`
 }
 
 /** 快速判断磁盘/缓存预览与 pi 回传的消息列表是否一致，一致则跳过多余重绘 */
 export function messagesEquivalent(a: readonly AgentMessage[], b: readonly AgentMessage[]): boolean {
   if (a === b) return true
-  if (a.length !== b.length) return false
-  if (a.length === 0) return true
+  const left = a.filter((m) => (m as { role?: string }).role !== 'system')
+  const right = b.filter((m) => (m as { role?: string }).role !== 'system')
+  if (left.length !== right.length) return false
+  if (left.length === 0) return true
   return (
-    signatureOf(a[0]) === signatureOf(b[0]) &&
-    signatureOf(a[a.length - 1]) === signatureOf(b[b.length - 1])
+    signatureOf(left[0]) === signatureOf(right[0]) &&
+    signatureOf(left[left.length - 1]) === signatureOf(right[right.length - 1])
   )
 }

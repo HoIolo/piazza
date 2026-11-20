@@ -74,9 +74,13 @@ function buildLocalEcho(text: string, images: ImageContent[], localId: string): 
   }
 }
 
+function filterChatMessages(messages: AgentMessage[]): AgentMessage[] {
+  return messages.filter((m) => (m as { role?: string }).role !== 'system')
+}
+
 function buildHydratedState(prev: ChatStore, payload: HydratePayload): Partial<ChatStore> {
   const state = payload.state ?? null
-  const messages = payload.messages
+  const messages = filterChatMessages(payload.messages)
   return {
     ...emptySnapshot(),
     viewKey: payload.viewKey,
@@ -103,8 +107,11 @@ export const useChatStore = create<ChatStore>((set) => ({
   stopArmed: false,
 
   applyEvent: (event) => set((state) => reduceEvent(state, event)),
-  setMessages: (messages, viewKey) =>
-    set((prev) => ({ viewKey: viewKey ?? prev.viewKey, messages, tools: restoreTools(messages) })),
+  setMessages: (rawMessages, viewKey) =>
+    set((prev) => {
+      const messages = filterChatMessages(rawMessages)
+      return { viewKey: viewKey ?? prev.viewKey, messages, tools: restoreTools(messages) }
+    }),
   echoUserMessage: (text, images = []) => {
     const localId = crypto.randomUUID()
     set((state) => ({ messages: [...state.messages, buildLocalEcho(text, images, localId)] }))

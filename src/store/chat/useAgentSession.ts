@@ -14,6 +14,7 @@ import {
 } from './switchHelpers'
 
 function useAgentEvents(): void {
+  const applyEvent = useChatStore((s) => s.applyEvent)
   useEffect(() => {
     const offEvent = rpcClient.onEvent((event) => {
       const store = useChatStore.getState()
@@ -34,7 +35,7 @@ function useAgentEvents(): void {
       offEvent()
       offExit()
     }
-  }, [])
+  }, [applyEvent])
 }
 
 function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: string, forceCold: boolean) {
@@ -47,9 +48,9 @@ function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: stri
   snapshotCurrentSession()
   const hitCache = prepareSwitchView(sessionPath, viewKey)
   const skeletonTimer = startSkeletonGuard(viewKey, hitCache, isCancelled)
-  const diskTask = hitCache
-    ? Promise.resolve(true)
-    : tryHydrateDisk(sessionPath, viewKey, isCancelled).finally(() => clearTimeout(skeletonTimer))
+  if (!hitCache) {
+    void tryHydrateDisk(sessionPath, viewKey, isCancelled).finally(() => clearTimeout(skeletonTimer))
+  }
   const watchdog = startWatchdog(isCancelled, (err) => {
     const s = useChatStore.getState()
     s.setSessionLoading(false)
@@ -63,7 +64,6 @@ function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: stri
     previous,
     wasStreaming,
     forceCold,
-    hasHydratedMessages: () => diskTask,
   })
     .then((loaded) => {
       if (!cancelled && loaded) commitLoadedSession(viewKey, loaded)
@@ -89,6 +89,7 @@ export function useAgentSession(): void {
   const sessionPath = useAppStore((s) => s.currentSessionPath)
   const sessionNonce = useAppStore((s) => s.sessionNonce)
   const reconnectNonce = useAppStore((s) => s.reconnectNonce)
+  const applyEvent = useChatStore((s) => s.applyEvent)
   const lastReconnectRef = useRef(reconnectNonce)
 
   useAgentEvents()
@@ -96,9 +97,10 @@ export function useAgentSession(): void {
   useEffect(() => {
     if (!cwd) return
     const store = useChatStore.getState()
+    const targetPath = sessionPath ?? (store.rpcReady ? null : useAppStore.getState().liveSessionPath)
     const forceCold = reconnectNonce !== lastReconnectRef.current || Boolean(store.error?.fatal)
     lastReconnectRef.current = reconnectNonce
-    const viewKey = sessionPath ?? `new:${sessionNonce}`
-    return runSessionSwitch(cwd, sessionPath, viewKey, forceCold)
-  }, [cwd, sessionPath, sessionNonce, reconnectNonce])
+    const viewKey = targetPath ?? `new:${sessionNonce}`
+    return runSessionSwitch(cwd, targetPath, viewKey, forceCold)
+  }, [cwd, sessionPath, sessionNonce, reconnectNonce, applyEvent])
 }

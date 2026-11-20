@@ -121,6 +121,7 @@ function reduceMisc(state: ChatSnapshot, event: AgentEvent): ChatSnapshot | null
 
 /** 把一条完成的消息并入历史，并清掉对应的流式占位 */
 function commitMessage(state: ChatSnapshot, message: AgentMessage): ChatSnapshot {
+  if ((message as { role?: string }).role === 'system') return state
   const alreadyStreamed = state.streaming !== null && message.role === 'assistant'
   return {
     ...state,
@@ -210,12 +211,7 @@ function upsertTool(state: ChatSnapshot, tool: ToolExecution): ChatSnapshot {
   return { ...state, tools: { ...state.tools, [tool.toolCallId]: tool } }
 }
 
-function patchTool(
-  state: ChatSnapshot,
-  toolCallId: string,
-  patch: Partial<ToolExecution>,
-): ChatSnapshot {
-  const existing = state.tools[toolCallId]
-  if (!existing) return state
-  return { ...state, tools: { ...state.tools, [toolCallId]: { ...existing, ...patch } } }
+function patchTool(state: ChatSnapshot, id: string, patch: Partial<ToolExecution>): ChatSnapshot {
+  const existing = state.tools[id]
+  return existing ? { ...state, tools: { ...state.tools, [id]: { ...existing, ...patch } } } : state
 }
