@@ -1,3 +1,4 @@
+mod attachments;
 mod commands;
 mod config;
 mod external;
@@ -17,12 +18,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
+            attachments::read_attachment,
+            attachments::store_attachment,
             commands::locate_pi,
             commands::rpc_start,
             commands::rpc_send,
             commands::rpc_stop,
             commands::rpc_is_running,
             commands::scan_sessions,
+            commands::trash_session,
+            commands::read_session_snapshot,
             commands::read_git_branch,
             commands::list_git_branches,
             commands::checkout_git_branch,
@@ -35,6 +40,9 @@ pub fn run() {
             commands::list_git_worktrees,
             commands::add_git_worktree,
             commands::search_project_files,
+            commands::list_workspace_dir,
+            commands::preview_workspace_file,
+            commands::read_html_preview,
             commands::list_external_apps,
             commands::open_path_with,
             commands::read_models_config,

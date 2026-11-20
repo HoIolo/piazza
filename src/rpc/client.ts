@@ -2,10 +2,17 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { AgentEvent, RpcCommand, RpcFrame, RpcResponse } from './types'
 
-/** Rust 侧转发 pi stdout 每一帧的事件名，需与 src-tauri/src/rpc.rs 保持一致 */
-const EVT_MESSAGE = 'pi://message'
-const EVT_STDERR = 'pi://stderr'
-const EVT_EXIT = 'pi://exit'
+/**
+ * 一条通道对应 Rust 侧的一个 pi 进程。事件名前缀需与 src-tauri/src/rpc.rs 的
+ * MAIN / SIDE 保持一致；side 为真时命令发给侧边聊天那个 pi。
+ */
+interface Channel {
+  prefix: string
+  side: boolean
+}
+
+const MAIN: Channel = { prefix: 'pi', side: false }
+const SIDE: Channel = { prefix: 'pi-side', side: true }
 
 /** 单条命令的等待上限。超时只拒绝该 Promise，不影响会话本身 */
 const COMMAND_TIMEOUT_MS = 60_000
@@ -15,6 +22,8 @@ export interface StartOptions {
   provider?: string
   model?: string
   sessionPath?: string
+  /** 临时会话，不落会话文件 */
+  ephemeral?: boolean
 }
 
 /** pi 退出时 Rust 侧带回的信息，字段需与 rpc.rs 的 ExitPayload 一致 */
@@ -42,24 +51,40 @@ class PiRpcClient {
   private eventListeners = new Set<(event: AgentEvent) => void>()
   private stderrListeners = new Set<(text: string) => void>()
   private exitListeners = new Set<(info: ExitInfo) => void>()
-  private unlisteners: UnlistenFn[] = []
-  private bound = false
+  private binding?: Promise<void>
+
+  constructor(private readonly channel: Channel) {}
 
   /** 绑定 Tauri 事件通道。重复调用无副作用 */
-  async bind(): Promise<void> {
-    if (this.bound) return
-    this.bound = true
+  bind(): Promise<void> {
+    return (this.binding ??= this.bindEvents().catch((reason: unknown) => {
+      this.binding = undefined
+      throw reason
+    }))
+  }
 
-    this.unlisteners.push(
-      await listen<RpcFrame>(EVT_MESSAGE, ({ payload }) => this.dispatch(payload)),
-      await listen<string>(EVT_STDERR, ({ payload }) => {
-        this.stderrListeners.forEach((cb) => cb(payload))
-      }),
-      await listen<ExitInfo>(EVT_EXIT, ({ payload }) => {
-        this.rejectAllPending(new Error('pi 进程已退出'))
-        this.exitListeners.forEach((cb) => cb(payload))
-      }),
-    )
+  private async bindEvents(): Promise<void> {
+    const { prefix } = this.channel
+    const unlisteners: UnlistenFn[] = []
+    try {
+      unlisteners.push(
+        await listen<RpcFrame>(`${prefix}://message`, ({ payload }) => this.dispatch(payload)),
+      )
+      unlisteners.push(
+        await listen<string>(`${prefix}://stderr`, ({ payload }) => {
+          this.stderrListeners.forEach((cb) => cb(payload))
+        }),
+      )
+      unlisteners.push(
+        await listen<ExitInfo>(`${prefix}://exit`, ({ payload }) => {
+          this.rejectAllPending(new Error('pi 进程已退出'))
+          this.exitListeners.forEach((cb) => cb(payload))
+        }),
+      )
+    } catch (reason) {
+      unlisteners.forEach((off) => off())
+      throw reason
+    }
   }
 
   private dispatch(frame: RpcFrame): void {
@@ -78,11 +103,8 @@ class PiRpcClient {
     this.pending.delete(response.id)
     clearTimeout(entry.timer)
 
-    if (response.success) {
-      entry.resolve(response.data)
-    } else {
-      entry.reject(new Error(response.error ?? `命令 ${response.command} 执行失败`))
-    }
+    if (response.success) entry.resolve(response.data)
+    else entry.reject(new Error(response.error ?? `命令 ${response.command} 执行失败`))
   }
 
   private rejectAllPending(reason: Error): void {
@@ -95,13 +117,16 @@ class PiRpcClient {
 
   async start(options: StartOptions): Promise<void> {
     await this.bind()
+    this.rejectAllPending(new Error('会话正在切换'))
     await invoke('rpc_start', {
       opts: {
         cwd: options.cwd,
         provider: options.provider ?? null,
         model: options.model ?? null,
         sessionPath: options.sessionPath ?? null,
+        ephemeral: options.ephemeral ?? false,
       },
+      side: this.channel.side,
     })
   }
 
@@ -123,26 +148,16 @@ class PiRpcClient {
       })
     })
 
-    try {
-      await invoke('rpc_send', { payload })
-    } catch (error) {
-      // 发送本身就失败了，应答永远不会来。必须就地了结这个等待者，
-      // 否则它会挂满 60 秒再以未处理的 rejection 冒出来，且错误指向超时、
-      // 掩盖了真正的原因（通常是会话尚未启动）。
-      this.settleLocally(id, error)
-    }
-
-    return waiter
-  }
-
-  /** 以本地错误了结一个等待中的命令 */
-  private settleLocally(id: string, reason: unknown): void {
-    const entry = this.pending.get(id)
-    if (!entry) return
-
-    this.pending.delete(id)
-    clearTimeout(entry.timer)
-    entry.reject(reason instanceof Error ? reason : new Error(String(reason)))
+    const delivery = this.notify(payload).catch((reason: unknown) => {
+      const entry = this.pending.get(id)
+      if (!entry) return
+      this.pending.delete(id)
+      clearTimeout(entry.timer)
+      entry.reject(reason instanceof Error ? reason : new Error(String(reason)))
+    })
+    // 在等待投递的同时处理 waiter，避免关闭标签时产生无人处理的拒绝。
+    const [result] = await Promise.all([waiter, delivery])
+    return result
   }
 
   /**
@@ -152,7 +167,7 @@ class PiRpcClient {
    * 用 send() 发会一直挂到超时。
    */
   async notify(payload: Record<string, unknown>): Promise<void> {
-    await invoke('rpc_send', { payload })
+    await invoke('rpc_send', { payload, side: this.channel.side })
   }
 
   onEvent(callback: (event: AgentEvent) => void): () => void {
@@ -172,12 +187,15 @@ class PiRpcClient {
 
   async stop(): Promise<void> {
     this.rejectAllPending(new Error('会话已停止'))
-    await invoke('rpc_stop')
+    await invoke('rpc_stop', { side: this.channel.side })
   }
 
   async isRunning(): Promise<boolean> {
-    return invoke<boolean>('rpc_is_running')
+    return invoke<boolean>('rpc_is_running', { side: this.channel.side })
   }
 }
 
-export const rpcClient = new PiRpcClient()
+export const rpcClient = new PiRpcClient(MAIN)
+
+/** 侧边聊天专用：另一个 pi 进程，事件与主会话互不串线 */
+export const sideRpcClient = new PiRpcClient(SIDE)

@@ -13,6 +13,8 @@ export interface SessionState {
   liveSessionPath: string | null
   /** 会话重开信号。pi 意外退出后、或要新开会话时自增，促使 useAgentSession 重新拉起进程 */
   sessionNonce: number
+  /** 显式重连计数：仅在点击「重连」时自增，强制冷重启 pi 进程 */
+  reconnectNonce: number
 }
 
 export interface SessionActions {
@@ -32,6 +34,7 @@ export const sessionInitialState: SessionState = {
   currentSessionPath: null,
   liveSessionPath: null,
   sessionNonce: 0,
+  reconnectNonce: 0,
 }
 
 /**
@@ -53,15 +56,21 @@ export function createSessionActions(set: Setter): SessionActions {
     selectSession: (cwd, sessionPath) =>
       set((s) =>
         // 点的就是眼下开着的这条：重开一遍等于杀掉 pi 再原样拉起来，纯属白折腾
-        s.currentCwd === cwd && s.liveSessionPath === sessionPath
+        s.currentCwd === cwd && (s.liveSessionPath ?? s.currentSessionPath) === sessionPath
           ? {}
-          : { currentCwd: cwd, currentSessionPath: sessionPath, liveSessionPath: null },
+          : {
+              currentCwd: cwd,
+              currentSessionPath: sessionPath,
+              liveSessionPath: null,
+              sessionNonce: s.sessionNonce + 1,
+            },
       ),
 
     startNewSession: () => set(newSession),
 
     setLiveSession: (liveSessionPath) => set(() => ({ liveSessionPath })),
 
-    reconnectSession: () => set((s) => ({ sessionNonce: s.sessionNonce + 1 })),
+    reconnectSession: () =>
+      set((s) => ({ sessionNonce: s.sessionNonce + 1, reconnectNonce: s.reconnectNonce + 1 })),
   }
 }

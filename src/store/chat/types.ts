@@ -32,6 +32,7 @@ export interface ThinkingTiming {
  */
 interface ChatExtras {
   local?: boolean
+  localId?: string
   thinking?: ThinkingTiming
 }
 
@@ -65,6 +66,8 @@ export interface ChatError {
 
 /** 聊天区的完整可渲染状态 */
 export interface ChatSnapshot {
+  /** 当前展示的消息流所归属的会话标识，与 messages 在同一次状态提交里原子更新，防止切会话时提前重排旧消息 */
+  viewKey: string
   /** 已完成的消息 */
   messages: ChatMessage[]
   /** 正在流式输出的助手消息，null 表示当前没有流 */
@@ -78,8 +81,12 @@ export interface ChatSnapshot {
   lastTurnDurationMs: number | null
   /** 排队中的引导/追加消息 */
   queue: { steering: string[]; followUp: string[] }
-  /** 正在启动 pi 会话 / 拉取历史消息 */
+  /** 正在启动 pi 会话 / 拉取历史消息（仅在尚无任何消息可展示时显示骨架） */
   sessionLoading: boolean
+  /** pi 进程是否已完成本次会话切换并就绪，控制发送与 RPC 查询 */
+  rpcReady: boolean
+  /** 磁盘快照或缓存带出的会话标题，供 pi 尚未返回 state 前展示 */
+  previewName: string | null
   /**
    * 待用户回应的扩展 UI 请求。
    * 存在时说明这次运行卡在等人回答，侧栏与聊天区据此给出提示。
@@ -90,6 +97,7 @@ export interface ChatSnapshot {
 
 export function emptySnapshot(): ChatSnapshot {
   return {
+    viewKey: 'init',
     messages: [],
     streaming: null,
     tools: {},
@@ -98,6 +106,8 @@ export function emptySnapshot(): ChatSnapshot {
     lastTurnDurationMs: null,
     queue: { steering: [], followUp: [] },
     sessionLoading: false,
+    rpcReady: false,
+    previewName: null,
     pendingDialog: null,
     error: null,
   }

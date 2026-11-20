@@ -2,25 +2,31 @@ import { useCallback } from 'react'
 import { rpcClient } from '@/rpc/client'
 import type { ExportResult, ExtensionUiResponse, ThinkingLevel } from '@/rpc/types'
 import { errorMessage } from '@/shared/utils/error'
+import { useProjectsStore } from '../projects.store'
+import { applyContextWindowPreset, syncCompactionForModel } from './contextWindow'
 import { useChatStore } from './store'
 import { applyAndSync, runRpc } from './rpcHelpers'
 
-/** 会话级配置操作：模型、推理强度、命名与导出 */
+/** 会话级配置操作：模型、推理强度、上下文、命名与导出 */
 export function useSessionActions() {
-  const setModel = useCallback(
-    (provider: string, modelId: string) =>
-      applyAndSync(() => rpcClient.send({ type: 'set_model', provider, modelId })),
-    [],
-  )
+  const setModel = useCallback(async (provider: string, modelId: string) => {
+    await applyAndSync(() => rpcClient.send({ type: 'set_model', provider, modelId }), true)
+    void syncCompactionForModel(provider, modelId)
+  }, [])
 
   const setThinkingLevel = useCallback(
     (level: ThinkingLevel) =>
-      applyAndSync(() => rpcClient.send({ type: 'set_thinking_level', level })),
+      applyAndSync(() => rpcClient.send({ type: 'set_thinking_level', level }), true),
     [],
   )
 
-  const renameSession = useCallback(
-    (name: string) => applyAndSync(() => rpcClient.send({ type: 'set_session_name', name })),
+  const renameSession = useCallback(async (name: string) => {
+    await applyAndSync(() => rpcClient.send({ type: 'set_session_name', name }))
+    void useProjectsStore.getState().refresh()
+  }, [])
+
+  const setContextWindow = useCallback(
+    (contextWindow: number) => applyContextWindowPreset(contextWindow),
     [],
   )
 
@@ -42,12 +48,14 @@ export function useSessionActions() {
    * 不等应答，否则会一直挂到超时。
    */
   const answerDialog = useCallback(
-    (payload: Omit<ExtensionUiResponse, 'type'>) => {
-      useChatStore.getState().setPendingDialog(null)
-      return runRpc(() => rpcClient.notify({ type: 'extension_ui_response', ...payload }))
-    },
+    (payload: Omit<ExtensionUiResponse, 'type'>) =>
+      runRpc(async () => {
+        await rpcClient.notify({ type: 'extension_ui_response', ...payload })
+        const store = useChatStore.getState()
+        if (store.pendingDialog?.id === payload.id) store.setPendingDialog(null)
+      }),
     [],
   )
 
-  return { setModel, setThinkingLevel, renameSession, exportHtml, answerDialog }
+  return { setModel, setThinkingLevel, setContextWindow, renameSession, exportHtml, answerDialog }
 }

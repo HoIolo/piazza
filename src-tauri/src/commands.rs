@@ -6,16 +6,39 @@ use crate::external;
 use crate::files;
 use crate::git;
 use crate::pi_locate::{self, PiLauncher};
-use crate::rpc::{RpcState, StartOptions};
-use crate::sessions::{self, ProjectGroup};
+use crate::rpc::{self, RpcState, StartOptions};
+use crate::sessions::{self, ProjectGroup, SessionSnapshot};
 use crate::terminal::TerminalState;
 
-#[derive(Default)]
 pub struct AppState {
     pub rpc: RpcState,
+    /// 侧边聊天的 pi，与主会话各跑各的
+    pub side_rpc: RpcState,
     /// 缓存 pi 的解析结果：走 login shell 探测有明显开销，不宜每次启动会话都做一次
     pub launcher: Mutex<Option<PiLauncher>>,
     pub terminal: TerminalState,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            rpc: RpcState::new(rpc::MAIN),
+            side_rpc: RpcState::new(rpc::SIDE),
+            launcher: Mutex::default(),
+            terminal: TerminalState::default(),
+        }
+    }
+}
+
+impl AppState {
+    /// 取这次调用要操作的 pi。前端不传 side 时就是主会话
+    fn channel(&self, side: Option<bool>) -> &RpcState {
+        if side.unwrap_or(false) {
+            &self.side_rpc
+        } else {
+            &self.rpc
+        }
+    }
 }
 
 /// 解析 pi 位置。`refresh` 为真时忽略缓存重新探测（设置页手动改路径后用）。
@@ -43,6 +66,7 @@ pub async fn rpc_start(
     state: State<'_, AppState>,
     opts: StartOptions,
     pi_path: Option<String>,
+    side: Option<bool>,
 ) -> Result<(), String> {
     let launcher = {
         let mut cache = state.launcher.lock().await;
@@ -54,30 +78,45 @@ pub async fn rpc_start(
             .ok_or("未找到 pi 可执行文件，请在设置中手动指定路径")?
     };
 
-    state.rpc.start(app, &launcher, opts).await
+    state.channel(side).start(app, &launcher, opts).await
 }
 
 #[tauri::command]
 pub async fn rpc_send(
     state: State<'_, AppState>,
     payload: serde_json::Value,
+    side: Option<bool>,
 ) -> Result<(), String> {
-    state.rpc.send(&payload).await
+    state.channel(side).send(&payload).await
 }
 
 #[tauri::command]
-pub async fn rpc_stop(state: State<'_, AppState>) -> Result<(), String> {
-    state.rpc.stop().await
+pub async fn rpc_stop(state: State<'_, AppState>, side: Option<bool>) -> Result<(), String> {
+    state.channel(side).stop().await
 }
 
 #[tauri::command]
-pub async fn rpc_is_running(state: State<'_, AppState>) -> Result<bool, String> {
-    Ok(state.rpc.is_running().await)
+pub async fn rpc_is_running(state: State<'_, AppState>, side: Option<bool>) -> Result<bool, String> {
+    Ok(state.channel(side).is_running().await)
 }
 
 #[tauri::command]
 pub fn scan_sessions() -> Result<Vec<ProjectGroup>, String> {
     sessions::scan()
+}
+
+/// 把一条会话记录移进废纸篓
+#[tauri::command]
+pub fn trash_session(path: String) -> Result<(), String> {
+    sessions::trash(&path)
+}
+
+/// 从磁盘直接读取会话消息快照，用于切换会话时先秒开内容
+#[tauri::command]
+pub async fn read_session_snapshot(path: String) -> Result<SessionSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || sessions::read_snapshot(&path))
+        .await
+        .map_err(|err| err.to_string())?
 }
 
 /// 读取工作目录的 git 分支，用于输入框上方的上下文条
@@ -126,6 +165,27 @@ pub fn add_git_worktree(cwd: String, branch: String) -> Result<String, String> {
 #[tauri::command]
 pub fn search_project_files(cwd: String, query: String) -> Vec<files::FileHit> {
     files::search_files(&cwd, &query, 40)
+}
+
+#[tauri::command]
+pub async fn list_workspace_dir(cwd: String, path: String) -> Result<Vec<files::WorkspaceEntry>, String> {
+    tauri::async_runtime::spawn_blocking(move || files::list_workspace_dir(&cwd, &path))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn preview_workspace_file(cwd: String, path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || files::preview_workspace_file(&cwd, &path))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn read_html_preview(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || files::read_html_preview(&path))
+        .await
+        .map_err(|err| err.to_string())?
 }
 
 /// 列出可用于「打开位置」的应用

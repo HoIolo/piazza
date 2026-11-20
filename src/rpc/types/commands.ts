@@ -15,11 +15,14 @@ export type RpcCommand =
   | { id?: string; type: 'get_available_models' }
   | { id?: string; type: 'set_thinking_level'; level: ThinkingLevel }
   | { id?: string; type: 'get_available_thinking_levels' }
+  | { id?: string; type: 'set_auto_compaction'; enabled: boolean }
   | { id?: string; type: 'compact'; prompt?: string }
   | { id?: string; type: 'bash'; command: string }
   | { id?: string; type: 'abort_bash' }
   | { id?: string; type: 'get_session_stats' }
   | { id?: string; type: 'switch_session'; sessionPath: string }
+  | { id?: string; type: 'fork'; entryId: string }
+  | { id?: string; type: 'get_fork_messages' }
   | { id?: string; type: 'set_session_name'; name: string }
   | { id?: string; type: 'export_html'; outputPath?: string }
   | { id?: string; type: 'get_commands' }
@@ -68,14 +71,35 @@ export interface CommandsData {
   commands: PiCommand[]
 }
 
+export interface ContextUsageStats {
+  tokens: number | null
+  contextWindow: number
+  percent: number | null
+}
+
 export interface SessionStats {
   totalTokens?: number
   totalCost?: number
   messageCount?: number
   contextTokens?: number
+  contextUsage?: ContextUsageStats
 }
 
 /** export_html 的响应，path 为实际写出的文件位置 */
 export interface ExportResult {
   path: string
+}
+
+export interface ForkMessage {
+  entryId: string
+  text: string
+}
+
+export interface ForkMessagesData {
+  messages: ForkMessage[]
+}
+
+export interface ForkResult {
+  text: string
+  cancelled: boolean
 }

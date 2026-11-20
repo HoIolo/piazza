@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
-use std::io::Read;
+use std::collections::{BTreeMap, HashMap};
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -29,6 +29,14 @@ pub struct ProjectGroup {
     pub name: String,
     pub sessions: Vec<SessionMeta>,
     pub latest_ms: u64,
+}
+
+/// 切换会话时的本地磁盘快照，让界面在 pi 冷启/切换前先秒开消息流
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionSnapshot {
+    pub session_name: Option<String>,
+    pub messages: Vec<serde_json::Value>,
 }
 
 /// 扫描全部会话并按真实工作目录分组。
@@ -81,6 +89,213 @@ pub fn scan() -> Result<Vec<ProjectGroup>, String> {
     }
     result.sort_by_key(|g| Reverse(g.latest_ms));
     Ok(result)
+}
+
+/// 把一条会话移进废纸篓。
+///
+/// 移而不删：会话记录是用户的东西，手滑了还能从废纸篓捞回来。
+/// 路径来自前端，必须先确认它确实是会话目录下的 .jsonl——
+/// 否则这个命令就成了「把任意文件丢进废纸篓」的通道。
+pub fn trash(path: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
+    let root = home
+        .join(".pi/agent/sessions")
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
+
+    if !target.starts_with(&root) || target.extension().is_none_or(|e| e != "jsonl") {
+        return Err("只能删除会话记录文件".into());
+    }
+
+    let name = target.file_name().ok_or("会话路径无效")?;
+    let trash = home.join(".Trash");
+    let mut dest = trash.join(name);
+    if dest.exists() {
+        // 废纸篓里已有同名文件时补上时间戳，不覆盖先前删掉的那份
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        dest = trash.join(format!("{stamp}-{}", name.to_string_lossy()));
+    }
+    std::fs::rename(&target, &dest).map_err(|e| e.to_string())
+}
+
+/// 从磁盘直接解析某条会话当前活跃分支的消息快照。
+///
+/// 与 pi 的 `buildSessionContext` 逻辑一致：沿 `parentId` 从最新叶节点回溯到根，
+/// 遇到 compaction 时从 `firstKeptEntryId` 起保留，避免跨项目切换时苦等 pi 冷启。
+pub fn read_snapshot(path: &str) -> Result<SessionSnapshot, String> {
+    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
+    let root = home
+        .join(".pi/agent/sessions")
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
+
+    if !target.starts_with(&root) || target.extension().is_none_or(|e| e != "jsonl") {
+        return Err("只能读取会话记录文件".into());
+    }
+
+    let file = std::fs::File::open(&target).map_err(|e| e.to_string())?;
+    Ok(parse_snapshot(BufReader::new(file)))
+}
+
+struct RawEntry {
+    id: String,
+    parent_id: Option<String>,
+    kind: String,
+    message: Option<serde_json::Value>,
+    first_kept_id: Option<String>,
+    name: Option<String>,
+}
+
+fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
+    let mut entries: Vec<RawEntry> = Vec::new();
+    let mut by_id: HashMap<String, usize> = HashMap::new();
+
+    for line in reader.lines().map_while(Result::ok) {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        let Some(kind) = val.get("type").and_then(|v| v.as_str()).map(str::to_string) else {
+            continue;
+        };
+        if kind == "session" {
+            continue;
+        }
+        let Some(id) = val.get("id").and_then(|v| v.as_str()).map(str::to_string) else {
+            continue;
+        };
+        let parent_id = val
+            .get("parentId")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let first_kept_id = val
+            .get("firstKeptEntryId")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let name = if kind == "session_info" {
+            val.get("name").and_then(|v| v.as_str()).map(str::to_string)
+        } else {
+            None
+        };
+        let message = if kind == "message" {
+            val.get_mut("message").map(serde_json::Value::take)
+        } else {
+            None
+        };
+
+        let idx = entries.len();
+        by_id.insert(id.clone(), idx);
+        entries.push(RawEntry {
+            id,
+            parent_id,
+            kind,
+            message,
+            first_kept_id,
+            name,
+        });
+    }
+
+    let Some(mut cur_idx) = entries.len().checked_sub(1) else {
+        return SessionSnapshot {
+            session_name: None,
+            messages: Vec::new(),
+        };
+    };
+
+    // 沿 parentId 回溯出从根到叶的活跃分支
+    let mut branch: Vec<usize> = Vec::new();
+    let mut visited = 0usize;
+    loop {
+        branch.push(cur_idx);
+        visited += 1;
+        if visited > entries.len() {
+            break;
+        }
+        match entries[cur_idx].parent_id.as_deref().and_then(|p| by_id.get(p)) {
+            Some(&next) => cur_idx = next,
+            None => break,
+        }
+    }
+    branch.reverse();
+
+    let mut session_name = None;
+    let mut last_compaction: Option<(usize, Option<String>)> = None;
+    for (pos, &idx) in branch.iter().enumerate() {
+        let entry = &entries[idx];
+        if entry.kind == "session_info" && entry.name.is_some() {
+            session_name = entry.name.clone();
+        }
+        if entry.kind == "compaction" {
+            last_compaction = Some((pos, entry.first_kept_id.clone()));
+        }
+    }
+
+    let active_indices: Vec<usize> = match last_compaction {
+        Some((comp_pos, Some(first_kept))) => {
+            let mut kept = Vec::new();
+            let mut found = false;
+            for &idx in &branch[..comp_pos] {
+                if entries[idx].id == first_kept {
+                    found = true;
+                }
+                if found {
+                    kept.push(idx);
+                }
+            }
+            kept.extend_from_slice(&branch[comp_pos + 1..]);
+            kept
+        }
+        Some((comp_pos, None)) => branch[comp_pos + 1..].to_vec(),
+        None => branch,
+    };
+
+    let mut messages = Vec::new();
+    for idx in active_indices {
+        if let Some(mut msg) = entries[idx].message.take() {
+            normalize_snapshot_message(&mut msg);
+            messages.push(msg);
+        }
+    }
+
+    SessionSnapshot {
+        session_name,
+        messages,
+    }
+}
+
+/// 单条工具输出在前端快照中的最大字符数，避免几 MB 的文件读取结果卡住 IPC 序列化
+const MAX_TOOL_RESULT_CHARS: usize = 24_000;
+
+fn normalize_snapshot_message(msg: &mut serde_json::Value) {
+    let Some(obj) = msg.as_object_mut() else {
+        return;
+    };
+    if obj.get("content").is_none_or(|c| c.is_null()) {
+        obj.insert("content".into(), serde_json::Value::Array(Vec::new()));
+        return;
+    }
+    let is_tool = obj.get("role").and_then(|r| r.as_str()) == Some("toolResult");
+    if !is_tool {
+        return;
+    }
+    if let Some(blocks) = obj.get_mut("content").and_then(|c| c.as_array_mut()) {
+        for block in blocks {
+            if let Some(text_val) = block.get_mut("text") {
+                if let Some(s) = text_val.as_str() {
+                    if s.len() > MAX_TOOL_RESULT_CHARS && s.chars().count() > MAX_TOOL_RESULT_CHARS {
+                        let clipped: String = s.chars().take(MAX_TOOL_RESULT_CHARS).collect();
+                        *text_val = serde_json::Value::String(format!("{clipped}\n…[内容过长已截断]"));
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn project_name_of(cwd: &str) -> String {
@@ -193,7 +408,9 @@ fn truncate_title(title: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::truncate_title;
+    use std::io::Cursor;
+
+    use super::{parse_snapshot, truncate_title};
 
     #[test]
     fn flattens_newlines_into_spaces() {
@@ -210,5 +427,26 @@ mod tests {
     #[test]
     fn keeps_short_title_intact() {
         assert_eq!(truncate_title("  修复登录问题  "), "修复登录问题");
+    }
+
+    #[test]
+    fn snapshot_follows_leaf_branch_and_compaction() {
+        let jsonl = [
+            r#"{"type":"session","id":"s1","cwd":"/tmp/demo"}"#,
+            r#"{"type":"message","id":"m1","parentId":null,"message":{"role":"user","content":"old"}}"#,
+            r#"{"type":"message","id":"m2","parentId":"m1","message":{"role":"assistant","content":[]}}"#,
+            r#"{"type":"message","id":"m_fork","parentId":"m1","message":{"role":"user","content":"abandoned"}}"#,
+            r#"{"type":"message","id":"m3","parentId":"m2","message":{"role":"user","content":"kept"}}"#,
+            r#"{"type":"compaction","id":"c1","parentId":"m3","firstKeptEntryId":"m3","summary":"sum"}"#,
+            r#"{"type":"session_info","id":"i1","parentId":"c1","name":"我的会话"}"#,
+            r#"{"type":"message","id":"m4","parentId":"i1","message":{"role":"assistant","content":null}}"#,
+        ]
+        .join("\n");
+
+        let snap = parse_snapshot(Cursor::new(jsonl.as_bytes()));
+        assert_eq!(snap.session_name.as_deref(), Some("我的会话"));
+        assert_eq!(snap.messages.len(), 2);
+        assert_eq!(snap.messages[0]["content"], "kept");
+        assert!(snap.messages[1]["content"].is_array());
     }
 }

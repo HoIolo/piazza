@@ -12,10 +12,30 @@ use tokio::time::{timeout, Duration};
 
 use crate::pi_locate::PiLauncher;
 
-/// 前端事件名
-pub const EVT_MESSAGE: &str = "pi://message";
-pub const EVT_STDERR: &str = "pi://stderr";
-pub const EVT_EXIT: &str = "pi://exit";
+/// 一条通道对应一个 pi 进程，各自往前端发一组事件。
+///
+/// 主会话与侧边聊天是两个互不相干的 pi：共用事件名的话，前端分不清一帧
+/// 属于谁，侧边聊天的回答会直接灌进主会话。
+#[derive(Clone, Copy)]
+pub struct Channel {
+    message: &'static str,
+    stderr: &'static str,
+    exit: &'static str,
+}
+
+/// 主会话。事件名需与 src/rpc/client.ts 保持一致
+pub const MAIN: Channel = Channel {
+    message: "pi://message",
+    stderr: "pi://stderr",
+    exit: "pi://exit",
+};
+
+/// 侧边聊天
+pub const SIDE: Channel = Channel {
+    message: "pi-side://message",
+    stderr: "pi-side://stderr",
+    exit: "pi-side://exit",
+};
 
 /// 读取缓冲区大小。单帧可能远超此值（如大文件内容），
 /// 分帧逻辑会跨多次读取持续累积，不受此值限制。
@@ -46,6 +66,8 @@ pub struct StartOptions {
     pub provider: Option<String>,
     pub model: Option<String>,
     pub session_path: Option<String>,
+    /// 临时会话：不落会话文件。侧边聊天用，它不该出现在会话列表里
+    pub ephemeral: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -55,18 +77,27 @@ pub struct ExitPayload {
     pub stderr: String,
 }
 
-#[derive(Default)]
 pub struct RpcState {
+    channel: Channel,
     inner: Arc<Mutex<Option<RunningSession>>>,
     /// 会话代号。每次 start/stop 递增，用于区分「主动切换导致的退出」与「意外退出」——
     /// 切换会话时会先 kill 旧进程，若不区分就会每切一次都误报一次进程退出。
     generation: Arc<AtomicU64>,
-    /// stderr 滚动尾部。pi 死前写的东西只有这里留得下来
-    stderr_tail: Arc<Mutex<VecDeque<String>>>,
+}
+
+impl RpcState {
+    pub fn new(channel: Channel) -> Self {
+        Self {
+            channel,
+            inner: Arc::default(),
+            generation: Arc::default(),
+        }
+    }
 }
 
 /// stdout reader 收尾时要用的东西：判断是否意外退出、取退出码、取死因
 struct ExitContext {
+    channel: Channel,
     generation: Arc<AtomicU64>,
     my_generation: u64,
     session: Arc<Mutex<Option<RunningSession>>>,
@@ -86,7 +117,11 @@ impl RpcState {
         launcher: &PiLauncher,
         opts: StartOptions,
     ) -> Result<(), String> {
-        self.stop().await.ok();
+        let mut slot = self.inner.lock().await;
+        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        if let Some(mut previous) = slot.take() {
+            let _ = previous.child.kill().await;
+        }
 
         let mut extra = vec!["--mode".into(), "rpc".into()];
         if let Some(p) = opts.provider.filter(|s| !s.is_empty()) {
@@ -100,6 +135,9 @@ impl RpcState {
         if let Some(s) = opts.session_path.filter(|s| !s.is_empty()) {
             extra.push("--session".into());
             extra.push(s);
+        }
+        if opts.ephemeral.unwrap_or(false) {
+            extra.push("--no-session".into());
         }
 
         let mut child = Command::new(&launcher.program)
@@ -116,24 +154,22 @@ impl RpcState {
         let stdout = child.stdout.take().ok_or("无法取得 pi 的 stdout")?;
         let stderr = child.stderr.take().ok_or("无法取得 pi 的 stderr")?;
 
-        // 上一行的 stop() 已让代号前进，这里取得的即本次会话的代号
-        let generation = self.generation.load(Ordering::SeqCst);
-        // 上一条会话的死因与这次无关，留着只会误导
-        self.stderr_tail.lock().await.clear();
+        // 每个进程单独保留 stderr 尾部，旧进程收尾时不会混入新会话。
+        let stderr_tail = Arc::new(Mutex::new(VecDeque::new()));
 
+        *slot = Some(RunningSession { child, stdin });
         spawn_frame_reader(
             app.clone(),
             stdout,
             ExitContext {
+                channel: self.channel,
                 generation: Arc::clone(&self.generation),
                 my_generation: generation,
                 session: Arc::clone(&self.inner),
-                stderr_tail: Arc::clone(&self.stderr_tail),
+                stderr_tail: Arc::clone(&stderr_tail),
             },
         );
-        spawn_stderr_reader(app, stderr, Arc::clone(&self.stderr_tail));
-
-        *self.inner.lock().await = Some(RunningSession { child, stdin });
+        spawn_stderr_reader(app, self.channel, stderr, stderr_tail);
         Ok(())
     }
 
@@ -154,8 +190,12 @@ impl RpcState {
 
     pub async fn stop(&self) -> Result<(), String> {
         // 先让代号前进，旧 reader 随后发现自己已过期，便不会把这次退出报成异常
-        self.generation.fetch_add(1, Ordering::SeqCst);
-        if let Some(mut session) = self.inner.lock().await.take() {
+        let taken = {
+            let mut slot = self.inner.lock().await;
+            self.generation.fetch_add(1, Ordering::SeqCst);
+            slot.take()
+        };
+        if let Some(mut session) = taken {
             session.child.kill().await.map_err(|e| e.to_string())?;
         }
         Ok(())
@@ -183,20 +223,13 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
                 Ok(0) | Err(_) => break,
                 Ok(n) => n,
             };
+            if ctx.generation.load(Ordering::SeqCst) != ctx.my_generation {
+                return;
+            }
             buf.extend_from_slice(&chunk[..n]);
             for frame in take_frames(&mut buf) {
-                emit_frame(&app, &frame);
+                emit_frame(&app, ctx.channel, &frame);
             }
-        }
-
-        // 进程结束时缓冲区可能还有未以 LF 收尾的最后一帧
-        if !buf.is_empty() {
-            emit_frame(&app, &buf);
-        }
-
-        // 代号已前进说明是主动切换会话，属正常流程，不该报给用户
-        if ctx.generation.load(Ordering::SeqCst) != ctx.my_generation {
-            return;
         }
 
         /*
@@ -208,13 +241,26 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
          * 死锁——界面表现为永远停在启动中，而 Rust 侧看上去「空闲」，
          * 因为等锁的任务只是 parked，采样里根本看不到它。
          */
-        let taken = ctx.session.lock().await.take();
+        let taken = {
+            let mut slot = ctx.session.lock().await;
+            // 代号已前进说明是主动切换，旧 reader 不能取走新进程。
+            if ctx.generation.load(Ordering::SeqCst) != ctx.my_generation {
+                return;
+            }
+            // 进程结束时可能还有一帧没有 LF。
+            if !buf.is_empty() {
+                emit_frame(&app, ctx.channel, &buf);
+            }
+            slot.take()
+        };
         let code = match taken {
             Some(mut session) => wait_code(&mut session.child).await,
             None => None,
         };
         let stderr = tail_snapshot(&ctx.stderr_tail).await;
-        let _ = app.emit(EVT_EXIT, ExitPayload { code, stderr });
+        if ctx.generation.load(Ordering::SeqCst) == ctx.my_generation {
+            let _ = app.emit(ctx.channel.exit, ExitPayload { code, stderr });
+        }
     });
 }
 
@@ -272,24 +318,25 @@ fn take_frames(buf: &mut Vec<u8>) -> Vec<Vec<u8>> {
 }
 
 /// 解析并转发单帧。剥离可选的尾随 CR 以兼容 CRLF 输入。
-fn emit_frame(app: &AppHandle, raw: &[u8]) {
+fn emit_frame(app: &AppHandle, channel: Channel, raw: &[u8]) {
     let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
     if raw.is_empty() {
         return;
     }
     match serde_json::from_slice::<serde_json::Value>(raw) {
         Ok(value) => {
-            let _ = app.emit(EVT_MESSAGE, value);
+            let _ = app.emit(channel.message, value);
         }
         Err(e) => {
             let text = String::from_utf8_lossy(raw);
-            let _ = app.emit(EVT_STDERR, format!("帧解析失败：{e} | 原始内容：{text}"));
+            let _ = app.emit(channel.stderr, format!("帧解析失败：{e} | 原始内容：{text}"));
         }
     }
 }
 
 fn spawn_stderr_reader(
     app: AppHandle,
+    channel: Channel,
     stderr: tokio::process::ChildStderr,
     tail: Arc<Mutex<VecDeque<String>>>,
 ) {
@@ -311,7 +358,7 @@ fn spawn_stderr_reader(
                 }
             }
 
-            let _ = app.emit(EVT_STDERR, text);
+            let _ = app.emit(channel.stderr, text);
         }
     });
 }

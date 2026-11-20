@@ -1,37 +1,111 @@
 import { useCallback } from 'react'
 import { rpcClient } from '@/rpc/client'
+import type {
+  ForkMessage,
+  ForkMessagesData,
+  ForkResult,
+  ImageContent,
+  MessagesData,
+  SessionState,
+  StreamingBehavior,
+} from '@/rpc/types'
+import { errorMessage } from '@/shared/utils/error'
+import { useAppStore } from '@/store/app.store'
+import { useProjectsStore } from '@/store/projects.store'
+import { stopNow } from './stopConfirm'
 import { useChatStore } from './store'
-import { runRpc } from './rpcHelpers'
 
-/** 对话流操作：发送与中断 */
+function promptType(running: boolean, behavior: StreamingBehavior) {
+  if (!running) return 'prompt'
+  return behavior === 'steer' ? 'steer' : 'follow_up'
+}
+
+function resolveForkEntry(
+  forkMessages: ForkMessage[],
+  userIndex: number | undefined,
+  rawText: string,
+): ForkMessage | undefined {
+  const trimmed = rawText.trim()
+  if (userIndex != null && forkMessages[userIndex]?.text.trim() === trimmed) {
+    return forkMessages[userIndex]
+  }
+  return (
+    forkMessages.find((item) => item.text.trim() === trimmed) ??
+    (userIndex != null ? forkMessages[userIndex] : undefined)
+  )
+}
+
+async function syncForkedSession(): Promise<void> {
+  const [state, messagesData] = await Promise.all([
+    rpcClient.send<SessionState>({ type: 'get_state' }),
+    rpcClient.send<MessagesData>({ type: 'get_messages' }),
+  ])
+  const store = useChatStore.getState()
+  store.setSession(state)
+  store.setMessages(messagesData.messages ?? [])
+  useAppStore.getState().setLiveSession(state.sessionFile ?? null)
+  void useProjectsStore.getState().refresh()
+}
+
+async function dispatchPrompt(
+  message: string,
+  behavior: StreamingBehavior,
+  images: ImageContent[],
+): Promise<boolean> {
+  const text = message.trim()
+  if (!text && !images.length) return false
+  const { isStreaming: running, echoUserMessage } = useChatStore.getState()
+  const echoId = !running ? echoUserMessage(text, images) : null
+  try {
+    await rpcClient.send({
+      type: promptType(running, behavior),
+      message: text,
+      ...(images.length ? { images } : {}),
+    })
+    return true
+  } catch (error) {
+    if (echoId) useChatStore.getState().removeLocalEcho(echoId)
+    useChatStore.getState().setError(errorMessage(error))
+    return false
+  }
+}
+
+async function forkAndResend(
+  userIndex: number | undefined,
+  rawText: string,
+  nextMessage: string,
+  images: ImageContent[],
+): Promise<boolean> {
+  if (useChatStore.getState().isStreaming) return false
+  try {
+    const { messages } = await rpcClient.send<ForkMessagesData>({ type: 'get_fork_messages' })
+    const target = resolveForkEntry(messages ?? [], userIndex, rawText)
+    if (!target) {
+      useChatStore.getState().setError('无法定位该条用户消息对应的会话节点')
+      return false
+    }
+    const forked = await rpcClient.send<ForkResult>({ type: 'fork', entryId: target.entryId })
+    if (forked.cancelled) return false
+    await syncForkedSession()
+    return await dispatchPrompt(nextMessage, 'steer', images)
+  } catch (error) {
+    useChatStore.getState().setError(errorMessage(error))
+    return false
+  }
+}
+
+/** 对话流操作：发送、编辑分叉重发、排队与中断 */
 export function useChatActions() {
   const isStreaming = useChatStore((s) => s.isStreaming)
-
-  /** 发送消息。流式进行中改用 steer 排队，否则 pi 会直接拒绝该命令 */
   const sendPrompt = useCallback(
-    (message: string) => {
-      const text = message.trim()
-      if (!text) return
-
-      /*
-       * 先上屏再发送。命令送不到 pi 时（会话没起来、进程已退出）这条回显会留在
-       * 原地，用户至少看得见自己发过什么；否则草稿已清空、消息又没回传，
-       * 打的字就凭空消失了。pi 回传同一条时 reducer 会把它顶掉。
-       */
-      useChatStore.getState().echoUserMessage(text)
-
-      return runRpc(() =>
-        rpcClient.send({
-          type: 'prompt',
-          message: text,
-          ...(isStreaming ? { streamingBehavior: 'steer' as const } : {}),
-        }),
-      )
-    },
-    [isStreaming],
+    (message: string, behavior: StreamingBehavior = 'steer', images: ImageContent[] = []) =>
+      dispatchPrompt(message, behavior, images),
+    [],
   )
-
-  const abort = useCallback(() => runRpc(() => rpcClient.send({ type: 'abort' })), [])
-
-  return { sendPrompt, abort, isStreaming }
+  const editUserMessage = useCallback(
+    (userIndex: number | undefined, rawText: string, nextMessage: string, images: ImageContent[] = []) =>
+      forkAndResend(userIndex, rawText, nextMessage, images),
+    [],
+  )
+  return { sendPrompt, editUserMessage, abort: stopNow, isStreaming }
 }
