@@ -55,24 +55,30 @@ function ImageLightbox({ src, alt, close }: { src: string; alt: string; close: (
           disabled={zoom <= 0.5}
           onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
         >
-          <Minus size={18} />
+          <Minus size={16} />
         </button>
-        <button type="button" onClick={() => setZoom(1)} aria-label="重置图片缩放">
+        <button
+          type="button"
+          className={styles.zoomLabel}
+          onClick={() => setZoom(1)}
+          aria-label="重置图片缩放"
+          aria-live="polite"
+        >
           {Math.round(zoom * 100)}%
         </button>
         <button
           type="button"
           aria-label="放大图片"
-          disabled={zoom >= 3}
-          onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+          disabled={zoom >= 4}
+          onClick={() => setZoom(Math.min(4, zoom + 0.25))}
         >
-          <Plus size={18} />
+          <Plus size={16} />
         </button>
         <a href={src} download={alt} aria-label="保存图片">
-          <Download size={18} />
+          <Download size={16} />
         </a>
         <button type="button" aria-label="关闭图片预览" onClick={close}>
-          <X size={20} />
+          <X size={16} />
         </button>
       </header>
       <div
@@ -81,7 +87,12 @@ function ImageLightbox({ src, alt, close }: { src: string; alt: string; close: (
           if (event.target === event.currentTarget) close()
         }}
       >
-        <img src={src} alt={alt} style={{ transform: `scale(${zoom})` }} />
+        <img
+          src={src}
+          alt={alt}
+          draggable={false}
+          style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+        />
       </div>
     </dialog>,
     document.body,
