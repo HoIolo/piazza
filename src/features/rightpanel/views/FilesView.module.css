@@ -10,8 +10,9 @@
   align-items: center;
   gap: var(--sp-2);
   flex: none;
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--border);
+  min-height: 40px;
+  padding: 6px var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .searchIcon {
@@ -51,9 +52,9 @@
   display: flex;
   align-items: baseline;
   gap: var(--sp-2);
-  min-height: 32px;
+  min-height: 30px;
   padding: 0 var(--sp-2);
-  border-radius: var(--r-item);
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-fast) var(--ease);
@@ -71,7 +72,7 @@
 
 .name {
   flex: none;
-  font-size: var(--fs-nav);
+  font-size: var(--fs-desc);
 }
 
 /* 目录退到次要位置，且从左侧裁切——尾部的层级比开头更能定位文件 */
@@ -85,4 +86,78 @@
   text-overflow: ellipsis;
   direction: rtl;
   text-align: left;
+}
+
+.directory {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 34px;
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+.directory span,
+.previewPath,
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewPath {
+  flex: 1;
+  font-size: var(--fs-desc);
+}
+
+.next {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+
+.preview {
+  flex: 1;
+  margin: 0;
+  padding: var(--sp-3);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 20px;
+}
+
+.tokComment {
+  color: var(--syntax-comment);
+}
+
+.tokKeyword {
+  color: var(--syntax-keyword);
+}
+
+.tokLiteral {
+  color: var(--syntax-literal);
+}
+
+.tokString {
+  color: var(--syntax-string);
+}
+
+.tokVariable {
+  color: var(--syntax-variable);
+}
+
+.tokAttribute {
+  color: var(--syntax-attribute);
+}
+
+.tokName {
+  color: var(--syntax-name);
+}
+
+.imagePreview {
+  padding: var(--sp-4);
+  display: flex;
+  justify-content: center;
 }

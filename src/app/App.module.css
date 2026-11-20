@@ -6,6 +6,10 @@
 }
 
 .shell {
+  --window-tools-width: 64px;
+  --split-gap: var(--surface-gap);
+
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
@@ -15,13 +19,38 @@
     opacity var(--dur-slow) var(--ease);
 }
 
-/* 会话区与终端上下排列，共同占据侧栏与右侧面板之间的这一列 */
+.shell[data-workspace-open='true'] {
+  --split-gap: 0px;
+}
+
+/*
+ * 会话区与终端上下排列，共同占据侧栏与右侧面板之间的这一列。
+ *
+ * 这一列本身是透明的：标题栏直接压在毛玻璃上，下面的会话区、终端各是一张
+ * 圆角实色卡片（见 --r-surface），与 Codex 的窗口结构一致。
+ */
 .center {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
   overflow: hidden;
+}
+
+.windowTools {
+  position: absolute;
+  inset: 0 var(--sp-2) auto auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  width: var(--window-tools-width);
+  height: var(--titlebar-h);
+}
+
+.shell[data-workspace-open='false'] .center {
+  --chat-toolbar-reserve: var(--window-tools-width);
 }
 
 /* 设置覆盖时主界面略微缩退，读起来像「压在下面一层」 */
@@ -34,7 +63,7 @@
 .settingsLayer {
   position: absolute;
   inset: 0;
-  background: var(--bg-canvas);
+  /* 不铺底色：设置页自己的侧栏要露出毛玻璃，内容区由它自己铺实色 */
   opacity: 0;
   transform: translateY(12px);
   /*

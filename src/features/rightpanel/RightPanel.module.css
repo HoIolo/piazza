@@ -1,52 +1,130 @@
-@import '../../design/keyframes/fade-in.css';
-
-/*
- * 用宽度过渡而非条件渲染，这样展开与收起两个方向都有动画。
- * 内容用 min-width 撑住，避免收起过程中文字被挤压换行。
- */
 .panel {
+  position: relative;
+
   display: flex;
   flex-direction: column;
   flex: none;
-  width: var(--rightpanel-w);
+  width: var(--panel-width);
   height: 100%;
-  border-left: 1px solid var(--border);
-  background: var(--bg-canvas);
+  padding-inline: var(--surface-gap);
   overflow: hidden;
   transition:
     width var(--dur-slow) var(--ease),
-    opacity var(--dur-base) var(--ease),
-    border-left-width var(--dur-slow) var(--ease);
+    padding-inline var(--dur-slow) var(--ease),
+    opacity var(--dur-base) var(--ease);
 }
 
 .panel[data-open='false'] {
   width: 0;
+  padding-inline: 0;
   opacity: 0;
-  border-left-width: 0;
-  pointer-events: none;
 }
 
-.dragZone {
+.tabBar,
+.surface {
+  width: 100%;
+}
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
   height: var(--titlebar-h);
   flex: none;
+  padding: 0 calc(var(--window-tools-width) + var(--sp-2)) 0 2px;
 }
 
-/* ---------- 入口列表 ---------- */
-
-.list {
+.tabStrip {
   display: flex;
-  flex-direction: column;
-  padding: var(--sp-2);
-  min-width: var(--rightpanel-w);
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 28px;
+  gap: 2px;
+  padding: 0 4px 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.tab:hover {
+  background: var(--bg-sidebar-hover);
+  color: var(--text-primary);
+}
+
+.tab[data-active='true'] {
+  border-color: var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary);
+}
+
+.tab > button:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 2px;
+  white-space: nowrap;
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.tab > button:last-child {
+  width: 20px;
+  height: 20px;
+  opacity: 0.45;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.tab:hover > button:last-child,
+.tab[data-active='true'] > button:last-child {
+  opacity: 1;
+}
+
+.surface {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: var(--surface-gap);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-surface);
+  corner-shape: var(--corner-shape-card);
+  background: var(--bg-canvas);
+  box-shadow: var(--shadow-surface);
+  overflow: hidden;
+}
+
+.start {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--sp-3);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  min-height: 40px;
-  padding: 0 var(--sp-3);
-  border-radius: var(--r-item);
+  width: 100%;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-normal);
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-fast) var(--ease);
@@ -58,73 +136,107 @@
 
 .icon {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast) var(--ease);
 }
 
-.label {
-  font-size: var(--fs-nav);
+.row:hover .icon {
+  color: var(--text-primary);
 }
 
 .hint {
   margin-left: auto;
-  padding: 2px var(--sp-2);
-  border-radius: var(--r-item);
-  background: var(--bg-hover);
+  padding: 2px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-code);
   font-family: var(--font-sans);
-  font-size: var(--fs-desc);
-  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-tertiary);
 }
 
-.row:hover .hint {
-  background: var(--bg-selected);
+.view {
+  height: 100%;
+  overflow: auto;
 }
 
-/* ---------- 子视图 ---------- */
+.tools {
+  display: grid;
+  gap: 2px;
+}
 
-.viewWrap {
+.panel[data-dragging='true'] {
+  transition: none;
+  cursor: col-resize;
+}
+
+.resize {
+  position: absolute;
+  z-index: 3;
+  inset: var(--titlebar-h) auto var(--surface-gap) 0;
+  width: var(--surface-gap);
   display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: var(--rightpanel-w);
-  animation: fade-in var(--dur-base) var(--ease-out);
-}
-
-.viewHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex: none;
-  padding: 0 var(--sp-2) var(--sp-2);
-  border-bottom: 1px solid var(--border);
-}
-
-.back {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-item);
-  color: var(--text-secondary);
-  cursor: pointer;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* 居中柔边引导线：仅悬停或拖拽时淡入 */
+.resize::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  bottom: 20px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border-strong) 18%,
+    var(--border-strong) 82%,
+    transparent
+  );
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+/* 居中胶囊把手：常态轻柔可见，悬停/拖拽时伸长加亮 */
+.resize::after {
+  content: '';
+  position: relative;
+  width: 3px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: var(--text-activity);
+  opacity: 0.45;
   transition:
-    background var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
+    opacity var(--dur-fast) var(--ease),
+    height var(--dur-base) var(--ease),
+    background var(--dur-fast) var(--ease);
 }
 
-.back:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+.resize:hover::before,
+.resize:focus-visible::before,
+.panel[data-dragging='true'] .resize::before {
+  opacity: 0.65;
 }
 
-.viewTitle {
-  font-size: var(--fs-nav);
-  font-weight: var(--fw-medium);
+.resize:hover::after,
+.resize:focus-visible::after {
+  opacity: 1;
+  height: 36px;
+  background: var(--text-tertiary);
 }
 
-.viewBody {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+.panel[data-dragging='true'] .resize::after {
+  opacity: 1;
+  height: 44px;
+  background: var(--text-secondary);
+}
+
+.panel[data-dragging='true'] .surface {
+  pointer-events: none;
 }

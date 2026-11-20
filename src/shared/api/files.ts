@@ -11,3 +11,21 @@ export interface FileHit {
 export function searchProjectFiles(cwd: string, query: string): Promise<FileHit[]> {
   return invoke<FileHit[]>('search_project_files', { cwd, query })
 }
+
+export interface WorkspaceEntry {
+  path: string
+  name: string
+  directory: boolean
+}
+
+export function listWorkspaceDir(cwd: string, path: string): Promise<WorkspaceEntry[]> {
+  return invoke('list_workspace_dir', { cwd, path })
+}
+
+export function previewWorkspaceFile(cwd: string, path: string): Promise<string> {
+  return invoke('preview_workspace_file', { cwd, path })
+}
+
+export function readHtmlPreview(path: string): Promise<string> {
+  return invoke('read_html_preview', { path })
+}

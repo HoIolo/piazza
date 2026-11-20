@@ -1,67 +1,147 @@
-import { useEffect, useState } from 'react'
-import { FileText, Search } from 'lucide-react'
-import { searchProjectFiles, type FileHit } from '@/shared/api/files'
-import { openPathWith } from '@/shared/api/pi'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ArrowLeft, ChevronRight, FileText, Folder, Search } from 'lucide-react'
+import { IconButton } from '@/design/primitives/IconButton'
+import { listWorkspaceDir, searchProjectFiles, type WorkspaceEntry } from '@/shared/api/files'
+import { errorMessage } from '@/shared/utils/error'
+import { basename } from '@/shared/utils/path'
 import { useAppStore } from '@/store/app.store'
+import { FilePreview } from './FilePreview'
 import styles from './FilesView.module.css'
 
-/** 项目文件。空关键词时后端返回浅层优先的前 N 个，等同于一份概览 */
-function useFiles(cwd: string | null, query: string) {
-  const [items, setItems] = useState<FileHit[]>([])
+type Entry = WorkspaceEntry & { dir?: string }
 
+function useEntries(cwd: string, path: string, query: string) {
+  const key = JSON.stringify([path, query])
+  const [loaded, setLoaded] = useState<{ key: string; entries: Entry[]; error?: string }>()
   useEffect(() => {
-    if (!cwd) return
-    let cancelled = false
-    searchProjectFiles(cwd, query)
-      .then((list) => {
-        if (!cancelled) setItems(list)
-      })
-      .catch(() => undefined)
+    let active = true
+    const request = query
+      ? searchProjectFiles(cwd, query).then((files) =>
+          files.map((file) => ({ ...file, directory: false })),
+        )
+      : listWorkspaceDir(cwd, path)
+    void request.then(
+      (entries) => {
+        if (active) setLoaded({ key, entries })
+      },
+      (reason: unknown) => {
+        if (active) setLoaded({ key, entries: [], error: errorMessage(reason) })
+      },
+    )
     return () => {
-      cancelled = true
+      active = false
     }
-  }, [cwd, query])
-
-  return items
+  }, [cwd, path, query, key])
+  return loaded?.key === key ? loaded : undefined
 }
 
-export function FilesView() {
-  const cwd = useAppStore((s) => s.currentCwd)
+function FileList({
+  loaded,
+  searching,
+  onOpen,
+}: {
+  loaded: ReturnType<typeof useEntries>
+  searching: boolean
+  onOpen: (entry: Entry) => void
+}) {
+  let state: ReactNode
+  if (!loaded)
+    state = (
+      <p className={styles.empty} role="status">
+        正在读取文件…
+      </p>
+    )
+  else if (loaded.error)
+    state = (
+      <p className={styles.empty} role="alert">
+        {loaded.error}
+      </p>
+    )
+  else if (!loaded.entries.length)
+    state = <p className={styles.empty}>{searching ? '没有匹配的文件' : '此文件夹为空'}</p>
+  if (state) return <div className={styles.list}>{state}</div>
+
+  return (
+    <div className={styles.list}>
+      {loaded?.entries.map((entry) => (
+        <FileRow key={entry.path} entry={entry} onOpen={() => onOpen(entry)} />
+      ))}
+    </div>
+  )
+}
+
+function FileRow({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+  const { name, path, directory, dir } = entry
+  const Icon = directory ? Folder : FileText
+  return (
+    <button type="button" className={styles.item} title={path} onClick={onOpen}>
+      <Icon size={15} className={styles.icon} />
+      <span className={styles.name}>{name}</span>
+      {dir && <span className={styles.dir}>{dir}</span>}
+      {directory && <ChevronRight size={14} className={styles.next} />}
+    </button>
+  )
+}
+
+function WorkspaceFiles({ cwd }: { cwd: string }) {
+  const file = useAppStore((s) => s.filePreviewTarget?.path ?? null)
+  const setFile = useAppStore((s) => s.setFilePreviewPath)
+  const openBrowserFile = useAppStore((s) => s.openBrowserFile)
   const [query, setQuery] = useState('')
-  const files = useFiles(cwd, query)
+  const [dir, setDir] = useState('')
+  const search = query.trim()
+  const loaded = useEntries(cwd, dir, search)
+
+  if (file) return <FilePreview key={file} cwd={cwd} path={file} back={() => setFile(null)} />
+
+  const openEntry = (entry: Entry) => {
+    if (entry.directory) {
+      setDir(entry.path)
+      return
+    }
+    if (/\.html?$/i.test(entry.path)) {
+      openBrowserFile(`${cwd.replace(/\/$/, '')}/${entry.path}`)
+      return
+    }
+    setFile(entry.path)
+  }
 
   return (
     <div className={styles.wrap}>
       <div className={styles.searchRow}>
-        <Search size={15} className={styles.searchIcon} />
+        <Search size={14} className={styles.searchIcon} />
         <input
           className={styles.search}
-          placeholder="搜索文件"
+          aria-label="搜索项目文件"
+          placeholder="搜索项目文件"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-
-      {files.length === 0 ? (
-        <div className={styles.empty}>没有匹配的文件</div>
-      ) : (
-        <div className={styles.list}>
-          {files.map((file) => (
-            <button
-              key={file.path}
-              type="button"
-              className={styles.item}
-              /* appPath 传空串即交给系统默认应用打开 */
-              onClick={() => void openPathWith('', file.path)}
-              title={file.path}
+      {!search && (
+        <div className={styles.directory} title={dir || cwd}>
+          {dir && (
+            <IconButton
+              size="sm"
+              ariaLabel="上一级目录"
+              onClick={() => setDir(dir.split('/').slice(0, -1).join('/'))}
             >
-              <FileText size={15} className={styles.icon} />
-              <span className={styles.name}>{file.name}</span>
-              <span className={styles.dir}>{file.dir}</span>
-            </button>
-          ))}
+              <ArrowLeft size={14} />
+            </IconButton>
+          )}
+          <span>{dir || basename(cwd) || cwd}</span>
         </div>
       )}
+      <FileList loaded={loaded} searching={!!search} onOpen={openEntry} />
     </div>
+  )
+}
+
+export function FilesView() {
+  const cwd = useAppStore((s) => s.currentCwd)
+  return cwd ? (
+    <WorkspaceFiles key={cwd} cwd={cwd} />
+  ) : (
+    <p className={styles.empty}>请选择一个项目。</p>
   )
 }

@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store/app.store'
-import { rpcClient } from '@/rpc/client'
-import { runRpc, useChatStore } from '@/store/chat'
+import { requestStop } from '@/store/chat'
 
 type AppStore = ReturnType<typeof useAppStore.getState>
 
@@ -10,6 +9,7 @@ const META_ACTIONS: Record<string, (store: AppStore) => void> = {
   k: (store) => store.setPaletteOpen(!store.paletteOpen),
   ',': (store) => store.openSettings(),
   n: (store) => store.startNewSession(),
+  b: (store) => store.toggleSidebar(),
   '\\': (store) => store.toggleRightPanel(),
   t: (store) => store.toggleTerminal(),
   p: (store) => store.openRightPanelView('files'),
@@ -35,13 +35,18 @@ export function useGlobalShortcuts(): void {
     const onKeyDown = (e: KeyboardEvent) => {
       const store = useAppStore.getState()
 
-      // Esc 逐层退出；命令面板打开时由面板自行处理，不在这里抢
+      /*
+       * Esc 逐层退出；命令面板打开时由面板自行处理，不在这里抢。
+       * 已被浮层（菜单、提及面板）用掉的 Esc 会标 defaultPrevented，同样不接——
+       * 关个菜单不该顺手把运行也停了。
+       */
       if (e.key === 'Escape' && !store.paletteOpen) {
+        if (e.defaultPrevented) return
         if (store.settingsOpen) {
           store.closeSettings()
           return
         }
-        if (useChatStore.getState().isStreaming) void runRpc(() => rpcClient.send({ type: 'abort' }))
+        requestStop()
         return
       }
 

@@ -1,4 +1,6 @@
-use std::path::Path;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
@@ -118,9 +120,117 @@ pub fn search_files(cwd: &str, query: &str, limit: usize) -> Vec<FileHit> {
     hits.into_iter().take(limit).map(|(_, hit)| hit).collect()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceEntry {
+    name: String,
+    path: String,
+    directory: bool,
+}
+
+fn workspace_path(cwd: &str, path: &str) -> Result<PathBuf, String> {
+    let relative = Path::new(path);
+    if relative
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err("只能访问项目内的相对路径".into());
+    }
+    let root = fs::canonicalize(cwd).map_err(|err| err.to_string())?;
+    let resolved = fs::canonicalize(root.join(relative)).map_err(|err| err.to_string())?;
+    if !resolved.starts_with(&root) {
+        return Err("路径在项目目录之外".into());
+    }
+    Ok(resolved)
+}
+
+/// 浏览单层目录，点开子目录时再读取，避免大型项目一次性扫描。
+pub fn list_workspace_dir(cwd: &str, path: &str) -> Result<Vec<WorkspaceEntry>, String> {
+    let directory = workspace_path(cwd, path)?;
+    let entries = fs::read_dir(directory).map_err(|err| err.to_string())?;
+    let mut result = Vec::new();
+    for entry in entries.filter_map(Result::ok) {
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        if name.starts_with('.') || SKIP_DIRS.contains(&name.as_str()) {
+            continue;
+        }
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_dir() || kind.is_file() {
+            let entry_path = Path::new(path).join(&name).to_string_lossy().into_owned();
+            result.push(WorkspaceEntry {
+                name,
+                path: entry_path,
+                directory: kind.is_dir(),
+            });
+        }
+    }
+    result.sort_by(|a, b| b.directory.cmp(&a.directory).then_with(|| a.name.cmp(&b.name)));
+    Ok(result)
+}
+
+pub fn preview_workspace_file(cwd: &str, path: &str) -> Result<String, String> {
+    const MAX_BYTES: u64 = 512 * 1024;
+    let file = workspace_path(cwd, path)?;
+    read_utf8_file(&file, MAX_BYTES, "文件超过 512 KB，请使用系统应用打开")
+}
+
+/// 读取本地 HTML 文件供右侧内置浏览器预览（支持 `~/` 与绝对路径，限制 4 MB）。
+pub fn read_html_preview(path: &str) -> Result<String, String> {
+    const MAX_BYTES: u64 = 4 * 1024 * 1024;
+    let expanded = if let Some(rest) = path.strip_prefix("~/") {
+        dirs::home_dir()
+            .ok_or_else(|| "无法定位用户主目录".to_string())?
+            .join(rest)
+    } else {
+        PathBuf::from(path)
+    };
+    let resolved = fs::canonicalize(&expanded).map_err(|err| err.to_string())?;
+    let is_html = resolved
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"));
+    if !is_html {
+        return Err("仅支持预览 HTML 文件".into());
+    }
+    read_utf8_file(&resolved, MAX_BYTES, "HTML 文件超过 4 MB，请使用系统浏览器打开")
+}
+
+fn read_utf8_file(file: &Path, max_bytes: u64, too_large_msg: &str) -> Result<String, String> {
+    if !file.is_file() {
+        return Err("只能预览普通文件".into());
+    }
+    let mut data = Vec::new();
+    File::open(file)
+        .and_then(|f| f.take(max_bytes + 1).read_to_end(&mut data))
+        .map_err(|err| err.to_string())?;
+    if data.len() as u64 > max_bytes {
+        return Err(too_large_msg.into());
+    }
+    if data.contains(&0) {
+        return Err("该文件不是可预览文本".into());
+    }
+    String::from_utf8(data).map_err(|_| "该文件不是 UTF-8 文本".into())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::score;
+    use super::{list_workspace_dir, preview_workspace_file, score};
+
+    #[test]
+    fn workspace_browses_and_previews_its_own_files() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let files = list_workspace_dir(root, "").unwrap();
+        assert!(files.iter().any(|entry| entry.path == "src" && entry.directory));
+        let content = preview_workspace_file(root, "Cargo.toml").unwrap();
+        assert!(content.starts_with("[package]"));
+        assert!(preview_workspace_file(root, "src").is_err());
+        assert!(preview_workspace_file(root, "../package.json").is_err());
+        assert!(preview_workspace_file(root, "/etc/hosts").is_err());
+    }
 
     #[test]
     fn ranks_filename_match_before_path_match() {

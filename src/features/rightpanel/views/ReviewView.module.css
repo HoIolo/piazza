@@ -19,7 +19,7 @@
   padding: var(--sp-2) 0;
   font-family: var(--font-mono);
   font-size: var(--fs-code);
-  line-height: 1.55;
+  line-height: 20px;
   white-space: pre;
   overflow-x: auto;
 }
