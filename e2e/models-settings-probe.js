@@ -3,7 +3,7 @@
  *
  * 页面只是概览，增改都在对话框里、按保存即写 models.json。要盯住：
  *   1. 概览卡片把 provider / 模型列成人能读的样子（名字、API、上下文标签）
- *   2. 「添加 Provider」→ 填表 → 保存：write_models_config 收到的 patch 里有它，
+ *   2. 「添加自定义服务商」→ 填表 → 保存：write_models_config 收到的 patch 里有它，
  *      且空的 apiKey 不写进文件
  *   3. 「添加模型」→ 上下文选 400K → 保存：写入 contextWindow: 400000
  *   4. 编辑一个上下文不在预设里的模型：分段控件停在「自定义」，数值原样保留
@@ -73,14 +73,15 @@ async (page) => {
   await page.waitForTimeout(1200)
   await page.keyboard.press('Meta+,')
   await page.waitForTimeout(500)
-  await page.getByRole('button', { name: '模型与 Provider' }).click()
+  await page.getByRole('button', { name: '模型与账号' }).click()
+  await page.getByRole('radio', { name: '自定义服务商' }).click()
   await page.waitForTimeout(600)
 
   const 概览文本 = await page.locator('section').filter({ hasText: 'Hub' }).first().innerText()
   await page.screenshot({ path: '.playwright-mcp/models-overview.png' })
 
   // 2. 添加 provider
-  await page.getByRole('button', { name: '添加 Provider' }).click()
+  await page.getByRole('button', { name: '添加自定义服务商' }).click()
   await page.waitForTimeout(300)
   await page.getByLabel('显示名称').fill('My Proxy')
   await page.getByLabel('标识').fill('my-proxy')
@@ -108,7 +109,7 @@ async (page) => {
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
   const 对话框已关 = (await page.getByRole('dialog').count()) === 0
-  const 设置还在 = await page.getByRole('heading', { name: '模型与 Provider' }).isVisible()
+  const 设置还在 = await page.getByRole('heading', { name: '模型与账号' }).isVisible()
 
   // 5. 删除：取消不写；确认才写
   await page.getByRole('button', { name: '删除模型 DeepSeek V4' }).click()

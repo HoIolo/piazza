@@ -1,8 +1,8 @@
 import { memo, useMemo, useState } from 'react'
 import { useChatActions, type ToolExecution } from '@/store/chat'
 import { AssistantMessage } from './AssistantMessage'
-import { BashExecutionItem } from './BashExecutionItem'
 import { exchangeFileChanges } from './FileChangeCard/collect'
+import { ProcessArea } from './ProcessArea'
 import { StatusLine } from './StatusLine'
 import { UserMessage } from './UserMessage'
 import type { Exchange } from './exchange'
@@ -15,6 +15,7 @@ export interface ExchangeGroupProps {
   cwd: string | null
   /** 本次交互仍在进行中 */
   active?: boolean
+  paused?: boolean
   /** 任意轮次运行中，禁止对历史用户消息发起编辑分叉 */
   disabled?: boolean
   /** 进行中的实时耗时，用于「处理中 Ns」 */
@@ -31,73 +32,24 @@ export interface ExchangeGroupProps {
   ref?: React.Ref<HTMLElement>
 }
 
-/** 过程区：折叠态不挂载子节点，避免数百条中间消息与工具输出拖垮会话切换 */
-function ProcessArea({
-  intermediate,
-  others,
-  tools,
-  cwd,
-  active,
-  visible,
-  mounted,
-}: {
-  intermediate: Exchange['intermediate']
-  others: Exchange['others']
-  tools: Record<string, ToolExecution>
-  cwd: string | null
-  active: boolean
-  visible: boolean
-  mounted: boolean
-}) {
-  return (
-    <div
-      className={styles.processWrap}
-      data-active={active}
-      data-expanded={visible}
-      inert={!visible}
-    >
-      <div className={styles.processClip}>
-        {mounted && (
-          <div className={styles.process}>
-            {others.map((message, index) =>
-              message.role === 'bashExecution' ? (
-                <BashExecutionItem key={`b${index}`} message={message} />
-              ) : null,
-            )}
-            {intermediate.map((message, index) => (
-              <AssistantMessage key={index} message={message} tools={tools} cwd={cwd} hideFooter />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/** 状态行该显示的秒数：进行中用实时的，结束后优先用本地量的 */
-function statusDurationOf(
-  exchange: Exchange,
-  active: boolean,
-  elapsedMs: number | null | undefined,
-  finishedMs: number | null | undefined,
-): number | null {
-  if (active) return elapsedMs ?? null
-  return finishedMs ?? exchange.durationMs
-}
-
 /** 由交互状态推导这一组的显示方式，把条件判断从渲染里挪出来 */
+function shouldKeepOpen(active: boolean, paused: boolean | undefined, final: Exchange['final']) {
+  return active || paused === true || final?.stopReason === 'aborted'
+}
+
 function deriveView(
   exchange: Exchange,
   active: boolean,
   elapsedMs: number | null | undefined,
   finishedMs: number | null | undefined,
+  keepOpen: boolean,
 ) {
-  const hasProcess = exchange.intermediate.length > 0 || exchange.others.length > 0
+  const hasProcess = exchange.intermediate.length + exchange.others.length > 0
   return {
     hasProcess,
     showStatus: hasProcess || active || exchange.durationMs !== null,
-    statusDuration: statusDurationOf(exchange, active, elapsedMs, finishedMs),
-    expandable: !active && hasProcess,
+    statusDuration: active ? (elapsedMs ?? null) : (finishedMs ?? exchange.durationMs),
+    expandable: hasProcess && !keepOpen,
     // 模型是否已经吐出东西。有过程轮次，或本轮已有内容块，都算它开口了
     responded: hasProcess || (exchange.final?.content.length ?? 0) > 0,
   }
@@ -113,6 +65,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   tools,
   cwd,
   active = false,
+  paused,
   disabled = false,
   elapsedMs,
   finishedMs,
@@ -122,8 +75,8 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   const [opened, setOpened] = useState(active)
   const { forkFromTurn } = useChatActions()
   const { user, intermediate, final, others } = exchange
-  const view = deriveView(exchange, active, elapsedMs, finishedMs)
-  const processVisible = (active || expanded) && view.hasProcess
+  const keepOpen = shouldKeepOpen(active, paused, final)
+  const view = deriveView(exchange, active, elapsedMs, finishedMs, keepOpen)
   const changes = useMemo(
     () => (!active && final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []),
     [active, intermediate, final, tools, cwd],
@@ -155,8 +108,8 @@ export const ExchangeGroup = memo(function ExchangeGroup({
           cwd={cwd}
           active={active}
           /* 进行中始终铺开，结束后交给用户决定 */
-          visible={processVisible}
-          mounted={processVisible || opened}
+          visible={keepOpen || expanded}
+          mounted={keepOpen || opened}
         />
       )}
 

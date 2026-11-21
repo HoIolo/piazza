@@ -1,21 +1,30 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Minus, Plus, X, Download } from 'lucide-react'
-import { useModalDialog } from '@/shared/hooks/useModalDialog'
 import { imageSource } from '@/shared/utils/image'
+import { ImageLightbox, type GalleryImage } from './Lightbox'
 import styles from './ImagePreview.module.css'
 
+export type { GalleryImage }
+
+export interface ImagePreviewProps {
+  src: string
+  alt?: string
+  className?: string
+  /** 同一组图片：查看器里可左右切换。不给就只看这一张 */
+  gallery?: GalleryImage[]
+  /** 本张在 gallery 里的下标 */
+  index?: number
+}
+
+/** 缩略图 + 点开后的查看器。一组图共用一个查看器，点开就能左右翻 */
 export function ImagePreview({
   src,
   alt = '图片',
   className,
-}: {
-  src: string
-  alt?: string
-  className?: string
-}) {
-  const [open, setOpen] = useState(false)
+  gallery,
+  index = 0,
+}: ImagePreviewProps) {
   const [failed, setFailed] = useState(false)
+  const [open, setOpen] = useState(false)
   return (
     <>
       <button
@@ -30,81 +39,27 @@ export function ImagePreview({
           <img src={src} alt={alt} onError={() => setFailed(true)} />
         )}
       </button>
-      {open && <ImageLightbox src={src} alt={alt} close={() => setOpen(false)} />}
-    </>
-  )
-}
-
-function ImageLightbox({ src, alt, close }: { src: string; alt: string; close: () => void }) {
-  const [zoom, setZoom] = useState(1)
-  const modal = useModalDialog(close)
-  return createPortal(
-    <dialog
-      {...modal}
-      className={styles.lightbox}
-      aria-label={alt}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) close()
-      }}
-    >
-      <header className={styles.toolbar}>
-        <span>{alt}</span>
-        <button
-          type="button"
-          aria-label="缩小图片"
-          disabled={zoom <= 0.5}
-          onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-        >
-          <Minus size={16} />
-        </button>
-        <button
-          type="button"
-          className={styles.zoomLabel}
-          onClick={() => setZoom(1)}
-          aria-label="重置图片缩放"
-          aria-live="polite"
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-        <button
-          type="button"
-          aria-label="放大图片"
-          disabled={zoom >= 4}
-          onClick={() => setZoom(Math.min(4, zoom + 0.25))}
-        >
-          <Plus size={16} />
-        </button>
-        <a href={src} download={alt} aria-label="保存图片">
-          <Download size={16} />
-        </a>
-        <button type="button" aria-label="关闭图片预览" onClick={close}>
-          <X size={16} />
-        </button>
-      </header>
-      <div
-        className={styles.stage}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) close()
-        }}
-      >
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+      {open && (
+        <ImageLightbox
+          images={gallery?.length ? gallery : [{ src, alt }]}
+          start={index}
+          close={() => setOpen(false)}
         />
-      </div>
-    </dialog>,
-    document.body,
+      )}
+    </>
   )
 }
 
 export function MessageImages({ images }: { images: Array<{ data: string; mimeType: string }> }) {
   if (!images.length) return null
+  const gallery = images.map((image, index) => ({
+    src: imageSource(image),
+    alt: `图片 ${index + 1}`,
+  }))
   return (
     <div className={styles.gallery}>
-      {images.map((image, index) => (
-        <ImagePreview key={index} src={imageSource(image)} alt={`图片 ${index + 1}`} />
+      {gallery.map((item, index) => (
+        <ImagePreview key={index} src={item.src} alt={item.alt} gallery={gallery} index={index} />
       ))}
     </div>
   )

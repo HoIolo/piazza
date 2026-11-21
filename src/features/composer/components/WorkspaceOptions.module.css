@@ -1,0 +1,54 @@
+.trigger {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  background: var(--bg-hover);
+}
+
+.panel {
+  width: 240px;
+}
+
+.create {
+  padding: var(--sp-2);
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.form input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-item);
+  background: var(--bg-surface);
+}
+
+.form button {
+  flex: none;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-item);
+  background: var(--bg-hover);
+  cursor: pointer;
+}
+
+.form button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.error {
+  margin-top: var(--sp-2);
+  color: var(--diff-del);
+}

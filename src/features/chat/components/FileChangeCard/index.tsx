@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Diff, Undo2 } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
-import { openLink } from '@/shared/utils/openLink'
+import { useFileChangeStats } from './useFileChangeStats'
 import { useAppStore } from '@/store/app.store'
 import styles from './FileChangeCard.module.css'
 
 export interface FileChange {
   path: string
-  additions: number
-  deletions: number
+  additions: number | null
+  deletions: number | null
+  diff: string
 }
 
 export interface FileChangeCardProps {
@@ -27,15 +28,21 @@ function splitPath(path: string): [string, string] {
   return index === -1 ? ['', path] : [path.slice(0, index + 1), path.slice(index + 1)]
 }
 
-export function FileChangeCard({ changes, cwd = null, onReview, onUndo }: FileChangeCardProps) {
+export function FileChangeCard({
+  changes: rawChanges,
+  cwd = null,
+  onReview,
+  onUndo,
+}: FileChangeCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const changes = useFileChangeStats(rawChanges, cwd)
   if (changes.length === 0) return null
 
   const handleReview = onReview ?? (() => useAppStore.getState().openRightPanelView('review'))
   const visible = expanded ? changes : changes.slice(0, VISIBLE_COUNT)
   const hidden = changes.length - visible.length
   const totals = changes.reduce(
-    (acc, c) => ({ add: acc.add + c.additions, del: acc.del + c.deletions }),
+    (acc, c) => ({ add: acc.add + (c.additions ?? 0), del: acc.del + (c.deletions ?? 0) }),
     { add: 0, del: 0 },
   )
 
@@ -47,9 +54,20 @@ export function FileChangeCard({ changes, cwd = null, onReview, onUndo }: FileCh
         </div>
         <div className={styles.headerText}>
           <div className={styles.title}>已编辑 {changes.length} 个文件</div>
-          <div className={styles.stats}>
-            <span className={styles.add}>+{totals.add.toLocaleString()}</span>
-            <span className={styles.del}>-{totals.del.toLocaleString()}</span>
+          <div
+            className={styles.stats}
+            title={
+              changes.some((c) => c.additions === null || c.deletions === null)
+                ? '仅汇总可统计的文件'
+                : undefined
+            }
+          >
+            {changes.some((c) => c.additions !== null) && (
+              <span className={styles.add}>+{totals.add.toLocaleString()}</span>
+            )}
+            {changes.some((c) => c.deletions !== null) && (
+              <span className={styles.del}>-{totals.del.toLocaleString()}</span>
+            )}
           </div>
         </div>
         <div className={styles.actions}>
@@ -64,27 +82,31 @@ export function FileChangeCard({ changes, cwd = null, onReview, onUndo }: FileCh
         {visible.map((change) => {
           const [dir, name] = splitPath(change.path)
           return (
-            <li
-              key={change.path}
-              className={styles.file}
-              role="button"
-              tabIndex={0}
-              onClick={() => void openLink(change.path, cwd)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  void openLink(change.path, cwd)
+            <li key={change.path} className={styles.fileItem}>
+              <button
+                type="button"
+                className={styles.file}
+                disabled={!cwd}
+                onClick={() =>
+                  cwd && useAppStore.getState().openFileDiff(cwd, change.path, change.diff)
                 }
-              }}
-            >
-              <span className={styles.path}>
-                <span className={styles.dir}>{dir}</span>
-                <span className={styles.name}>{name}</span>
-              </span>
-              <span className={styles.fileStats}>
-                <span className={styles.add}>+{change.additions}</span>
-                <span className={styles.del}>-{change.deletions}</span>
-              </span>
+              >
+                <span className={styles.path}>
+                  <span className={styles.dir}>{dir}</span>
+                  <span className={styles.name}>{name}</span>
+                </span>
+                <span className={styles.fileStats}>
+                  {change.additions !== null && (
+                    <span className={styles.add}>+{change.additions}</span>
+                  )}
+                  {change.deletions !== null && (
+                    <span className={styles.del}>-{change.deletions}</span>
+                  )}
+                  {change.additions === null && change.deletions === null && (
+                    <span title="暂无行数统计">—</span>
+                  )}
+                </span>
+              </button>
             </li>
           )
         })}

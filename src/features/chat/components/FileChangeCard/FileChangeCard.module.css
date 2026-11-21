@@ -70,9 +70,17 @@
   flex: none;
 }
 
+/*
+ * 文件行默认只露 3 行在外，点「再显示 N 个文件」也只给到 4 行的窗口，
+ * 再多就在卡片里滚——一轮改二十个文件时，列表不该把整页顶走。
+ */
 .files {
   list-style: none;
+  max-height: 144px;
   border-top: 1px solid var(--border);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 /* 对齐 Codex eA 文件行：36px 行高，4px 16px 内边距 */
@@ -80,7 +88,9 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  width: 100%;
   height: 36px;
+  text-align: left;
   padding: var(--sp-1) var(--sp-4);
   cursor: pointer;
   animation: fade-in var(--dur-base) var(--ease-out);
@@ -91,7 +101,7 @@
   background: var(--bg-hover);
 }
 
-.file + .file {
+.fileItem + .fileItem {
   border-top: 1px solid var(--border-subtle);
 }
 

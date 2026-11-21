@@ -19,7 +19,7 @@ export function restoreTools(messages: AgentMessage[]): Record<string, ToolExecu
         args: block.arguments,
         status: 'done',
         isError: result?.isError ?? false,
-        result: result && { content: result.content },
+        result: result && { content: result.content, details: result.details },
       }
     }
   }

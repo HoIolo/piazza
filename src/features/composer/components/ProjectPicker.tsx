@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { open } from '@tauri-apps/plugin-dialog'
 import { Folder, FolderPlus, Search } from 'lucide-react'
 import { MenuEmpty, MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
 import { Skeleton } from '@/design/primitives/Skeleton'
+import { addProject } from '@/shared/utils/addProject'
 import { useProjectsStore } from '@/store/projects.store'
 import { useAppStore } from '@/store/app.store'
 import styles from './ProjectPicker.module.css'
@@ -11,8 +11,8 @@ import styles from './ProjectPicker.module.css'
 /**
  * 项目选择器，对应 Codex 上下文条最左侧的项目按钮。
  *
- * 项目来自已扫描的会话目录；「打开其他项目」用系统目录选择器指定任意路径，
- * 覆盖了 Codex「新建项目」的实际用途。
+ * 项目来自已扫描的会话目录，加上手动添加过的目录；「添加项目」走与
+ * 侧栏「+」、⌘O 同一个入口，选完就切过去。
  */
 export function ProjectPicker({ projectName }: { projectName: string }) {
   const [keyword, setKeyword] = useState('')
@@ -24,12 +24,6 @@ export function ProjectPicker({ projectName }: { projectName: string }) {
   const filtered = projects.filter((p) =>
     `${p.name} ${p.cwd}`.toLowerCase().includes(keyword.trim().toLowerCase()),
   )
-
-  const pickDirectory = async (close: () => void) => {
-    close()
-    const picked = await open({ directory: true, defaultPath: currentCwd ?? undefined })
-    if (typeof picked === 'string') selectProject(picked)
-  }
 
   return (
     <Popover
@@ -86,8 +80,14 @@ export function ProjectPicker({ projectName }: { projectName: string }) {
           </div>
 
           <MenuSeparator />
-          <MenuItem icon={<FolderPlus size={16} />} onClick={() => void pickDirectory(close)}>
-            打开其他项目
+          <MenuItem
+            icon={<FolderPlus size={16} />}
+            onClick={() => {
+              close()
+              void addProject()
+            }}
+          >
+            添加项目
           </MenuItem>
         </div>
       )}

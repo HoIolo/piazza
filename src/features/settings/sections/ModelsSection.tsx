@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { Plus } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
+import { Segmented } from '@/design/primitives/Segmented'
+import { ProviderAccounts } from '../components/ProviderAccounts'
 import { Skeleton } from '@/design/primitives/Skeleton'
 import { errorMessage } from '@/shared/utils/error'
 import { ModelsEditor, type Editor } from '../components/ModelsEditor'
@@ -36,13 +38,36 @@ function ModelsSkeleton() {
 }
 
 /**
- * 模型与 Provider 配置页。
+ * 模型与账号配置页。
  *
  * 页面只是概览：每个 provider 一张卡，列出它的模型和几个能力标签。
  * 所有输入框都在对话框里，按「保存」即写入 ~/.pi/agent/models.json——
  * 没有页面级的草稿与保存按钮，改一处就落一处。
  */
 export function ModelsSection() {
+  const [tab, setTab] = useState('oauth')
+  return (
+    <div className={styles.page}>
+      <div className={styles.navigation}>
+        <Segmented
+          ariaLabel="服务商接入方式"
+          value={tab}
+          options={[
+            { value: 'oauth', label: '账号与订阅' },
+            { value: 'api_key', label: '厂商 API Key' },
+            { value: 'custom', label: '自定义服务商' },
+          ]}
+          onChange={setTab}
+        />
+      </div>
+      {tab === 'custom'
+        ? <CustomProviders />
+        : <ProviderAccounts method={tab === 'oauth' ? 'oauth' : 'api_key'} />}
+    </div>
+  )
+}
+
+function CustomProviders() {
   const { providers, loading, error, saved, commit } = useModelsConfig()
   const [editor, setEditor] = useState<Editor | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -74,14 +99,14 @@ export function ModelsSection() {
           {saved && <span className={styles.saved}>已保存，原文件备份为 .bak</span>}
         </p>
         <Pill icon={<Plus size={14} />} onClick={() => setEditor({ kind: 'provider', key: null })}>
-          添加 Provider
+          添加自定义服务商
         </Pill>
       </div>
 
       {problem && <p className={styles.error}>{problem}</p>}
 
       {entries.length === 0 && (
-        <p className={styles.hint}>还没有自定义 Provider，点击「添加 Provider」开始配置。</p>
+        <p className={styles.hint}>还没有自定义服务商，点击「添加自定义服务商」开始配置。</p>
       )}
 
       {entries.map(([key, provider]) => (

@@ -1,16 +1,12 @@
-import {
-  isDialogRequest,
-  type AgentEvent,
-  type AgentMessage,
-  type AssistantMessageEvent,
-} from '@/rpc/types'
+import { isDialogRequest, type AgentEvent, type AssistantMessageEvent } from '@/rpc/types'
+import { commitMessage, stopThinking } from './commitMessage'
 import { applyDelta } from './stream'
-import type {
-  ChatAssistantMessage,
-  ChatMessage,
-  ChatSnapshot,
-  ThinkingTiming,
-  ToolExecution,
+import {
+  wasPaused,
+  type ChatAssistantMessage,
+  type ChatSnapshot,
+  type ThinkingTiming,
+  type ToolExecution,
 } from './types'
 
 /**
@@ -33,17 +29,25 @@ export function reduceEvent(state: ChatSnapshot, event: AgentEvent): ChatSnapsho
 function reduceLifecycle(state: ChatSnapshot, event: AgentEvent): ChatSnapshot | null {
   switch (event.type) {
     case 'agent_start':
-      return { ...state, isStreaming: true, error: null, turnStartedAt: Date.now() }
-    case 'agent_settled':
+      return { ...state, isStreaming: true, paused: false, error: null, turnStartedAt: Date.now() }
+    case 'agent_settled': {
+      const paused = event.aborted || wasPaused(state.messages)
+      const messages =
+        paused && state.streaming
+          ? [...state.messages, { ...state.streaming, stopReason: 'aborted' as const }]
+          : state.messages
       return {
         ...state,
         isStreaming: false,
+        paused,
+        messages,
         streaming: null,
         lastTurnDurationMs: state.turnStartedAt ? Date.now() - state.turnStartedAt : null,
         turnStartedAt: null,
         // 运行已结束，任何未回应的对话都不会再有人接，留着只会挂住界面
         pendingDialog: null,
       }
+    }
     default:
       return null
   }
@@ -118,17 +122,6 @@ function reduceMisc(state: ChatSnapshot, event: AgentEvent): ChatSnapshot | null
   }
 }
 
-/** 把一条完成的消息并入历史，并清掉对应的流式占位 */
-function commitMessage(state: ChatSnapshot, message: AgentMessage): ChatSnapshot {
-  if ((message as { role?: string }).role === 'system') return state
-  const alreadyStreamed = state.streaming !== null && message.role === 'assistant'
-  return {
-    ...state,
-    messages: [...dropLocalEcho(state.messages, message), sealThinking(message, state.streaming)],
-    streaming: alreadyStreamed ? null : state.streaming,
-  }
-}
-
 /**
  * 按事件推进思考计时。
  *
@@ -147,11 +140,10 @@ function tickThinking(
 ): ChatAssistantMessage | null {
   if (!streaming || !('contentIndex' in event)) return streaming
 
-  const now = Date.now()
   const thinking =
     event.type === 'thinking_start' || event.type === 'thinking_delta'
-      ? startThinking(streaming.thinking, now)
-      : stopThinking(streaming.thinking, now)
+      ? startThinking(streaming.thinking, Date.now())
+      : stopThinking(streaming.thinking, Date.now())
 
   // 同一个对象说明状态没变，原样返回，免得每个 delta 都白造一个新消息对象
   return thinking === streaming.thinking ? streaming : { ...streaming, thinking }
@@ -161,43 +153,6 @@ function tickThinking(
 function startThinking(prev: ThinkingTiming | undefined, now: number): ThinkingTiming {
   if (prev && prev.startedAt !== null) return prev
   return { startedAt: now, durationMs: prev?.durationMs ?? null }
-}
-
-/**
- * 停表，并把这一段累加进总时长。
- *
- * 累加而非覆盖：一条消息里可能思考—调工具—再思考，界面把这些片段合成
- * 一段展示，时长自然也该是合起来的那个数。
- */
-function stopThinking(prev: ThinkingTiming | undefined, now: number): ThinkingTiming | undefined {
-  if (!prev || prev.startedAt === null) return prev
-  return { startedAt: null, durationMs: (prev.durationMs ?? 0) + Math.max(0, now - prev.startedAt) }
-}
-
-/**
- * 把流式期间量到的思考时长交接给落定的消息。
- *
- * message_end 带回的才是权威内容，但它不含计时；不在这里接过来，
- * 每轮一结束「已思考 12秒」就退回成光秃秃的「已思考」。
- */
-function sealThinking(message: AgentMessage, streaming: ChatAssistantMessage | null): ChatMessage {
-  if (message.role !== 'assistant' || !streaming) return message
-  const thinking = stopThinking(streaming.thinking, Date.now())
-  return thinking ? { ...message, thinking } : message
-}
-
-/**
- * pi 回传权威的 user message_end 时，移除对应的本地乐观回显占位。
- *
- * 不能按纯文本严格相等比对：开启图片自动缩放时 pi 会在正文后追加
- * `[Image: original WxH, displayed at ...]` 坐标换算说明，或展开斜杠模板，
- * 导致权威文本与本地原文不同；既然本地回显只在空闲发问时压入一条占位，
- * 收到权威 user 消息时直接移除最早的 local 占位即可彻底避免双气泡。
- */
-function dropLocalEcho(messages: ChatMessage[], incoming: AgentMessage): ChatMessage[] {
-  if (incoming.role !== 'user') return messages
-  const idx = messages.findIndex((item) => item.local && item.role === 'user')
-  return idx === -1 ? messages : [...messages.slice(0, idx), ...messages.slice(idx + 1)]
 }
 
 function upsertTool(state: ChatSnapshot, tool: ToolExecution): ChatSnapshot {

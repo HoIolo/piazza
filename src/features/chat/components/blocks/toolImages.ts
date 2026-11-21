@@ -30,11 +30,25 @@ export function isImageView(execution: ToolExecution) {
   return name === 'read' && execution.status === 'running' && hasImagePathArg(execution.args)
 }
 
+/**
+ * 把一串执行按「看的是一类东西」切成若干段。
+ *
+ * 看图单独成段：它的展开项是缩略图而不是命令行，和读写类混在一起会让分组头
+ * 的「已读取 N 个……运行 N 条命令」对不上账。相邻的几次看图合在一段里——
+ * Codex 把连续活动收成一条汇总（读几个文件、跑几条命令），看三张图也不该占三行。
+ */
 export function toolRuns(executions: ToolExecution[]) {
   const runs: ToolExecution[][] = []
+  let images: ToolExecution[] | null = null
   for (const execution of executions) {
+    if (isImageView(execution)) {
+      if (images) images.push(execution)
+      else runs.push((images = [execution]))
+      continue
+    }
+    images = null
     const previous = runs[runs.length - 1]
-    if (isImageView(execution) || !previous || isImageView(previous[0])) runs.push([execution])
+    if (!previous || isImageView(previous[0])) runs.push([execution])
     else previous.push(execution)
   }
   return runs

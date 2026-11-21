@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { DEFAULT_MAX_HEIGHT, usePopoverDismiss, usePopoverPlacement } from './place'
+import { DEFAULT_MAX_HEIGHT, usePopoverDismiss, usePopoverPlacement, type PopoverSide } from './place'
 import styles from './Popover.module.css'
 
 export interface PopoverProps {
@@ -18,7 +18,7 @@ export interface PopoverProps {
   children: (close: () => void) => ReactNode
   /** 浮层相对触发器的对齐边与方向。方向只是首选，放不下会自动翻到另一侧 */
   align?: 'start' | 'end'
-  side?: 'top' | 'bottom'
+  side?: PopoverSide
   /** 附加到定位容器上的类名 */
   className?: string
   /** 浮层是否裁切并滚动超长内容，内容里嵌二级浮层时设为 visible */

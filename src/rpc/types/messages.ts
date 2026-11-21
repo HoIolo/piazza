@@ -97,6 +97,7 @@ export interface ToolResultMessage {
   role: 'toolResult'
   toolCallId: string
   toolName: string
+  details?: Record<string, unknown>
   content: Array<TextContent | ImageContent>
   usage?: Usage
   isError: boolean

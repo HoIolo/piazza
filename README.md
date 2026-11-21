@@ -2,13 +2,14 @@
 
 基于 [pi coding agent](https://github.com/earendil-works/pi) 的桌面 GUI，界面复刻 OpenAI Codex 桌面版，并把 pi 的自定义模型配置变成可视化编辑。
 
-## 环境要求
+Piazza 的 macOS 安装包包含 Pi SDK 和 Node.js。安装后可直接启动，并继续使用已有的 `~/.pi/agent` 配置与会话。首次使用需配置模型和凭据。
+
+## 构建环境
 
 | 依赖 | 说明 |
 |---|---|
 | Node.js ≥ 22 | 前端构建 |
 | Rust stable | Tauri 后端 |
-| pi | `npm i -g @earendil-works/pi-coding-agent` |
 | Xcode CLT | macOS 构建工具链 |
 
 ## 开发
@@ -19,7 +20,9 @@ npm run tauri dev      # 启动开发模式
 npm run tauri build    # 打包 .app
 ```
 
-质量门槛：
+首次构建会下载校验固定版本的 Node.js，并按锁文件安装 Pi SDK。运行时版本保存在 `scripts/prepare-pi-runtime.sh` 和 `pi-runtime/package.json`。
+
+质量门槛
 
 ```bash
 npm run typecheck                      # tsc --noEmit
@@ -32,14 +35,13 @@ cd src-tauri && cargo clippy -- -D warnings
 前端与 pi 之间不直接通信，全部经由 Rust 侧的子进程桥接：
 
 ```
-React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  pi --mode rpc
+React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  内置 Node.js + Pi SDK
 ```
 
 ### Rust 侧（`src-tauri/src/`）
 
 | 文件 | 职责 |
 |---|---|
-| `pi_locate.rs` | 解析 pi 的可执行路径（四级回退） |
 | `rpc.rs` | 子进程管理、JSONL 严格分帧、事件转发 |
 | `config.rs` | `models.json` / `settings.json` 的原子读写 |
 | `sessions.rs` | 扫描 `~/.pi/agent/sessions` 并按真实 cwd 分组 |
@@ -49,13 +51,13 @@ React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  
 
 **五个容易踩的坑，已在代码中处理：**
 
-1. **pi 路径解析**：npm 全局安装的 `pi` 是指向 `dist/cli.js` 的符号链接，shebang 为 `#!/usr/bin/env node`。macOS 双击启动的 `.app` 不继承 shell PATH，直接 spawn `"pi"` 在打包后必然失败——而 `npm run tauri dev` 时反而正常，会掩盖这个问题。`pi_locate.rs` 按「用户指定 → login shell → 常见安装位置」逐级回退，并拆成 `node 绝对路径 + cli.js 绝对路径` 执行。
+1. **后台运行时**。Tauri 按应用资源绝对路径启动 Node.js 和 `pi-runtime/worker.mjs`，每个会话槽位保留自己的进程及工作目录。
 
 2. **JSONL 分帧**：pi 的 RPC 协议规定**只以 LF 作为记录分隔符**。不能使用通用行读取器——例如 Node 的 `readline` 会额外在 `U+2028`/`U+2029` 处断行，而这两个字符在 JSON 字符串内是合法内容，会把一帧劈成两半。`rpc.rs` 手工按字节扫描 `0x0A`，并有 7 个单元测试覆盖（含 CRLF、U+2028、跨读取重组、200KB 超大帧）。
 
 3. **`message_update` 与文档不符**：pi 官方文档称该事件带有 `message`（当前完整消息）和 `assistantMessageEvent.partial`。**v0.82.1 实测两者都不存在**，只有 `{ type, contentIndex, delta }`。若照文档实现，会在 `event.message.role` 处直接抛 TypeError。因此 `store/chat/stream.ts` 自行按 `contentIndex` 累积内容，并用 `*_end` 事件携带的完整文本覆盖累积结果以纠正偏差。
 
-4. **pi 会改写自己的进程标题**：子进程实际是 `node <cli.js> --mode rpc`，但 `ps` 里只显示为 `pi`，命令行参数被抹掉。排查时 `pgrep -f "mode rpc"` 永远匹配不到，要用 `pgrep -P <主进程PID>` 按父子关系查。
+4. **SDK 兼容性**。后台入口复用 Pi 的会话运行时、RPC 和内置扩展，并按固定版本加载与该版本配套的代理及项目信任逻辑。
 
 5. **切换会话会误报「进程已退出」**：`rpc_start` 会先 kill 旧进程，旧进程 stdout 关闭同样触发退出事件。`rpc.rs` 给每次会话分配递增的代号，reader 结束时比对代号，只有仍是当前代（即非主动切换）才上报，否则每切一次会话都会弹一次假错误。
 
@@ -116,7 +118,7 @@ app/               →  仅组装与布线
 - `@` 提及与「+」菜单共用一个面板，可搜项目文件、技能与提示词、历史会话
 - 扩展索取输入时（`ctx.ui.select()` 等）弹出问答卡片，侧栏同步显示转圈或「需要用户输入」
 - 会话操作：双击标题重命名、导出 HTML、用已安装的编辑器打开项目
-- 设置内嵌于主界面（非独立窗口）：pi 路径、默认模型、主题、压缩与重试、扩展包、项目信任
+- 设置内嵌于主界面（非独立窗口）：内置运行时、默认模型、主题、压缩与重试、扩展包、项目信任
 - **模型配置**：可视化增删改 `~/.pi/agent/models.json` 的 provider 与 model。页面只是概览卡片，增改在对话框里完成、按保存即落盘；上下文窗口给 200K / 400K / 1M 三档加自定义。写前备份为 `.bak`，经临时文件原子落盘，保留 GUI 不认识的用户手写字段与键顺序
 
 ## 未实现

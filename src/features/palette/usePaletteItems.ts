@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
+import { getVisibleCommands } from '@/rpc/visibleCommands'
 import { rpcClient } from '@/rpc/client'
-import type { CommandsData } from '@/rpc/types'
 import { runRpc } from '@/store/chat'
 
 export interface PaletteItem {
@@ -22,8 +22,7 @@ export function usePaletteItems(builtins: PaletteItem[], enabled: boolean): Pale
     if (!enabled) return
 
     let cancelled = false
-    rpcClient
-      .send<CommandsData>({ type: 'get_commands' })
+    getVisibleCommands()
       .then((data) => {
         if (cancelled) return
         setPiItems(

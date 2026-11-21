@@ -1,5 +1,5 @@
 import { Bug, Hammer, RefreshCcwDot, Telescope } from 'lucide-react'
-import { BrandMark } from '@/shared/components/BrandMark'
+import { WelcomeMascot } from './WelcomeMascot'
 import styles from './EmptyState.module.css'
 
 export interface EmptyStateProps {
@@ -19,7 +19,7 @@ const SUGGESTIONS = [
 export function EmptyState({ projectName, onPickSuggestion }: EmptyStateProps) {
   return (
     <div className={styles.wrapper}>
-      <BrandMark className={styles.mark} />
+      <WelcomeMascot />
       <h1 className={styles.title}>
         要在 <span className={styles.project}>{projectName}</span> 内开发什么？
       </h1>

@@ -121,6 +121,86 @@ pub fn trash(path: &str) -> Result<(), String> {
     std::fs::rename(&target, &dest).map_err(|e| e.to_string())
 }
 
+/// 原地截断会话文件，只保留 session 头与 `entry_id` 之前的祖先链路，
+/// 用于「编辑用户消息后原地重发」而不像 fork 那样在侧栏多出一条新会话。
+pub fn truncate_before(path: &str, entry_id: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
+    let root = home
+        .join(".pi/agent/sessions")
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
+
+    if !target.starts_with(&root) || target.extension().is_none_or(|e| e != "jsonl") {
+        return Err("只能编辑会话记录文件".into());
+    }
+
+    let raw = std::fs::read_to_string(&target).map_err(|e| e.to_string())?;
+    let kept = filter_lines_before(&raw, entry_id)?;
+    let tmp = target.with_extension("jsonl.tmp");
+    std::fs::write(&tmp, kept.as_bytes()).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &target).map_err(|e| e.to_string())
+}
+
+fn filter_lines_before(raw: &str, entry_id: &str) -> Result<String, String> {
+    let mut header_line: Option<String> = None;
+    let mut lines: Vec<(String, Option<String>, String)> = Vec::new();
+    let mut by_id: HashMap<String, usize> = HashMap::new();
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+            continue;
+        };
+        if val.get("type").and_then(|v| v.as_str()) == Some("session") {
+            if header_line.is_none() {
+                header_line = Some(trimmed.to_string());
+            }
+            continue;
+        }
+        let Some(id) = val.get("id").and_then(|v| v.as_str()).map(str::to_string) else {
+            continue;
+        };
+        let parent_id = val
+            .get("parentId")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let idx = lines.len();
+        by_id.insert(id.clone(), idx);
+        lines.push((id, parent_id, trimmed.to_string()));
+    }
+
+    let header = header_line.ok_or("会话文件缺少 session 头")?;
+    let &target_idx = by_id
+        .get(entry_id)
+        .ok_or_else(|| format!("找不到待编辑的会话节点：{entry_id}"))?;
+
+    let mut ancestors: Vec<usize> = Vec::new();
+    let mut cursor = lines[target_idx].1.as_deref().and_then(|p| by_id.get(p)).copied();
+    let mut visited = 0usize;
+    while let Some(idx) = cursor {
+        ancestors.push(idx);
+        visited += 1;
+        if visited > lines.len() {
+            break;
+        }
+        cursor = lines[idx].1.as_deref().and_then(|p| by_id.get(p)).copied();
+    }
+    ancestors.reverse();
+
+    let mut out = String::new();
+    out.push_str(&header);
+    out.push('\n');
+    for idx in ancestors {
+        out.push_str(&lines[idx].2);
+        out.push('\n');
+    }
+    Ok(out)
+}
+
 /// 从磁盘直接解析某条会话当前活跃分支的消息快照。
 ///
 /// 与 pi 的 `buildSessionContext` 逻辑一致：沿 `parentId` 从最新叶节点回溯到根，
@@ -413,7 +493,7 @@ fn truncate_title(title: &str) -> String {
 mod tests {
     use std::io::Cursor;
 
-    use super::{parse_snapshot, truncate_title};
+    use super::{filter_lines_before, parse_snapshot, truncate_title};
 
     #[test]
     fn flattens_newlines_into_spaces() {
@@ -451,5 +531,27 @@ mod tests {
         assert_eq!(snap.messages.len(), 2);
         assert_eq!(snap.messages[0]["content"], "kept");
         assert!(snap.messages[1]["content"].is_array());
+    }
+
+    #[test]
+    fn truncates_session_strictly_before_target_entry() {
+        let jsonl = [
+            r#"{"type":"session","id":"s1","cwd":"/tmp/demo"}"#,
+            r#"{"type":"model_change","id":"mc1","parentId":null,"provider":"p","modelId":"m"}"#,
+            r#"{"type":"message","id":"u1","parentId":"mc1","message":{"role":"user","content":"first"}}"#,
+            r#"{"type":"message","id":"a1","parentId":"u1","message":{"role":"assistant","content":[]}}"#,
+            r#"{"type":"message","id":"u2","parentId":"a1","message":{"role":"user","content":"second"}}"#,
+        ]
+        .join("\n");
+
+        let before_u2 = filter_lines_before(&jsonl, "u2").unwrap();
+        let snap2 = parse_snapshot(Cursor::new(before_u2.as_bytes()));
+        assert_eq!(snap2.messages.len(), 2);
+        assert_eq!(snap2.messages[0]["content"], "first");
+
+        let before_u1 = filter_lines_before(&jsonl, "u1").unwrap();
+        let snap1 = parse_snapshot(Cursor::new(before_u1.as_bytes()));
+        assert!(snap1.messages.is_empty());
+        assert!(before_u1.contains(r#""id":"mc1""#));
     }
 }

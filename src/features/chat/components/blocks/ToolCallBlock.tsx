@@ -5,22 +5,12 @@ import { ShimmerText } from '@/design/primitives/ShimmerText'
 import { openLink } from '@/shared/utils/openLink'
 import { useAppStore } from '@/store/app.store'
 import type { ToolExecution } from '@/store/chat'
-import { summarizeArgs, toolKind, toolVerb, type ToolKind } from './toolFormat'
+import { summarizeArgs, toolIcon, toolVerb } from './toolFormat'
 import { isImageView, toolImages } from './toolImages'
 import { integrationSource } from './toolIntegration'
 import { ToolImageResult } from './ToolImageResult'
 import { ToolDetails } from './ToolDetails'
 import styles from './ToolCallBlock.module.css'
-
-const KIND_ICONS = {
-  command: 'terminal',
-  read: 'file',
-  search: 'search',
-  list: 'folder',
-  edit: 'edit',
-  web: 'web',
-  other: 'code',
-} as const satisfies Record<ToolKind, string>
 
 export interface ToolCallBlockProps {
   execution: ToolExecution
@@ -78,7 +68,7 @@ export function ToolCallBlock({ execution }: ToolCallBlockProps) {
         aria-expanded={expanded}
       >
         <CodexIcon
-          name={source ? 'integration' : KIND_ICONS[toolKind(execution.toolName)]}
+          name={toolIcon(execution.toolName)}
           size={16}
           className={styles.icon}
         />

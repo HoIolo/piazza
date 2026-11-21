@@ -3,7 +3,20 @@ import { rpcClient } from '@/rpc/client'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { useProjectsStore } from '@/store/projects.store'
-import { bootSession, describeExit, markRpcProcessExited, startWatchdog } from './bootSession'
+import {
+  bootSession,
+  describeExit,
+  getSlotCwd,
+  markRpcProcessExited,
+  startWatchdog,
+} from './bootSession'
+import {
+  applyBackgroundEvent,
+  detachForeground,
+  handleBackgroundExit,
+  reattachBackground,
+} from './sessionPool'
+import { hasPendingWork } from './types'
 import { useChatStore } from './store'
 import {
   commitLoadedSession,
@@ -16,21 +29,30 @@ import {
 function useAgentEvents(): void {
   const applyEvent = useChatStore((s) => s.applyEvent)
   useEffect(() => {
-    const offEvent = rpcClient.onEvent((event) => {
+    const offEvent = rpcClient.onEvent((event, slotId) => {
+      if (slotId !== rpcClient.getActiveSlot()) {
+        applyBackgroundEvent(slotId, event)
+        return
+      }
       const store = useChatStore.getState()
       if (!store.rpcReady || !store.session) return
       store.applyEvent(event)
       if (event.type === 'message_end' && event.message.role === 'user') {
         void useProjectsStore.getState().refresh()
       }
-      if (event.type === 'agent_settled') {
+      if (event.type === 'agent_settled' || event.type === 'session_info_changed') {
         snapshotCurrentSession()
         void useProjectsStore.getState().refresh()
       }
     })
-    const offExit = rpcClient.onExit((info) => {
-      markRpcProcessExited()
+    const offExit = rpcClient.onExit((info, slotId) => {
+      markRpcProcessExited(slotId)
+      if (slotId !== rpcClient.getActiveSlot()) {
+        handleBackgroundExit(slotId)
+        return
+      }
       const store = useChatStore.getState()
+      useChatStore.setState({ titlePending: false })
       store.setRpcReady(false)
       store.setError(describeExit(info))
     })
@@ -41,15 +63,52 @@ function useAgentEvents(): void {
   }, [applyEvent])
 }
 
-function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: string, forceCold: boolean) {
+/** 切走时保留流式会话到后台；若目标会话已在后台运行则直接接回前台，返回 null 表示无需重启。 */
+function resolveSlotForSwitch(
+  cwd: string,
+  sessionPath: string | null,
+  viewKey: string,
+  forceCold: boolean,
+): string | null {
+  const store = useChatStore.getState()
+  const prevSlot = rpcClient.getActiveSlot()
+  const shouldDetach = !forceCold && hasPendingWork(store)
+
+  if (shouldDetach) {
+    detachForeground(prevSlot, getSlotCwd(prevSlot) ?? cwd, store)
+  } else {
+    snapshotCurrentSession()
+  }
+
+  const bg = !forceCold ? reattachBackground(sessionPath, viewKey) : null
+  if (bg) {
+    if (!shouldDetach && prevSlot !== bg.slotId) {
+      markRpcProcessExited(prevSlot)
+      void rpcClient.stop(prevSlot).catch(() => undefined)
+    }
+    rpcClient.setActiveSlot(bg.slotId)
+    store.restoreLiveSession({ viewKey, session: bg.session, snapshot: bg.snapshot })
+    useAppStore.getState().setLiveSession(bg.sessionFile ?? sessionPath)
+    return null
+  }
+
+  if (shouldDetach) {
+    const nextSlot = crypto.randomUUID()
+    rpcClient.setActiveSlot(nextSlot)
+    return nextSlot
+  }
+  return prevSlot
+}
+
+function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: string, forceCold: boolean, reconnect: boolean) {
+  const previous = useChatStore.getState().session
+  const slotId = resolveSlotForSwitch(cwd, sessionPath, viewKey, forceCold)
+  if (!slotId) return () => undefined
+
   let cancelled = false
   const isCancelled = () => cancelled
-  const store = useChatStore.getState()
-  const previous = store.session
-  const wasStreaming = store.isStreaming
-
-  snapshotCurrentSession()
-  const hitCache = prepareSwitchView(sessionPath, viewKey)
+  if (reconnect) useChatStore.getState().setRpcReady(false)
+  const hitCache = reconnect || prepareSwitchView(sessionPath, viewKey)
   const skeletonTimer = startSkeletonGuard(viewKey, hitCache, isCancelled)
   if (!hitCache) {
     void tryHydrateDisk(sessionPath, viewKey, isCancelled).finally(() => clearTimeout(skeletonTimer))
@@ -60,17 +119,9 @@ function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: stri
     s.setError(err)
   })
 
-  void bootSession({
-    cwd,
-    sessionPath,
-    current: () => !cancelled,
-    previous,
-    wasStreaming,
-    forceCold,
-  })
+  void bootSession({ slotId, cwd, sessionPath, current: () => !cancelled, previous, forceCold })
     .then((loaded) => {
       if (!cancelled && loaded) commitLoadedSession(viewKey, loaded)
-      if (wasStreaming) void useProjectsStore.getState().refresh()
     })
     .catch((e: unknown) => {
       if (!cancelled) useChatStore.getState().setError(errorMessage(e))
@@ -93,7 +144,6 @@ export function useAgentSession(): void {
   const sessionPath = useAppStore((s) => s.currentSessionPath)
   const sessionNonce = useAppStore((s) => s.sessionNonce)
   const reconnectNonce = useAppStore((s) => s.reconnectNonce)
-  const applyEvent = useChatStore((s) => s.applyEvent)
   const lastReconnectRef = useRef(reconnectNonce)
 
   useAgentEvents()
@@ -101,10 +151,13 @@ export function useAgentSession(): void {
   useEffect(() => {
     if (!cwd) return
     const store = useChatStore.getState()
-    const targetPath = sessionPath ?? (store.rpcReady ? null : useAppStore.getState().liveSessionPath)
-    const forceCold = reconnectNonce !== lastReconnectRef.current || Boolean(store.error?.fatal)
+    const reconnect = reconnectNonce !== lastReconnectRef.current
+    const targetPath = reconnect
+      ? useAppStore.getState().liveSessionPath ?? sessionPath
+      : sessionPath ?? (store.rpcReady ? null : useAppStore.getState().liveSessionPath)
+    const forceCold = reconnect || Boolean(store.error?.fatal)
     lastReconnectRef.current = reconnectNonce
-    const viewKey = targetPath ?? `new:${sessionNonce}`
-    return runSessionSwitch(cwd, targetPath, viewKey, forceCold)
-  }, [cwd, sessionPath, sessionNonce, reconnectNonce, applyEvent])
+    const viewKey = reconnect ? store.viewKey : targetPath ?? `new:${sessionNonce}`
+    return runSessionSwitch(cwd, targetPath, viewKey, forceCold, reconnect)
+  }, [cwd, sessionPath, sessionNonce, reconnectNonce])
 }

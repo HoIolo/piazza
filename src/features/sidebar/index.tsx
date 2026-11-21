@@ -2,13 +2,20 @@ import { trashSession } from '@/shared/api/sessions'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { useProjectsStore } from '@/store/projects.store'
-import { evictCachedSession, useChatStore } from '@/store/chat'
+import {
+  deriveSessionStatus,
+  evictCachedSession,
+  stopBackgroundSession,
+  useBackgroundSessions,
+  useChatStore,
+} from '@/store/chat'
 import { ProjectTree } from './components/ProjectTree'
 import { ProjectTreeSkeleton } from './components/ProjectTreeSkeleton'
 import { SidebarFooter } from './components/SidebarFooter'
 import { SidebarHeader } from './components/SidebarHeader'
 import { SidebarNav } from './components/SidebarNav'
-import { usePendingSession, withPendingSession } from './pendingSession'
+import { addProject } from '@/shared/utils/addProject'
+import { usePendingSession, withPendingSessions } from './pendingSession'
 import styles from './Sidebar.module.css'
 
 /** 左侧栏容器：只做组装与事件转接，具体渲染交给四个子组件 */
@@ -29,18 +36,13 @@ export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const openSettings = useAppStore((s) => s.openSettings)
-  const status = useChatStore((s) => {
-    if (s.sessionLoading) return 'loading'
-    if (s.pendingDialog) return s.pendingDialog.method === 'confirm' ? 'confirm' : 'input'
-    if (!s.isStreaming) return null
-    return s.streaming?.content.length ||
-      Object.values(s.tools).some((tool) => tool.status === 'running')
-      ? 'working'
-      : 'reply'
-  })
+  const status = useChatStore((s) => deriveSessionStatus(s))
+  const bgSessions = useBackgroundSessions()
+  const bgStatusMap = new Map(bgSessions.map((bg) => [bg.path, bg.status]))
+  const pending = usePendingSession()
 
   // 隐藏的剔除、置顶的提前；其余保持后端按最近活跃排好的顺序
-  const visible = withPendingSession(projects, usePendingSession())
+  const visible = withPendingSessions(projects, [...bgSessions, pending])
     .filter((p) => !hiddenProjects.includes(p.cwd))
     .sort((a, b) => Number(pinned.includes(b.cwd)) - Number(pinned.includes(a.cwd)))
 
@@ -52,6 +54,7 @@ export function Sidebar() {
 
   const deleteSession = async (path: string) => {
     try {
+      stopBackgroundSession(path)
       await trashSession(path)
       evictCachedSession(path)
       // 删的正是开着的这条：pi 还攥着那个文件，得先切到新会话，否则它下一轮又把文件写回来
@@ -61,6 +64,21 @@ export function Sidebar() {
       useChatStore.getState().setError(`删除对话失败：${errorMessage(e)}`)
     }
   }
+
+  const tree = (list: typeof visible) => (
+    <ProjectTree
+      projects={list}
+      activeSessionPath={activeSessionPath}
+      status={status}
+      backgroundStatuses={bgStatusMap}
+      pinnedSessions={pinnedSessions}
+      onSelectProject={selectProject}
+      onSelectSession={selectSession}
+      onTogglePinSession={togglePinnedSession}
+      onDeleteSession={(path) => void deleteSession(path)}
+      onAddProject={() => void addProject()}
+    />
+  )
 
   return (
     <aside className={styles.sidebar} data-open={sidebarOpen} inert={!sidebarOpen}>
@@ -73,24 +91,15 @@ export function Sidebar() {
       */}
       {loading && visible.length === 0 ? (
         <ProjectTreeSkeleton />
-      ) : visible.length > 0 ? (
-        <ProjectTree
-          projects={visible}
-          activeSessionPath={activeSessionPath}
-          status={status}
-          pinnedSessions={pinnedSessions}
-          onSelectProject={selectProject}
-          onSelectSession={selectSession}
-          onTogglePinSession={togglePinnedSession}
-          onDeleteSession={(path) => void deleteSession(path)}
-        />
-      ) : error ? (
-        <div className={styles.hint}>读取会话失败：{error}</div>
       ) : (
-        <div className={styles.hint}>还没有会话记录</div>
+        <>
+          {/* 扫描失败也照样摆树：标题行右端的「添加项目」还得能用 */}
+          {error && <div className={styles.hint}>读取会话失败：{error}</div>}
+          {tree(visible)}
+        </>
       )}
 
-      <SidebarFooter profileName="custom" onOpenSettings={() => openSettings()} />
+      <SidebarFooter onOpenSettings={() => openSettings()} />
     </aside>
   )
 }

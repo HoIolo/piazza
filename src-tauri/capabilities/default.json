@@ -12,6 +12,7 @@
     "opener:allow-open-url",
     "dialog:default",
     "core:window:allow-set-theme",
+    "core:window:allow-start-dragging",
     "opener:allow-reveal-item-in-dir"
   ]
 }

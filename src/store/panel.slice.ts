@@ -19,6 +19,7 @@ export interface PanelState {
   panelTabs: RightPanelView[]
   /** 当前标签页，null 表示停在「新标签页」 */
   rightPanelView: RightPanelView | null
+  reviewTarget: { cwd: string; path: string; diff: string; nonce: number } | null
   browserTarget: BrowserTarget | null
   filePreviewTarget: FilePreviewTarget | null
 }
@@ -26,7 +27,8 @@ export interface PanelState {
 export interface PanelActions {
   toggleRightPanel: () => void
   /** 打开某个视图；面板收起时一并展开，快捷键才能一步到位 */
-  openRightPanelView: (view: RightPanelView) => void
+  openRightPanelView: (view: RightPanelView, preserveReviewTarget?: boolean) => void
+  openFileDiff: (cwd: string, path: string, diff: string) => void
   openBrowserUrl: (url: string) => void
   openBrowserFile: (path: string) => void
   openWorkspaceFile: (path: string) => void
@@ -42,6 +44,7 @@ export const panelInitialState: PanelState = {
   rightPanelOpen: false,
   panelTabs: [],
   rightPanelView: null,
+  reviewTarget: null,
   browserTarget: null,
   filePreviewTarget: null,
 }
@@ -60,7 +63,17 @@ export function createPanelActions(set: Setter): PanelActions {
   return {
     toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
 
-    openRightPanelView: (view) => set((s) => openTabState(s, view)),
+    openRightPanelView: (view, preserveReviewTarget) =>
+      set((s) => ({
+        ...openTabState(s, view),
+        ...(view === 'review' && !preserveReviewTarget && { reviewTarget: null }),
+      })),
+
+    openFileDiff: (cwd, path, diff) =>
+      set((s) => ({
+        ...openTabState(s, 'review'),
+        reviewTarget: { cwd, path, diff, nonce: (targetSeq += 1) },
+      })),
 
     openBrowserUrl: (url) =>
       set((s) => ({

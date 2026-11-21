@@ -71,6 +71,18 @@ export function withPendingSession(
   return projects.map((p) => (p === owner ? { ...p, sessions: [row, ...p.sessions] } : p))
 }
 
+/** 将多条尚未落盘的会话（前台 + 后台运行中）补进项目列表 */
+export function withPendingSessions(
+  projects: ProjectGroup[],
+  pendingList: readonly (PendingSession | null)[],
+): ProjectGroup[] {
+  let result = projects
+  for (const item of pendingList) {
+    result = withPendingSession(result, item)
+  }
+  return result
+}
+
 /** 与 Rust 侧 project_name_of 一致：取路径最后一段 */
 function projectName(cwd: string): string {
   return cwd.split('/').filter(Boolean).pop() ?? cwd

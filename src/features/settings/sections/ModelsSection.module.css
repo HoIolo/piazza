@@ -46,3 +46,14 @@
   font-size: var(--fs-desc);
   color: var(--text-error);
 }
+
+.page {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}

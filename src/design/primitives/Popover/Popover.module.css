@@ -62,3 +62,11 @@
     transform: scale(1);
   }
 }
+
+.panel[data-side='right'] {
+  transform-origin: top left;
+}
+
+.panel[data-side='left'] {
+  transform-origin: top right;
+}

@@ -8,18 +8,17 @@ import styles from './ComposerToolbar.module.css'
  * 主按钮此刻的角色。
  *
  * 运行中框里有字就是「引导」——把这句插进当前运行；没字才是「停止」。
- * 当有字处于「引导」时，旁边仍保留一枚独立停止按钮，随时可以打断执行。
+ * 没有单独的停止按钮：运行中输入框永远只表达「再补一句话」。真要打断，
+ * 清空输入框后主按钮自己就变成停止，或者连按两下 Esc。
  */
-export type PrimaryAction = 'send' | 'steer' | 'stop'
+export type PrimaryAction = 'send' | 'steer' | 'stop' | 'resume'
 
 export interface ComposerToolbarProps {
   action: PrimaryAction
-  isStreaming: boolean
   disabled: boolean
   /** 已按过一次 Esc，再按一次才停 */
   stopArmed: boolean
   onPrimary: () => void
-  onStop: () => void
   /** 「+」面板是否展开 */
   attachOpen: boolean
   onToggleAttach: () => void
@@ -28,7 +27,8 @@ export interface ComposerToolbarProps {
 const LABELS: Record<PrimaryAction, string> = {
   send: '发送',
   steer: '引导（⌘↵ 改为排队）',
-  stop: '停止',
+  stop: '暂停',
+  resume: '继续',
 }
 
 /** 向上箭头，线段取自 Codex 发送图标：一竖两斜，线宽 1.33 */
@@ -55,19 +55,26 @@ function StopIcon() {
   )
 }
 
+function ResumeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M6 5.4a1 1 0 0 1 1.53-.85l7.35 4.6a1 1 0 0 1 0 1.7l-7.35 4.6A1 1 0 0 1 6 14.6Z" />
+    </svg>
+  )
+}
+
 function PrimaryIcon({ action, stopArmed }: { action: PrimaryAction; stopArmed: boolean }) {
+  if (action === 'resume') return <ResumeIcon />
   if (action !== 'stop') return <ArrowUpIcon />
   return stopArmed ? <span className={styles.escHint}>Esc</span> : <StopIcon />
 }
 
-/** 输入框底部工具条：左边是「+」，右边依次是信任级别、模型、运行中停止、主按钮 */
+/** 输入框底部工具条：左边是「+」，右边依次是信任级别、模型、主按钮 */
 export function ComposerToolbar({
   action,
-  isStreaming,
   disabled,
   stopArmed,
   onPrimary,
-  onStop,
   attachOpen,
   onToggleAttach,
 }: ComposerToolbarProps) {
@@ -79,17 +86,6 @@ export function ComposerToolbar({
       <div className={styles.right}>
         <ContextUsageRing />
         <ModelPicker />
-        {isStreaming && action !== 'stop' && (
-          <button
-            type="button"
-            className={styles.stopBtn}
-            onClick={onStop}
-            aria-label="停止"
-            title="停止运行"
-          >
-            {stopArmed ? <span className={styles.escHint}>Esc</span> : <StopIcon />}
-          </button>
-        )}
         <button
           type="button"
           className={styles.send}

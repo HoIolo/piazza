@@ -47,7 +47,7 @@ export function TopBar({
   }
 
   return (
-    <header className={styles.bar} data-sidebar-open={sidebarOpen} data-tauri-drag-region>
+    <header className={styles.bar} data-sidebar-open={sidebarOpen} data-tauri-drag-region="deep">
       {!sidebarOpen && (
         <IconButton ariaLabel="展开侧栏" title="展开侧栏（⌘B）" onClick={onToggleSidebar}>
           <PanelLeftIcon />

@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useState } from 'react'
 import { Dialog } from '@/design/primitives/Dialog'
 import { Field } from '@/design/primitives/Field'
@@ -65,6 +66,7 @@ export function SkillDialog({ skill, cwd, onClose, onSaved }: SkillDialogProps) 
     setError(null)
     try {
       await saveAgentSkill({ scope, cwd, slug: cleanSlug, content })
+      refreshRuntimeAfterSave()
       onSaved()
       onClose()
     } catch (e: unknown) {

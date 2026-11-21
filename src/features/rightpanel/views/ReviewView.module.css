@@ -45,3 +45,11 @@
 .line[data-kind='meta'] {
   color: var(--text-tertiary);
 }
+
+.fileName {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--fs-desc);
+  overflow-wrap: anywhere;
+}

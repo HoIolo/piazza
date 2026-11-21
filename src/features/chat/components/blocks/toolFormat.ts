@@ -1,5 +1,6 @@
 import type { ToolExecution } from '@/store/chat'
 import type { TextContent } from '@/rpc/types'
+import { integrationSource } from './toolIntegration'
 
 /** 从工具参数里提取一行摘要，用于折叠态展示 */
 export function summarizeArgs(toolName: string, args: Record<string, unknown>): string {
@@ -45,6 +46,7 @@ const TOOL_VERBS: Record<string, { running: string; done: string }> = {
   grep: { running: '正在搜索', done: '已搜索' },
   list: { running: '正在列出', done: '已列出' },
   fetch: { running: '正在请求', done: '已请求' },
+  piazza_update_plan: { running: '正在更新清单', done: '已更新清单' },
   todo: { running: '正在更新清单', done: '已更新清单' },
 }
 
@@ -115,4 +117,18 @@ export function summarizeGroup(toolNames: string[]): string {
     say(counts.get(kind) ?? 0),
   )
   return `已${parts.join('，')}`
+}
+
+const KIND_ICONS = {
+  command: 'terminal',
+  read: 'file',
+  search: 'search',
+  list: 'folder',
+  edit: 'edit',
+  web: 'web',
+  other: 'code',
+} as const satisfies Record<ToolKind, string>
+
+export function toolIcon(name: string) {
+  return integrationSource(name) ? 'integration' : KIND_ICONS[toolKind(name)]
 }

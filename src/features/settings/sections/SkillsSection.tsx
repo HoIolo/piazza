@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useEffect, useMemo, useState } from 'react'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { Plus, Search } from 'lucide-react'
@@ -56,6 +57,7 @@ export function SkillsSection() {
     if (!ok) return
     try {
       await deleteAgentSkill(skill.dirPath, cwd)
+      refreshRuntimeAfterSave()
       setNonce((n) => n + 1)
     } catch (e: unknown) {
       setError(errorMessage(e))

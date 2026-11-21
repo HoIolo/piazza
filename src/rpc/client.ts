@@ -9,6 +9,7 @@ import type { AgentEvent, RpcCommand, RpcFrame, RpcResponse } from './types'
 interface Channel {
   prefix: string
   side: boolean
+  accounts?: boolean
 }
 
 const MAIN: Channel = { prefix: 'pi', side: false }
@@ -34,26 +35,38 @@ export interface ExitInfo {
   stderr: string
 }
 
+interface SlotEvent<T> {
+  slotId: string
+  payload: T
+}
+
 type Pending = {
+  slotId: string
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
   timer: ReturnType<typeof setTimeout>
 }
 
 /**
- * pi RPC 客户端。
+ * pi RPC 客户端（支持多槽位并发进程）。
  *
- * 分帧与进程管理都在 Rust 侧完成，这里只负责两件事：
- * 给命令挂 id 并等待对应应答；把 agent 事件广播给订阅者。
+ * 前台会话绑定到 activeSlot；当流式中的会话被切走时，原槽位会退居后台继续跑，
+ * 新会话在新的槽位启动。分帧与进程管理都在 Rust 侧按 slotId 隔离完成。
  */
-class PiRpcClient {
+class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcCommand> {
+  private activeSlot = 'default'
   private pending = new Map<string, Pending>()
-  private eventListeners = new Set<(event: AgentEvent) => void>()
-  private stderrListeners = new Set<(text: string) => void>()
-  private exitListeners = new Set<(info: ExitInfo) => void>()
+  private eventListeners = new Set<(event: Event, slotId: string) => void>()
+  private stderrListeners = new Set<(text: string, slotId: string) => void>()
+  private exitListeners = new Set<(info: ExitInfo, slotId: string) => void>()
   private binding?: Promise<void>
 
-  constructor(private readonly channel: Channel) {}
+  constructor(private readonly channel: Channel, private readonly timeout = COMMAND_TIMEOUT_MS) {}
+
+  getActiveSlot = (): string => this.activeSlot
+  setActiveSlot = (slotId: string): void => {
+    this.activeSlot = slotId
+  }
 
   /** 绑定 Tauri 事件通道。重复调用无副作用 */
   bind(): Promise<void> {
@@ -67,32 +80,29 @@ class PiRpcClient {
     const { prefix } = this.channel
     const unlisteners: UnlistenFn[] = []
     try {
-      unlisteners.push(
-        await listen<RpcFrame>(`${prefix}://message`, ({ payload }) => this.dispatch(payload)),
+      const onMsg = listen<SlotEvent<RpcFrame>>(`${prefix}://message`, ({ payload }) =>
+        this.dispatch(payload.payload, payload.slotId),
       )
-      unlisteners.push(
-        await listen<string>(`${prefix}://stderr`, ({ payload }) => {
-          this.stderrListeners.forEach((cb) => cb(payload))
-        }),
+      const onErr = listen<SlotEvent<string>>(`${prefix}://stderr`, ({ payload }) =>
+        this.stderrListeners.forEach((cb) => cb(payload.payload, payload.slotId)),
       )
-      unlisteners.push(
-        await listen<ExitInfo>(`${prefix}://exit`, ({ payload }) => {
-          this.rejectAllPending(new Error('pi 进程已退出'))
-          this.exitListeners.forEach((cb) => cb(payload))
-        }),
-      )
+      const onExit = listen<SlotEvent<ExitInfo>>(`${prefix}://exit`, ({ payload }) => {
+        this.rejectPendingForSlot(payload.slotId, new Error('pi 进程已退出'))
+        this.exitListeners.forEach((cb) => cb(payload.payload, payload.slotId))
+      })
+      unlisteners.push(...(await Promise.all([onMsg, onErr, onExit])))
     } catch (reason) {
       unlisteners.forEach((off) => off())
       throw reason
     }
   }
 
-  private dispatch(frame: RpcFrame): void {
+  private dispatch(frame: RpcFrame, slotId: string): void {
     if (frame.type === 'response') {
       this.settle(frame as RpcResponse)
       return
     }
-    this.eventListeners.forEach((cb) => cb(frame as AgentEvent))
+    this.eventListeners.forEach((cb) => cb(frame as Event, slotId))
   }
 
   private settle(response: RpcResponse): void {
@@ -107,56 +117,46 @@ class PiRpcClient {
     else entry.reject(new Error(response.error ?? `命令 ${response.command} 执行失败`))
   }
 
-  private rejectAllPending(reason: Error): void {
-    this.pending.forEach((entry) => {
+  private rejectPendingForSlot(slotId: string, reason: Error): void {
+    for (const [id, entry] of this.pending) {
+      if (entry.slotId !== slotId) continue
+      this.pending.delete(id)
       clearTimeout(entry.timer)
       entry.reject(reason)
-    })
-    this.pending.clear()
+    }
   }
 
-  async start(options: StartOptions): Promise<void> {
+  async start(options: StartOptions, slotId = this.activeSlot): Promise<void> {
     await this.bind()
-    this.rejectAllPending(new Error('会话正在切换'))
-    await invoke('rpc_start', {
-      opts: {
-        cwd: options.cwd,
-        provider: options.provider ?? null,
-        model: options.model ?? null,
-        sessionPath: options.sessionPath ?? null,
-        ephemeral: options.ephemeral ?? false,
-      },
-      side: this.channel.side,
-    })
+    this.rejectPendingForSlot(slotId, new Error('会话正在切换'))
+    const opts = {
+      cwd: options.cwd,
+      provider: options.provider ?? null,
+      model: options.model ?? null,
+      sessionPath: options.sessionPath ?? null,
+      ephemeral: options.ephemeral ?? false,
+    }
+    await invoke('rpc_start', { opts, side: this.channel.side, accounts: this.channel.accounts, slotId })
   }
 
   /** 发送命令并等待其应答 */
-  async send<T = unknown>(command: RpcCommand): Promise<T> {
+  async send<T = unknown>(command: Command, slotId = this.activeSlot): Promise<T> {
     await this.bind()
     const id = crypto.randomUUID()
-    const payload = { ...command, id }
-
     const waiter = new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`命令 ${command.type} 超时未响应`))
-      }, COMMAND_TIMEOUT_MS)
-
-      this.pending.set(id, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
-        timer,
-      })
+      }, this.timeout)
+      this.pending.set(id, { slotId, resolve: resolve as (v: unknown) => void, reject, timer })
     })
-
-    const delivery = this.notify(payload).catch((reason: unknown) => {
+    const delivery = this.notify({ ...command, id }, slotId).catch((reason: unknown) => {
       const entry = this.pending.get(id)
       if (!entry) return
       this.pending.delete(id)
       clearTimeout(entry.timer)
       entry.reject(reason instanceof Error ? reason : new Error(String(reason)))
     })
-    // 在等待投递的同时处理 waiter，避免关闭标签时产生无人处理的拒绝。
     const [result] = await Promise.all([waiter, delivery])
     return result
   }
@@ -167,34 +167,33 @@ class PiRpcClient {
    * 扩展 UI 的回应属于这一类：pi 收下就继续跑，不会回 response 帧，
    * 用 send() 发会一直挂到超时。
    */
-  async notify(payload: Record<string, unknown>): Promise<void> {
-    await invoke('rpc_send', { payload, side: this.channel.side })
+  async notify(payload: Record<string, unknown>, slotId = this.activeSlot): Promise<void> {
+    await invoke('rpc_send', { payload, side: this.channel.side, accounts: this.channel.accounts, slotId })
   }
 
-  onEvent(callback: (event: AgentEvent) => void): () => void {
-    this.eventListeners.add(callback)
-    return () => this.eventListeners.delete(callback)
+  onEvent(cb: (event: Event, slotId: string) => void): () => void {
+    return (this.eventListeners.add(cb), () => this.eventListeners.delete(cb))
   }
 
-  onStderr(callback: (text: string) => void): () => void {
-    this.stderrListeners.add(callback)
-    return () => this.stderrListeners.delete(callback)
+  onStderr(cb: (text: string, slotId: string) => void): () => void {
+    return (this.stderrListeners.add(cb), () => this.stderrListeners.delete(cb))
   }
 
-  onExit(callback: (info: ExitInfo) => void): () => void {
-    this.exitListeners.add(callback)
-    return () => this.exitListeners.delete(callback)
+  onExit(cb: (info: ExitInfo, slotId: string) => void): () => void {
+    return (this.exitListeners.add(cb), () => this.exitListeners.delete(cb))
   }
 
-  async stop(): Promise<void> {
-    this.rejectAllPending(new Error('会话已停止'))
-    await invoke('rpc_stop', { side: this.channel.side })
+  async stop(slotId = this.activeSlot): Promise<void> {
+    this.rejectPendingForSlot(slotId, new Error('会话已停止'))
+    await invoke('rpc_stop', { side: this.channel.side, accounts: this.channel.accounts, slotId })
   }
 
-  async isRunning(): Promise<boolean> {
-    return invoke<boolean>('rpc_is_running', { side: this.channel.side })
+  async isRunning(slotId = this.activeSlot): Promise<boolean> {
+    return invoke<boolean>('rpc_is_running', { side: this.channel.side, accounts: this.channel.accounts, slotId })
   }
 }
+
+export { PiRpcClient }
 
 export const rpcClient = new PiRpcClient(MAIN)
 

@@ -1,4 +1,5 @@
 import type { ChatAssistantMessage, ToolExecution } from '@/store/chat'
+import { countDiffLines } from '@/shared/utils/diff'
 import type { FileChange } from './index'
 
 /** 会产生文件改动的工具 */
@@ -14,41 +15,55 @@ function pathOf(args: Record<string, unknown>): string | null {
 }
 
 /** 读取一个可能存在的数值字段 */
-function numberAt(source: Record<string, unknown> | undefined, keys: string[]): number {
-  if (!source) return 0
+function numberAt(source: Record<string, unknown>, keys: string[]): number | null {
   for (const key of keys) {
     const value = source[key]
     if (typeof value === 'number' && Number.isFinite(value)) return value
   }
-  return 0
+  return null
 }
 
-/**
- * 汇总本轮所有文件改动。
- *
- * 增删行数取自工具结果的 details——不同工具字段名不统一，这里做兼容取值；
- * 取不到时按 0 计，宁可少显示数字也不猜测，避免展示错误的统计。
- */
-export function collectFileChanges(tools: Record<string, ToolExecution>): FileChange[] {
+function resultChange(path: string, details: Record<string, unknown> = {}): FileChange {
+  const diff = typeof details.patch === 'string' ? details.patch : details.diff
+  if (typeof diff === 'string') return { path, diff, ...countDiffLines(diff) }
+  return {
+    path,
+    diff: '',
+    additions: numberAt(details, ['additions', 'added', 'linesAdded']),
+    deletions: numberAt(details, ['deletions', 'removed', 'linesRemoved']),
+  }
+}
+
+function sum(a: number | null, b: number | null) {
+  return a === null || b === null ? null : a + b
+}
+
+export function collectFileChanges(
+  tools: Record<string, ToolExecution>,
+  cwd: string | null,
+): FileChange[] {
   const byPath = new Map<string, FileChange>()
 
   for (const execution of Object.values(tools)) {
     if (!MUTATING_TOOLS.has(execution.toolName) || execution.isError) continue
 
-    const path = pathOf(execution.args)
-    if (!path) continue
+    const rawPath = pathOf(execution.args)
+    if (!rawPath) continue
+    const path = relativize(rawPath, cwd)
 
-    const details = execution.result?.details
-    const additions = numberAt(details, ['additions', 'added', 'linesAdded'])
-    const deletions = numberAt(details, ['deletions', 'removed', 'linesRemoved'])
-
-    const existing = byPath.get(path)
-    if (existing) {
-      existing.additions += additions
-      existing.deletions += deletions
-    } else {
-      byPath.set(path, { path, additions, deletions })
-    }
+    const change = resultChange(path, execution.result?.details)
+    const previous = byPath.get(path)
+    byPath.set(
+      path,
+      previous
+        ? {
+            path,
+            additions: sum(previous.additions, change.additions),
+            deletions: sum(previous.deletions, change.deletions),
+            diff: previous.diff && change.diff ? `${previous.diff}\n\n${change.diff}` : '',
+          }
+        : change,
+    )
   }
 
   return [...byPath.values()]
@@ -56,8 +71,8 @@ export function collectFileChanges(tools: Record<string, ToolExecution>): FileCh
 
 /** 把绝对路径转成相对工作目录的展示路径 */
 export function relativize(path: string, cwd: string | null): string {
-  if (!cwd || !path.startsWith(cwd)) return path
-  return path.slice(cwd.length).replace(/^\//, '')
+  const prefix = cwd ? cwd.replace(/\/$/, '') + '/' : null
+  return prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path.replace(/^\.\//, '')
 }
 
 /**
@@ -77,8 +92,5 @@ export function exchangeFileChanges(
       if (block.type === 'toolCall' && tools[block.id]) own[block.id] = tools[block.id]
     }
   }
-  return collectFileChanges(own).map((change) => ({
-    ...change,
-    path: relativize(change.path, cwd),
-  }))
+  return collectFileChanges(own, cwd)
 }

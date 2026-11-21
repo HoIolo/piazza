@@ -1,3 +1,279 @@
+/* 遮罩淡入、图片从略小的尺寸弹到适配大小，与 Codex 打开查看器的手感一致 */
+@import '../../../design/keyframes/fade-in.css';
+
+@keyframes lightbox-image-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 关闭时的反向动画：先播完再真正卸载，否则弹窗会硬切消失 */
+@keyframes lightbox-image-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes lightbox-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * 查看器铺满整个窗口，盖住侧栏与主区。
+ * 底色是半透明而不是实色：背后的聊天内容要透出来一点，才看得出是「浮在上面」，
+ * 而不是切到了另一个页面。模糊放在遮罩上，比给图片加滤镜更接近 Codex。
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  /*
+   * 压在对话框（100）之上，但低于 Popover 的菜单（200）——
+   * 工具栏里的百分比下拉是挂在 body 上的浮层，遮罩若盖在它上面，菜单就点不到。
+   */
+  z-index: 150;
+  display: flex;
+  /* 纵向排列：舞台要撑满工具栏以下的全部高度，横向 flex 会把它压成 0 */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px var(--sp-6) var(--sp-6);
+  /* 更透一些：背后的聊天要看得见轮廓，才像「浮在上面」而不是换了一页 */
+  background: color-mix(in oklab, var(--bg-canvas) 38%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+/* 一组图时左右各留出箭头的位置，图片不会跑到按钮底下（对齐 Codex px-16/20） */
+.overlay[data-nav='true'] {
+  padding-left: 80px;
+  padding-right: 80px;
+}
+
+.overlay[data-closing='true'] {
+  animation: lightbox-fade-out var(--dur-fast) var(--ease) forwards;
+}
+
+/* 顶栏浮在遮罩之上，自身不占布局高度，图片才能顶到接近窗口上沿 */
+.toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* 必须高于舞台：图片放大后会铺到工具栏底下，否则按钮点不到 */
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  height: 52px;
+  padding: 0 var(--sp-3);
+  /* 只有按钮可点，空白处让点击落到舞台上（那里负责「点空白关闭」） */
+  pointer-events: none;
+}
+
+.toolbar > * {
+  pointer-events: auto;
+}
+
+/* 右上角一组的胶囊容器：浅色底、发丝描边、轻投影，与 Codex 那排控件同款 */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+/* 缩放百分比下拉：同一枚胶囊里的左半段，去掉自身描边免得套两层 */
+.zoomTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 30px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.zoomTrigger:hover,
+.zoomTrigger[data-open='true'] {
+  background: var(--bg-hover);
+}
+
+.zoomChevron {
+  color: var(--text-tertiary);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.zoomChevron[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.iconButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.iconButton:focus-visible,
+.zoomTrigger:focus-visible {
+  outline: 2px solid var(--blue-switch);
+  outline-offset: 1px;
+}
+
+/* 顶栏左上角的位置指示：一组图时告诉人现在看到第几张 */
+.counter {
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+
+/*
+ * 翻页箭头：贴左右边缘、垂直居中，与工具栏同一套毛玻璃胶囊。
+ * 不位移时用 margin-top 做居中，保留 hover 的轻微放大。
+ */
+.nav {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: var(--r-pill);
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  transition:
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.nav[data-side='prev'] {
+  left: var(--sp-4);
+}
+
+.nav[data-side='next'] {
+  right: var(--sp-4);
+}
+
+.nav:hover {
+  color: var(--text-primary);
+  transform: scale(1.06);
+}
+
+.nav:active {
+  transform: scale(0.94);
+}
+
+.nav:focus-visible {
+  outline: 2px solid var(--blue-switch);
+  outline-offset: 2px;
+}
+
+/*
+ * 舞台：整块是滚动容器，图片靠 margin:auto 在小于窗口时居中、大于窗口时可滚动。
+ * 关掉浏览器默认的滚轮行为交给缩放接管（在 hook 里 preventDefault）。
+ */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  cursor: grab;
+  /* 拖拽平移时不要选中图片或触发系统的图片拖影 */
+  user-select: none;
+  animation: lightbox-image-in var(--dur-slow) var(--ease-out);
+}
+
+.stage[data-panning='true'] {
+  cursor: grabbing;
+}
+
+.overlay[data-closing='true'] .stage {
+  animation: lightbox-image-out var(--dur-fast) var(--ease) forwards;
+}
+
+/* 图片放大后舞台里只剩它，滚动条是唯一的溢出提示，细一点别抢戏 */
+.stage::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.stage::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--r-pill);
+  background-clip: content-box;
+  background-color: var(--border-strong);
+}
+
+.image {
+  display: block;
+  flex: none;
+  margin: auto;
+  border-radius: var(--r-item);
+  box-shadow: 0 8px 40px -8px rgba(0, 0, 0, 0.35);
+  /* 缩放只改 width/height，不加 transition：滚动缩放要跟手，缓动会拖成卡顿 */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 缩略图：沿用消息里的圆角小图，点击放大 */
 .thumbnail {
   display: inline-flex;
   max-width: 100%;
@@ -7,109 +283,32 @@
   vertical-align: middle;
   border: 1px solid var(--border);
 }
+
 .thumbnail img {
   display: block;
   max-width: 100%;
   max-height: 320px;
   object-fit: contain;
 }
+
 .gallery {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
   margin: var(--sp-2) 0;
 }
+
 .gallery .thumbnail {
   max-width: 240px;
 }
-/* 对齐 Codex 图片查看器：整窗实色面板，顶栏 47px 发丝线，图片适配铺满舞台 */
-.lightbox {
-  width: 100vw;
-  height: 100vh;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  border: 0;
-  padding: 0;
+
+/* 加载中的占位：图片要等 onload 才知道自然尺寸，空着会先闪一下 */
+.loading {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  background: var(--bg-canvas);
-  color: var(--text-primary);
-}
-.lightbox::backdrop {
-  background: transparent;
-  backdrop-filter: blur(4px);
-}
-.toolbar {
-  display: flex;
-  align-items: center;
-  flex: none;
-  gap: var(--sp-1);
-  height: var(--titlebar-h);
-  /* 左侧让出 macOS 红绿灯（trafficLightPosition x=16，三枚约 52px 宽） */
-  padding: 0 var(--sp-3) 0 84px;
-  border-bottom: 1px solid var(--border);
-  /* 空白处可拖动窗口 */
-  -webkit-app-region: drag;
-}
-.toolbar > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fs-desc);
-  color: var(--text-primary);
-}
-.toolbar button,
-.toolbar a {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  border-radius: var(--r-item);
-  color: var(--text-secondary);
-  cursor: pointer;
-  -webkit-app-region: no-drag;
-  transition:
-    background var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease);
-}
-.toolbar button:hover,
-.toolbar a:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-.toolbar button:focus-visible,
-.toolbar a:focus-visible {
-  outline: 2px solid var(--blue-switch);
-  outline-offset: 0;
-}
-.toolbar button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-/* 缩放百分比：固定 w-12、semibold、等宽数字，与 Codex 一致 */
-.toolbar .zoomLabel {
-  width: 48px;
   font-size: var(--fs-desc);
-  font-weight: var(--fw-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-.stage {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: var(--sp-5);
-}
-/* 100% 即适配舞台（放大小图、缩小大图）；超过 100% 时按舞台倍数撑开并可滚动 */
-.stage img {
-  flex: none;
-  margin: auto;
-  object-fit: contain;
-  user-select: none;
-  -webkit-user-drag: none;
+  color: var(--text-tertiary);
 }

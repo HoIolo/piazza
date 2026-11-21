@@ -1,43 +1,39 @@
-/* 分体按钮：主区域直接打开，右侧箭头展开列表 */
 .group {
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
   height: 28px;
-  margin-right: 2px;
-  background: var(--bg-sidebar-hover);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  overflow: hidden;
 }
 
 .main,
 .caret {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 var(--sp-2);
-  font-size: var(--fs-desc);
-  color: var(--text-primary);
+  justify-content: center;
+  height: 28px;
+  border-radius: var(--r-item);
+  color: var(--text-secondary);
   cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.main {
+  width: 28px;
+}
+
+.caret {
+  width: 18px;
 }
 
 .main:hover:not(:disabled),
 .caret:hover,
 .caret[data-open='true'] {
   background: var(--bg-sidebar-hover);
+  color: var(--text-primary);
 }
 
 .main:disabled {
-  color: var(--text-tertiary);
+  opacity: 0.35;
   cursor: default;
-}
-
-.caret {
-  padding: 0 6px;
-  border-left: 1px solid var(--border);
-  color: var(--text-secondary);
 }
 
 .panel {

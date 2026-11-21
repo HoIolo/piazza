@@ -39,3 +39,28 @@
 .processWrap[data-expanded='true']:has(+ article) .process {
   padding-bottom: var(--message-gap);
 }
+
+/* 运行中打进去的引导：一行灰字，比正文轻，但比过程日志显眼 */
+.steered {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--activity-font-size);
+  line-height: var(--activity-line-height);
+  color: var(--text-secondary);
+}
+
+.steeredIcon {
+  flex: none;
+  margin-top: 5px;
+  color: var(--text-tertiary);
+}
+
+/* 用户自己的话不截断：它本来就不长，切了反而看不懂在引导什么 */
+.steeredText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

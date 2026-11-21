@@ -11,6 +11,7 @@ import { useSlashMenu } from './hooks/useSlashMenu'
 import { useAttachments } from './hooks/useAttachments'
 import { useComposerSubmit } from './hooks/useComposerSubmit'
 import { AttachmentTray } from './components/AttachmentTray'
+import { TaskChecklist } from './components/TaskChecklist'
 import { QueuedMessages } from './components/QueuedMessages'
 import { useMentionItems } from './hooks/useMentionItems'
 import { useMentionPanel } from './hooks/useMentionPanel'
@@ -32,8 +33,9 @@ function maxInputHeight(): number {
   return Math.max(LINE_HEIGHT * 4, cap)
 }
 
-function primaryAction(streaming: boolean, hasText: boolean): PrimaryAction {
-  return !streaming ? 'send' : hasText ? 'steer' : 'stop'
+function primaryAction(streaming: boolean, hasText: boolean, paused: boolean): PrimaryAction {
+  if (streaming) return hasText ? 'steer' : 'stop'
+  return paused && !hasText ? 'resume' : 'send'
 }
 
 export function Composer({ projectName, branch, showContextBar }: ComposerProps) {
@@ -42,7 +44,8 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const draft = useChatStore((s) => s.draft)
   const setDraft = useChatStore((s) => s.setDraft)
   const cwd = useAppStore((s) => s.currentCwd)
-  const { abort, isStreaming } = useChatActions()
+  const paused = useChatStore((s) => s.paused && !s.messages.at(-1)?.local)
+  const { abort, resume, isStreaming } = useChatActions()
 
   const panel = useMentionPanel({ draft, setDraft, textareaRef, rootRef })
   const groups = useMentionItems(cwd, panel.query)
@@ -56,7 +59,7 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const attachments = useAttachments(rootRef)
   const { submit } = useComposerSubmit(panel.close)
   const hasText = draft.trim().length > 0 || attachments.files.length > 0
-  const action = primaryAction(isStreaming, hasText)
+  const action = primaryAction(isStreaming, hasText, paused)
 
   const restoreText = (file: DraftAttachment) => {
     if (file.text === undefined) return
@@ -84,6 +87,7 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
 
   return (
     <div className={styles.composer} ref={rootRef}>
+      {!showContextBar && <TaskChecklist />}
       <QueuedMessages />
       {showContextBar && <ContextBar projectName={projectName} branch={branch} />}
       <div
@@ -127,11 +131,13 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
         />
         <ComposerToolbar
           action={action}
-          isStreaming={isStreaming}
           disabled={primaryDisabled(action, hasText, sendingBlocked || attachments.reading)}
           stopArmed={stopArmed && isStreaming}
-          onPrimary={() => (action === 'stop' ? void abort() : void submit())}
-          onStop={() => void abort()}
+          onPrimary={() => {
+            if (action === 'stop') void abort()
+            else if (action === 'resume') void resume()
+            else void submit()
+          }}
           attachOpen={panel.attachOpen}
           onToggleAttach={panel.toggleAttach}
         />
@@ -141,7 +147,7 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
 }
 
 function primaryDisabled(action: PrimaryAction, hasText: boolean, sendingBlocked: boolean) {
-  return action !== 'stop' && (sendingBlocked || !hasText)
+  return action !== 'stop' && (sendingBlocked || (action !== 'resume' && !hasText))
 }
 
 function isSubmitKey(event: KeyboardEvent<HTMLTextAreaElement>) {

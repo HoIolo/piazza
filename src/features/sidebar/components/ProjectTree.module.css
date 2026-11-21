@@ -46,6 +46,49 @@
   transform: rotate(-90deg);
 }
 
+/*
+ * 「项目」标题行右端的添加入口。
+ *
+ * 平时隐藏、悬停标题行才浮出来——与项目行尾的操作按钮同一套节奏，
+ * 免得侧栏里到处是常驻图标。键盘聚焦与展开时同样可见。
+ */
+.groupAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--sidebar-muted);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.groupTitle:hover .groupAction,
+.groupAction:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.groupAction:hover {
+  background: var(--bg-sidebar-selected);
+  color: var(--text-primary);
+}
+
+/* 一条会话都没有时的提示。添加入口在标题行上，这里只负责告诉人去哪点 */
+.empty {
+  padding: var(--sp-2) var(--sp-2);
+  font-size: var(--fs-session);
+  color: var(--sidebar-muted);
+}
+
 .project {
   margin-bottom: var(--sp-2);
 }

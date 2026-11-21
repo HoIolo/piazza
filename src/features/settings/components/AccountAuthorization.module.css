@@ -1,0 +1,131 @@
+/*
+ * 连接授权卡片：头部讲清「在连谁、卡在哪一步」，正文是要用户动手的那一样东西
+ * （点开浏览器 / 抄设备码 / 选登录方式），主动作永远只有右下角一颗。
+ */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
+}
+
+/* 厂商图标位：等待时是转圈，拿到授权地址后换成盾牌 */
+.badge {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-item);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.headText {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.status {
+  margin-top: 2px;
+  font-size: var(--fs-desc);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.notice {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4) var(--sp-4);
+}
+
+.lead {
+  font-size: var(--fs-desc);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  user-select: text;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* 设备码要能被念出来、抄下来：等宽、加粗、拉开字距 */
+.code {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-item);
+  background: var(--bg-code);
+  font-family: var(--font-mono);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+}
+
+.deviceCode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.linkError {
+  font-size: var(--fs-desc);
+  line-height: 1.6;
+  color: var(--text-error);
+}
+
+.linkError code {
+  margin-left: var(--sp-1);
+  font-family: var(--font-mono);
+  word-break: break-all;
+  user-select: text;
+}
+
+/*
+ * 追问表单：上游 provider 在流程中途要一个答案（选登录方式、贴 Key、填验证码）。
+ * 与上方的说明之间画一条通栏分隔，读起来像「下一步」，而不是同一段话的续行。
+ */
+.prompt {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+}
+
+.notice + .prompt {
+  border-top: 1px solid var(--border);
+}
+
+.promptLabel {
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.caption {
+  font-size: var(--fs-desc);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.promptActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}

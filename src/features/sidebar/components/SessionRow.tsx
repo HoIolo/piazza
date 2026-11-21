@@ -26,8 +26,8 @@ const STATUS_TEXT = {
   confirm: '等待确认',
 }
 
-function Trailing({ active, status }: SessionRowProps) {
-  if (!active || !status) return null
+function Trailing({ status }: SessionRowProps) {
+  if (!status) return null
   const Icon = status === 'confirm' ? ShieldCheck : status === 'input' ? CircleHelp : undefined
   return (
     <span

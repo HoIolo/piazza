@@ -72,8 +72,8 @@ export const SECTION_GROUPS: SectionGroup[] = [
       },
       {
         id: 'models',
-        label: '模型与 Provider',
-        subtitle: '可视化管理 ~/.pi/agent/models.json 中的服务商、密钥与上下文档位',
+        label: '模型与账号',
+        subtitle: '连接厂商账号和 API Key，管理自定义服务商与模型',
         icon: Layers,
         keywords: ['provider', 'api', 'key', '模型', '上下文', 'endpoint', 'baseurl'],
       },
@@ -113,7 +113,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
       {
         id: 'system',
         label: '运行时与系统',
-        subtitle: 'pi 可执行路径、网络代理与配置数据目录',
+        subtitle: '内置 Pi SDK、网络代理与配置数据目录',
         icon: Monitor,
         keywords: ['pi', '路径', '运行时', '代理', 'proxy', 'http', '配置目录', '数据'],
       },

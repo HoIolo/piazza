@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useScrollEdges } from '@/shared/hooks/useScrollEdges'
 import type { ImageContent } from '@/rpc/types'
 import { CodexIcon } from '@/design/icons/CodexIcon'
 import { ImagePreview } from '@/shared/components/ImagePreview'
@@ -15,6 +16,13 @@ export function ToolImageResult({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [opened, setOpened] = useState(false)
+  const galleryRef = useRef<HTMLDivElement>(null)
+  const edges = useScrollEdges(galleryRef, expanded)
+  // 同一行里的缩略图属于一相册：点开后能直接左右翻，不用退出来再点下一张
+  const gallery = images.map((image, index) => ({
+    src: imageSource(image),
+    alt: `已查看的图像 ${index + 1}`,
+  }))
   return (
     <div className={styles.block}>
       <button
@@ -37,13 +45,20 @@ export function ToolImageResult({
       <div className={styles.galleryWrap} data-expanded={expanded} inert={!expanded}>
         <div className={styles.clip}>
           {(expanded || opened) && (
-            <div className={styles.gallery}>
-              {images.map((image, index) => (
+            <div
+              className={styles.gallery}
+              ref={galleryRef}
+              data-edge-top={edges.top}
+              data-edge-bottom={edges.bottom}
+            >
+              {gallery.map((item, index) => (
                 <ImagePreview
                   key={index}
                   className={styles.thumbnail}
-                  src={imageSource(image)}
-                  alt={`已查看的图像 ${index + 1}`}
+                  src={item.src}
+                  alt={item.alt}
+                  gallery={gallery}
+                  index={index}
                 />
               ))}
             </div>

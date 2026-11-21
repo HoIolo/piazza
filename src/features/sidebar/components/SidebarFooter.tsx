@@ -5,16 +5,15 @@ import { MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
 import styles from './SidebarFooter.module.css'
 
+const APP_NAME = 'Piazza'
 const README_URL = 'https://github.com/HoIolo/piazza#readme'
 
 export interface SidebarFooterProps {
-  /** 当前配置档名称，对应截图底部的 “custom” */
-  profileName: string
   onOpenSettings: () => void
 }
 
-/** 侧栏底部。配置档名点开是菜单，与 Codex 左下角的行为一致 */
-export function SidebarFooter({ profileName, onOpenSettings }: SidebarFooterProps) {
+/** 侧栏底部的应用菜单入口 */
+export function SidebarFooter({ onOpenSettings }: SidebarFooterProps) {
   return (
     <footer className={styles.footer}>
       <Popover
@@ -30,13 +29,13 @@ export function SidebarFooter({ profileName, onOpenSettings }: SidebarFooterProp
             aria-expanded={open}
           >
             <Settings size={18} className={styles.icon} />
-            <span className={styles.name}>{profileName}</span>
+            <span className={styles.name}>{APP_NAME}</span>
           </button>
         )}
       >
         {(close) => (
           <div className={styles.menu}>
-            <div className={styles.menuTitle}>{profileName}</div>
+            <div className={styles.menuTitle}>{APP_NAME}</div>
             <MenuSeparator />
             <MenuItem
               icon={<Settings size={16} />}

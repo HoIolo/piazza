@@ -99,18 +99,36 @@ pub fn diff_stat(cwd: &str) -> Option<(u32, u32)> {
 ///
 /// 用 `--no-color`：颜色由前端按行首字符上色，混进 ANSI 转义只会碍事。
 /// 上限 2MB——超大 diff 渲染起来会卡死界面，且人也不会真去逐行看。
-pub fn diff(cwd: &str) -> Result<String, String> {
+pub fn diff(cwd: &str, path: Option<&str>) -> Result<String, String> {
     const MAX_BYTES: usize = 2 * 1024 * 1024;
 
     let git = git_bin().ok_or_else(|| "未找到 git".to_string())?;
-    let output = Command::new(git)
-        .args(["diff", "--no-color", "HEAD"])
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("执行 git 失败：{e}"))?;
-
+    let mut command = Command::new(git);
+    command.args(["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "HEAD"]);
+    if let Some(path) = path {
+        command.args(["--", path]);
+    }
+    let mut output = command.current_dir(cwd).output().map_err(|e| format!("执行 git 失败：{e}"))?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    if let Some(path) = path.filter(|_| output.stdout.is_empty()) {
+        let untracked = Command::new(git)
+            .args(["--literal-pathspecs", "ls-files", "--others", "--exclude-standard", "--", path])
+            .current_dir(cwd)
+            .output()
+            .map_err(|e| format!("执行 git 失败：{e}"))?;
+        if untracked.status.success() && !untracked.stdout.is_empty() && Path::new(cwd).join(path).is_file() {
+            output = Command::new(git)
+                .args(["diff", "--no-index", "--no-color", "--no-ext-diff", "--", "/dev/null", path])
+                .current_dir(cwd)
+                .output()
+                .map_err(|e| format!("执行 git 失败：{e}"))?;
+            if !output.status.success() && output.status.code() != Some(1) {
+                return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+            }
+        }
     }
 
     let mut text = String::from_utf8_lossy(&output.stdout).into_owned();

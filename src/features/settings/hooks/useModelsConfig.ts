@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useCallback, useEffect, useState } from 'react'
 import { readModelsConfig, writeModelsConfig, type ModelsConfig } from '@/shared/api/config'
 import { errorMessage } from '@/shared/utils/error'
@@ -54,6 +55,7 @@ export function useModelsConfig(): ModelsConfigApi {
       const next = { ...config, providers: transform(config.providers ?? {}) }
       // 以回读结果为准，界面显示的就是磁盘上的内容
       const written = await writeModelsConfig(next)
+      refreshRuntimeAfterSave()
       setConfig(normalize(written))
       setSaved(true)
     },

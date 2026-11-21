@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readAppSettings, writeAppSettings, type PiSettings } from '@/shared/api/config'
 import { errorMessage } from '@/shared/utils/error'
@@ -85,6 +86,7 @@ export function useAppSettings(): AppSettingsHandle {
     queueRef.current = queueRef.current.then(async () => {
       try {
         const written = await writeAppSettings(next)
+        refreshRuntimeAfterSave()
         latestRef.current = written
         setSettings(written)
         setSaved(true)

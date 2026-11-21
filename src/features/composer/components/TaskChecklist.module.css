@@ -1,0 +1,184 @@
+/*
+ * 待办清单：居中的一行「环形进度 + 已完成 3 个任务，共 5 个」，
+ * 悬停/聚焦才浮出明细。明细限高滚动——它挂在输入框正上方，
+ * 铺开会把聊天区和打字区一起顶走。
+ */
+@import '../../../design/keyframes/spin.css';
+@import '../../../design/keyframes/rise-in.css';
+
+.checklist {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--sp-2);
+}
+
+.wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 100%;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-body);
+  line-height: 20px;
+  color: var(--text-tertiary);
+  cursor: default;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.wrap:hover .summary,
+.summary:focus-visible,
+.summary[aria-expanded='true'] {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* 摘要带着整句任务文案，长了省略，不能把行撑出容器 */
+.summaryText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 环形进度 ---------- */
+
+.ring {
+  flex: none;
+  /* 从 12 点开始画，读起来才是「进度」而不是随便一段弧 */
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 2;
+}
+
+.ringFill {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset var(--dur-slow) var(--ease-out),
+    stroke var(--dur-fast) var(--ease);
+}
+
+.ringFill[data-complete='true'] {
+  stroke: var(--diff-add);
+}
+
+/* ---------- 悬停明细 ---------- */
+
+/*
+ * 外层只管锚定与居中，进场动画放在内层：
+ * 两者都要写 transform，叠在一起会把居中的 -50% 冲掉。
+ */
+.panel {
+  position: absolute;
+  bottom: calc(100% + var(--sp-2));
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+}
+
+.panelBody {
+  width: min(320px, calc(100vw - var(--sp-10)));
+  padding: var(--sp-2);
+  border-radius: var(--r-surface);
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  animation: rise-in var(--dur-fast) var(--ease-out);
+}
+
+/* 超过 4 条就在浮层里滚，避免一口气铺满整个视口 */
+.list {
+  --edge-top: 0px;
+  --edge-bottom: 0px;
+
+  display: grid;
+  gap: var(--sp-1);
+  max-height: min(240px, 40vh);
+  padding: var(--sp-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border-radius: var(--r-item);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--edge-top),
+    #000 calc(100% - var(--edge-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--edge-top),
+    #000 calc(100% - var(--edge-bottom)),
+    transparent 100%
+  );
+}
+
+.list:focus-visible {
+  outline: 2px solid var(--blue-switch);
+  outline-offset: -2px;
+}
+
+.list[data-edge-top='true'] {
+  --edge-top: var(--sp-4);
+}
+
+.list[data-edge-bottom='true'] {
+  --edge-bottom: var(--sp-4);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-desc);
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+
+.mark {
+  flex: none;
+  color: inherit;
+}
+
+/* 正在做的那一步转圈，和工具行里的进行中同一套节奏 */
+.mark[data-status='active'] {
+  animation: spin var(--dur-spin) linear infinite;
+}
+
+.index {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+/* 一条任务只占一行，超出省略：浮层要靠条目数来判断高度，折行会让它忽高忽低 */
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 做完的划掉即可（对齐 Codex）：不再额外降一级灰度 */
+.item[data-done='true'] .text {
+  text-decoration: line-through;
+}

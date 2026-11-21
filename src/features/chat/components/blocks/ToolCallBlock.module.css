@@ -111,7 +111,12 @@
   padding: var(--sp-2) var(--sp-4) 0 var(--sp-2);
 }
 
+/* 编辑类工具的入参是整段文件内容，不限高会把一屏都吃掉 */
 .command {
+  max-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   padding-right: var(--sp-5);
   font-family: var(--font-mono);
   font-size: var(--fs-desc);
@@ -161,6 +166,8 @@
 .output {
   max-height: 144px;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   padding: var(--sp-2);
   font-family: var(--font-mono);
   font-size: var(--fs-desc);

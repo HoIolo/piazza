@@ -5,12 +5,28 @@ const GAP = 6
 const EDGE = 8
 export const DEFAULT_MAX_HEIGHT = 360
 
+export type PopoverSide = 'top' | 'bottom' | 'left' | 'right'
+
 export interface Placement {
-  side: 'top' | 'bottom'
+  side: PopoverSide
   style: CSSProperties
 }
 
 /** 按触发器位置算出浮层该放哪。首选方向放不下且另一侧更宽裕时翻面 */
+function placeBeside(anchor: DOMRect, panel: HTMLElement, preferred: 'left' | 'right', maxCap: number): Placement {
+  const leftRoom = anchor.left - GAP - EDGE
+  const rightRoom = window.innerWidth - anchor.right - GAP - EDGE
+  const fits = (preferred === 'left' ? leftRoom : rightRoom) >= panel.offsetWidth
+  const side = fits ? preferred : rightRoom >= leftRoom ? 'right' : 'left'
+  const maxHeight = Math.min(maxCap, window.innerHeight - EDGE * 2)
+  const top = Math.max(EDGE, Math.min(anchor.top, window.innerHeight - Math.min(panel.scrollHeight, maxHeight) - EDGE))
+  const left = side === 'right' ? anchor.right + GAP : anchor.left - GAP - panel.offsetWidth
+  return {
+    side,
+    style: { top, left: Math.max(EDGE, Math.min(left, window.innerWidth - panel.offsetWidth - EDGE)), maxHeight },
+  }
+}
+
 function place(
   anchor: DOMRect,
   panelHeight: number,
@@ -34,7 +50,7 @@ function place(
 
 export function usePopoverPlacement(
   open: boolean,
-  side: 'top' | 'bottom',
+  side: PopoverSide,
   align: 'start' | 'end',
   maxHeight: number,
   rootRef: RefObject<HTMLDivElement | null>,
@@ -45,9 +61,14 @@ export function usePopoverPlacement(
   useLayoutEffect(() => {
     if (!open) return
     const update = () => {
-      const anchor = rootRef.current?.getBoundingClientRect()
+      const root = rootRef.current
       const panel = panelRef.current
-      if (anchor && panel) setPlacement(place(anchor, panel.scrollHeight, side, align, maxHeight))
+      if (!root || !panel) return
+      const anchor = root.getBoundingClientRect()
+      const placement = side === 'left' || side === 'right'
+        ? placeBeside(anchor, panel, side, maxHeight)
+        : place(anchor, panel.scrollHeight, side, align, maxHeight)
+      setPlacement(placement)
     }
     update()
     const observer = new ResizeObserver(update)

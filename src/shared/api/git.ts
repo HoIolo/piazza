@@ -21,8 +21,8 @@ export function readGitDiffStat(cwd: string): Promise<[number, number] | null> {
 }
 
 /** 工作区完整 diff 文本。非 git 目录或 git 报错时 reject */
-export function readGitDiff(cwd: string): Promise<string> {
-  return invoke<string>('read_git_diff', { cwd })
+export function readGitDiff(cwd: string, path?: string): Promise<string> {
+  return invoke<string>('read_git_diff', { cwd, path })
 }
 
 /** 与 src-tauri/src/git.rs 的 Worktree 对应 */

@@ -49,12 +49,10 @@ export function OpenLocationButton({ target }: OpenLocationButtonProps) {
         className={styles.main}
         onClick={() => preferred && openWith(preferred)}
         disabled={!preferred}
-        /* 按钮文案固定为「打开位置」，与 Codex 一致；
-           带上应用名会让宽度随所选应用变化，顶栏跟着一起抖 */
-        title={preferred ? `用 ${preferred.name} 打开` : undefined}
+        aria-label="打开位置"
+        title={preferred ? `用 ${preferred.name} 打开位置` : '打开位置'}
       >
-        <FolderIcon size={16} />
-        打开位置
+        <FolderIcon size={18} />
       </button>
 
       <Popover
@@ -70,7 +68,7 @@ export function OpenLocationButton({ target }: OpenLocationButtonProps) {
             aria-haspopup="menu"
             aria-expanded={open}
           >
-            <ChevronDown size={14} />
+            <ChevronDown size={12} />
           </button>
         )}
       >

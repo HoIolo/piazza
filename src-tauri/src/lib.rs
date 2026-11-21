@@ -5,7 +5,6 @@ mod config;
 mod external;
 mod files;
 mod git;
-mod pi_locate;
 mod rpc;
 mod sessions;
 mod terminal;
@@ -21,13 +20,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             attachments::read_attachment,
             attachments::store_attachment,
-            commands::locate_pi,
             commands::rpc_start,
             commands::rpc_send,
             commands::rpc_stop,
             commands::rpc_is_running,
             commands::scan_sessions,
             commands::trash_session,
+            commands::truncate_session_before,
             commands::read_session_snapshot,
             commands::read_git_branch,
             commands::list_git_branches,

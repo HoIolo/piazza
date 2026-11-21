@@ -33,6 +33,13 @@ export interface ThinkingTiming {
 interface ChatExtras {
   local?: boolean
   localId?: string
+  /**
+   * 运行中插进来的用户消息（引导 / 追加），不属于新一轮。
+   *
+   * 这类消息不是「发一个新问题」，而是往正在跑的那一轮里补一句话，
+   * 所以不切新一轮、也不让上一轮的过程区收起来。
+   */
+  steered?: boolean
   thinking?: ThinkingTiming
 }
 
@@ -75,6 +82,8 @@ export interface ChatSnapshot {
   /** 按 toolCallId 索引的工具执行状态 */
   tools: Record<string, ToolExecution>
   isStreaming: boolean
+  paused: boolean
+  titlePending: boolean
   /** 本轮开始时间，用于「已处理 3m 15s」计时 */
   turnStartedAt: number | null
   /** 上一轮耗时（毫秒） */
@@ -95,6 +104,26 @@ export interface ChatSnapshot {
   error: ChatError | null
 }
 
+export type ChatRowStatus = 'loading' | 'working' | 'reply' | 'input' | 'confirm' | null
+
+export function deriveSessionStatus(s: ChatSnapshot): ChatRowStatus {
+  if (s.sessionLoading) return 'loading'
+  if (s.pendingDialog) return s.pendingDialog.method === 'confirm' ? 'confirm' : 'input'
+  if (!s.isStreaming) return null
+  return s.streaming?.content.length || Object.values(s.tools).some((t) => t.status === 'running')
+    ? 'working'
+    : 'reply'
+}
+
+export function wasPaused(messages: ChatMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role === 'assistant') return message.stopReason === 'aborted'
+    if (message.role === 'user') return false
+  }
+  return false
+}
+
 export function emptySnapshot(): ChatSnapshot {
   return {
     viewKey: 'init',
@@ -102,6 +131,8 @@ export function emptySnapshot(): ChatSnapshot {
     streaming: null,
     tools: {},
     isStreaming: false,
+    paused: false,
+    titlePending: false,
     turnStartedAt: null,
     lastTurnDurationMs: null,
     queue: { steering: [], followUp: [] },
@@ -111,4 +142,28 @@ export function emptySnapshot(): ChatSnapshot {
     pendingDialog: null,
     error: null,
   }
+}
+
+export function backgroundSnapshot(state: ChatSnapshot): ChatSnapshot {
+  return {
+    viewKey: state.viewKey,
+    messages: state.messages,
+    streaming: state.streaming,
+    tools: state.tools,
+    isStreaming: state.isStreaming,
+    paused: state.paused,
+    titlePending: state.titlePending,
+    turnStartedAt: state.turnStartedAt,
+    lastTurnDurationMs: state.lastTurnDurationMs,
+    queue: state.queue,
+    sessionLoading: false,
+    rpcReady: state.rpcReady,
+    previewName: state.previewName,
+    pendingDialog: state.pendingDialog,
+    error: state.error,
+  }
+}
+
+export function hasPendingWork(state: ChatSnapshot) {
+  return state.isStreaming || state.titlePending
 }

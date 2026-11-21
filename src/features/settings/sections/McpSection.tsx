@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useEffect, useState } from 'react'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { FolderOpen, Plus } from 'lucide-react'
@@ -37,6 +38,7 @@ export function McpSection() {
 
   const commitServers = async (next: Record<string, McpServerEntry>) => {
     const written = await writeMcpConfig({ mcpServers: next })
+    refreshRuntimeAfterSave()
     setServers(written.mcpServers ?? {})
     setError(null)
   }

@@ -1,4 +1,4 @@
-import { BranchPicker } from '@/shared/components/BranchPicker'
+import { WorkspaceOptions } from './WorkspaceOptions'
 import { WorkModePicker } from '@/shared/components/WorkModePicker'
 import { ProjectPicker } from './ProjectPicker'
 import styles from './ContextBar.module.css'
@@ -14,7 +14,7 @@ export function ContextBar({ projectName, branch }: ContextBarProps) {
     <div className={styles.bar} role="group" aria-label="对话工作区">
       <WorkModePicker localLabel="此计算机" />
       <ProjectPicker projectName={projectName} />
-      {branch && <BranchPicker branch={branch} compact />}
+      {branch && <WorkspaceOptions branch={branch} />}
     </div>
   )
 }

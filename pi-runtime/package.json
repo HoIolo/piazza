@@ -1,0 +1,8 @@
+{
+  "name": "piazza-pi-runtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.6.0"
+  }
+}

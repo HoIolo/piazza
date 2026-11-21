@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { addProject } from '@/shared/utils/addProject'
 import { useAppStore } from '@/store/app.store'
 import { requestStop } from '@/store/chat'
 
@@ -20,6 +21,12 @@ const META_ACTIONS: Record<string, (store: AppStore) => void> = {
    * 自救手段都没有，只能整个退出应用。
    */
   r: () => window.location.reload(),
+  /*
+   * 添加项目，与 Codex 的 ⌘O 一致。
+   * 侧栏标题行那个「+」要悬停才现形，不给个快捷键的话，
+   * 一个看不见的按钮等于没有入口。
+   */
+  o: () => void addProject(),
 }
 
 /** 右侧面板「审阅」用 ⌃⇧G，与 Codex 一致，不走 ⌘ 那套 */

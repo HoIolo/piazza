@@ -1,0 +1,19 @@
+.panel {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.empty {
+  padding: var(--sp-4);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.error {
+  color: var(--diff-del);
+}

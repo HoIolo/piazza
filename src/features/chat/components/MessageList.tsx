@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { ArrowDown } from 'lucide-react'
 import { useElapsed } from '@/shared/hooks/useElapsed'
 import { useStickToBottom } from '@/shared/hooks/useStickToBottom'
 import { useAppStore } from '@/store/app.store'
@@ -27,6 +28,7 @@ export function MessageList() {
   const viewKey = useChatStore((s) => s.viewKey)
   const streaming = useChatStore((s) => s.streaming)
   const tools = useChatStore((s) => s.tools)
+  const paused = useChatStore((s) => s.paused)
   const isStreaming = useChatStore((s) => s.isStreaming)
   const turnStartedAt = useChatStore((s) => s.turnStartedAt)
   const lastTurnDurationMs = useChatStore((s) => s.lastTurnDurationMs)
@@ -52,7 +54,7 @@ export function MessageList() {
   )
 
   // 内容长高就贴底，由 ResizeObserver 直接盯高度
-  useStickToBottom(containerRef)
+  const { awayFromBottom, jumpToBottom } = useStickToBottom(containerRef)
 
   const activeIndex = useActiveExchange(containerRef, groupRefs, exchanges.length - start)
 
@@ -105,6 +107,7 @@ export function MessageList() {
                 tools={tools}
                 cwd={cwd}
                 active={isStreaming && isLast}
+                paused={paused && isLast}
                 disabled={isStreaming}
                 elapsedMs={isLast ? elapsedMs : null}
                 /* 本地量的耗时只属于刚跑完的那一轮，更早的没有 */
@@ -115,6 +118,17 @@ export function MessageList() {
         </div>
       </div>
       <ScrollThumb containerRef={containerRef} />
+      {awayFromBottom && (
+        <button
+          type="button"
+          className={styles.jumpToBottom}
+          onClick={jumpToBottom}
+          aria-label="回到底部"
+          title="回到底部"
+        >
+          <ArrowDown size={18} />
+        </button>
+      )}
     </div>
   )
 }

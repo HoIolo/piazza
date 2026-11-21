@@ -8,6 +8,7 @@ import { openPathWith } from '@/shared/api/pi'
 import { errorMessage } from '@/shared/utils/error'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
 import { useAppStore } from '@/store/app.store'
+import { useProjectsStore } from '@/store/projects.store'
 import styles from './ProjectMenu.module.css'
 
 export interface ProjectMenuProps {
@@ -117,7 +118,6 @@ export function ProjectMenu({ cwd }: ProjectMenuProps) {
           >
             {pinned ? '取消置顶' : '置顶项目'}
           </MenuItem>
-
           <MenuItem
             icon={<Folder size={16} />}
             onClick={() => {
@@ -145,6 +145,8 @@ export function ProjectMenu({ cwd }: ProjectMenuProps) {
           <MenuItem
             icon={<X size={16} />}
             onClick={() => {
+              // 手动添加过的目录要一并忘掉，否则下次扫描合并时它又冒出来
+              useProjectsStore.getState().forgetProject(cwd)
               hide(cwd)
               close()
             }}

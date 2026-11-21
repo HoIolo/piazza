@@ -9,6 +9,7 @@ const GROUPS = [
       { keys: '⌘K', label: '打开命令面板' },
       { keys: '⌘,', label: '打开设置' },
       { keys: '⌘N', label: '新建对话' },
+      { keys: '⌘O', label: '添加项目' },
       { keys: '⌘R', label: '重载窗口' },
     ],
   },

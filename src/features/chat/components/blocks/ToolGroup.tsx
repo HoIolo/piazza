@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CodexIcon } from '@/design/icons/CodexIcon'
 import { ShimmerText } from '@/design/primitives/ShimmerText'
+import { useScrollEdges } from '@/shared/hooks/useScrollEdges'
 import type { ToolExecution } from '@/store/chat'
-import { toolRuns } from './toolImages'
+import { isImageView, toolImages, toolRuns } from './toolImages'
 import { integrationSummary } from './toolIntegration'
 import { ToolCallBlock } from './ToolCallBlock'
-import { summarizeArgs, summarizeGroup, toolVerb } from './toolFormat'
+import { ToolImageResult } from './ToolImageResult'
+import { summarizeArgs, summarizeGroup, toolIcon, toolVerb } from './toolFormat'
 import styles from './ToolGroup.module.css'
 
 export interface ToolGroupProps {
@@ -35,9 +37,25 @@ export function ToolGroup({ executions }: ToolGroupProps) {
 function ToolActivityGroup({ executions }: ToolGroupProps) {
   const [expanded, setExpanded] = useState(false)
   const [opened, setOpened] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const edges = useScrollEdges(listRef, expanded)
 
   if (executions.length === 0) return null
   if (executions.length === 1) return <ToolCallBlock execution={executions[0]} />
+
+  /*
+   * 连续看了好几张图：合并成一行「已查看 N 张图像」，点开是一个相册。
+   * 一张图占一行时读者得连续点开四五次，才看得出模型到底看了些什么。
+   */
+  if (executions.every(isImageView))
+    return (
+      <div data-tool-call={executions[0].toolCallId}>
+        <ToolImageResult
+          images={executions.flatMap(toolImages)}
+          running={executions.some((execution) => execution.status === 'running')}
+        />
+      </div>
+    )
 
   const active = executions.find((e) => e.status === 'running')
   const integration = integrationSummary(executions.map((execution) => execution.toolName))
@@ -55,7 +73,7 @@ function ToolActivityGroup({ executions }: ToolGroupProps) {
         aria-expanded={expanded}
       >
         <CodexIcon
-          name={integration ? 'integration' : 'search'}
+          name={toolIcon(executions[executions.length - 1].toolName)}
           size={16}
           className={styles.icon}
         />
@@ -76,7 +94,12 @@ function ToolActivityGroup({ executions }: ToolGroupProps) {
       <div className={styles.listWrap} data-expanded={expanded} inert={!expanded}>
         <div className={styles.listClip}>
           {(expanded || opened) && (
-            <div className={styles.list}>
+            <div
+              className={styles.list}
+              ref={listRef}
+              data-edge-top={edges.top}
+              data-edge-bottom={edges.bottom}
+            >
               {executions.map((execution) => (
                 <ToolCallBlock key={execution.toolCallId} execution={execution} />
               ))}

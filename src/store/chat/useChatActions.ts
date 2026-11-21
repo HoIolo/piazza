@@ -9,17 +9,14 @@ import type {
   SessionState,
   StreamingBehavior,
 } from '@/rpc/types'
+import { truncateSessionBefore } from '@/shared/api/sessions'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { useProjectsStore } from '@/store/projects.store'
-import { putCachedSession } from './sessionCache'
+import { evictCachedSession, putCachedSession } from './sessionCache'
+import { dispatchPrompt, resumeTurn } from './sendPrompt'
 import { stopNow } from './stopConfirm'
 import { useChatStore } from './store'
-
-function promptType(running: boolean, behavior: StreamingBehavior) {
-  if (!running) return 'prompt'
-  return behavior === 'steer' ? 'steer' : 'follow_up'
-}
 
 function resolveForkEntry(
   forkMessages: ForkMessage[],
@@ -47,6 +44,7 @@ async function syncForkedSession(): Promise<void> {
   store.setMessages(messagesData.messages ?? [], file ?? undefined)
   useAppStore.getState().setLiveSession(file)
   if (file) {
+    evictCachedSession(file)
     const next = useChatStore.getState()
     putCachedSession(file, {
       state,
@@ -58,30 +56,26 @@ async function syncForkedSession(): Promise<void> {
   void useProjectsStore.getState().refresh()
 }
 
-async function dispatchPrompt(
-  message: string,
-  behavior: StreamingBehavior,
-  images: ImageContent[],
-): Promise<boolean> {
-  const text = message.trim()
-  if (!text && !images.length) return false
-  const { isStreaming: running, echoUserMessage } = useChatStore.getState()
-  const echoId = !running ? echoUserMessage(text, images) : null
-  try {
-    await rpcClient.send({
-      type: promptType(running, behavior),
-      message: text,
-      ...(images.length ? { images } : {}),
+async function rewindBeforeEntry(entryId: string): Promise<boolean> {
+  const sessionFile = useChatStore.getState().session?.sessionFile
+  if (sessionFile) {
+    await truncateSessionBefore(sessionFile, entryId)
+    evictCachedSession(sessionFile)
+    const switched = await rpcClient.send<{ cancelled?: boolean }>({
+      type: 'switch_session',
+      sessionPath: sessionFile,
     })
-    return true
-  } catch (error) {
-    if (echoId) useChatStore.getState().removeLocalEcho(echoId)
-    useChatStore.getState().setError(errorMessage(error))
-    return false
+    return !switched?.cancelled
   }
+  const forked = await rpcClient.send<ForkResult>({ type: 'fork', entryId })
+  return !forked.cancelled
 }
 
-async function forkAndResend(
+/**
+ * 原地编辑用户消息并重发：截断当前会话文件至目标消息之前并重载同一文件，
+ * 避免 pi 的 fork 命令额外派生一条新会话；分叉建新会话仍由「从此分支」按钮负责。
+ */
+async function editAndResend(
   userIndex: number | undefined,
   rawText: string,
   nextMessage: string,
@@ -95,8 +89,8 @@ async function forkAndResend(
       useChatStore.getState().setError('无法定位该条用户消息对应的会话节点')
       return false
     }
-    const forked = await rpcClient.send<ForkResult>({ type: 'fork', entryId: target.entryId })
-    if (forked.cancelled) return false
+    const ok = await rewindBeforeEntry(target.entryId)
+    if (!ok) return false
     await syncForkedSession()
     return await dispatchPrompt(nextMessage, 'steer', images)
   } catch (error) {
@@ -138,9 +132,9 @@ export function useChatActions() {
   )
   const editUserMessage = useCallback(
     (userIndex: number | undefined, rawText: string, nextMessage: string, images: ImageContent[] = []) =>
-      forkAndResend(userIndex, rawText, nextMessage, images),
+      editAndResend(userIndex, rawText, nextMessage, images),
     [],
   )
   const forkFromTurn = useCallback((userIndex?: number) => forkAfterTurn(userIndex), [])
-  return { sendPrompt, editUserMessage, forkFromTurn, abort: stopNow, isStreaming }
+  return { sendPrompt, editUserMessage, forkFromTurn, abort: stopNow, resume: resumeTurn, isStreaming }
 }

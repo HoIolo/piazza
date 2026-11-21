@@ -1,12 +1,17 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { create } from 'zustand'
-import { readProjectPrefs, writeProjectPrefs } from '@/shared/utils/projectPrefs'
 import {
   createPanelActions,
   panelInitialState,
   type PanelActions,
   type PanelState,
 } from './panel.slice'
+import {
+  createProjectPrefsActions,
+  projectPrefsInitialState,
+  type ProjectPrefsActions,
+  type ProjectPrefsState,
+} from './projectPrefs.slice'
 import {
   createSessionActions,
   sessionInitialState,
@@ -25,7 +30,15 @@ export type Theme = 'light' | 'dark'
 export type { RightPanelView } from './panel.slice'
 
 interface AppState
-  extends TerminalState, TerminalActions, SessionState, SessionActions, PanelState, PanelActions {
+  extends
+    TerminalState,
+    TerminalActions,
+    SessionState,
+    SessionActions,
+    PanelState,
+    PanelActions,
+    ProjectPrefsState,
+    ProjectPrefsActions {
   theme: Theme
   /** 左侧栏是否展开 */
   sidebarOpen: boolean
@@ -35,12 +48,6 @@ interface AppState
   paletteOpen: boolean
   /** git 状态的刷新信号。切换分支等改动仓库的操作后自增，促使相关 hook 重取 */
   gitNonce: number
-  /** 置顶的项目 cwd，侧栏据此把它们排到最前 */
-  pinnedProjects: string[]
-  /** 从侧栏隐藏的项目 cwd。只是不显示，不动任何会话文件 */
-  hiddenProjects: string[]
-  /** 置顶的会话文件路径，排在所属项目的最前 */
-  pinnedSessions: string[]
   /** 设置视图是否展开 */
   settingsOpen: boolean
   /**
@@ -60,29 +67,8 @@ interface AppState
   toggleEnvPanel: () => void
   setPaletteOpen: (open: boolean) => void
   refreshGit: () => void
-  togglePinnedProject: (cwd: string) => void
-  hideProject: (cwd: string) => void
-  togglePinnedSession: (path: string) => void
   openSettings: (section?: string) => void
   closeSettings: () => void
-}
-
-type SidebarPrefs = Pick<AppState, 'pinnedProjects' | 'hiddenProjects' | 'pinnedSessions'>
-
-/** 有则去掉，无则加上 */
-function toggled(list: string[], item: string): string[] {
-  return list.includes(item) ? list.filter((v) => v !== item) : [...list, item]
-}
-
-/** 把改动并进侧栏偏好并落盘，返回要写回 store 的那部分 */
-function persistPrefs(state: SidebarPrefs, patch: Partial<SidebarPrefs>): Partial<SidebarPrefs> {
-  const next = { ...state, ...patch }
-  writeProjectPrefs({
-    pinned: next.pinnedProjects,
-    hidden: next.hiddenProjects,
-    pinnedSessions: next.pinnedSessions,
-  })
-  return patch
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -92,14 +78,13 @@ export const useAppStore = create<AppState>((set) => ({
   ...createSessionActions(set),
   ...panelInitialState,
   ...createPanelActions(set),
+  ...projectPrefsInitialState,
+  ...createProjectPrefsActions(set),
   theme: 'light',
   sidebarOpen: true,
   envPanelOpen: true,
   paletteOpen: false,
   gitNonce: 0,
-  pinnedProjects: readProjectPrefs().pinned,
-  hiddenProjects: readProjectPrefs().hidden,
-  pinnedSessions: readProjectPrefs().pinnedSessions,
   settingsOpen: false,
   settingsMounted: false,
   settingsSection: null,
@@ -131,19 +116,6 @@ export const useAppStore = create<AppState>((set) => ({
   toggleEnvPanel: () => set((s) => ({ envPanelOpen: !s.envPanelOpen })),
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
-
-  togglePinnedProject: (cwd) =>
-    set((s) => persistPrefs(s, { pinnedProjects: toggled(s.pinnedProjects, cwd) })),
-
-  hideProject: (cwd) =>
-    set((s) =>
-      s.hiddenProjects.includes(cwd)
-        ? {}
-        : persistPrefs(s, { hiddenProjects: [...s.hiddenProjects, cwd] }),
-    ),
-
-  togglePinnedSession: (path) =>
-    set((s) => persistPrefs(s, { pinnedSessions: toggled(s.pinnedSessions, path) })),
 
   refreshGit: () => set((s) => ({ gitNonce: s.gitNonce + 1 })),
 

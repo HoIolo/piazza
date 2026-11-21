@@ -18,6 +18,14 @@
     opacity var(--dur-fast) var(--ease);
 }
 
+/* 表单里的选择器与输入框同宽、同高一档 */
+.trigger[data-full='true'] {
+  width: 100%;
+  max-width: none;
+  height: 34px;
+  padding-right: var(--sp-3);
+}
+
 .trigger:hover:not(:disabled),
 .trigger[data-open='true'] {
   background: var(--bg-hover);
@@ -41,6 +49,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 还没选中的占位文案：跟输入框的 placeholder 一个灰度 */
+.label[data-empty='true'] {
+  font-weight: var(--fw-normal);
+  color: var(--text-tertiary);
 }
 
 .chevron {

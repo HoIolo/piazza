@@ -1,3 +1,4 @@
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import { useEffect, useState } from 'react'
 import { Check, FolderOpen, Save } from 'lucide-react'
 import { Card } from '@/design/primitives/Card'
@@ -78,6 +79,7 @@ export function InstructionsSection() {
     setError(null)
     try {
       const updated = await writeGlobalInstructions(draft)
+      refreshRuntimeAfterSave()
       setDoc(updated)
       setDraft(updated.content)
       setSaved(true)

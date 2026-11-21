@@ -13,6 +13,7 @@ export interface ProjectNodeProps {
   project: ProjectGroup
   activeSessionPath: string | null
   status: SessionStatus
+  backgroundStatuses: ReadonlyMap<string, SessionStatus>
   /** 置顶的会话路径 */
   pinnedSessions: string[]
   onSelectProject: (cwd: string) => void
@@ -25,6 +26,7 @@ export function ProjectNode({
   project,
   activeSessionPath,
   status,
+  backgroundStatuses,
   pinnedSessions,
   onSelectProject,
   onSelectSession,
@@ -93,18 +95,22 @@ export function ProjectNode({
 
       {open && sessions.length > 0 && (
         <div className={styles.sessionList}>
-          {sessions.map((session) => (
-            <SessionRow
-              key={session.path}
-              session={session}
-              active={session.path === activeSessionPath}
-              pinned={pinnedSessions.includes(session.path)}
-              status={status}
-              onSelect={() => onSelectSession(project.cwd, session.path)}
-              onTogglePin={() => onTogglePinSession(session.path)}
-              onDelete={() => onDeleteSession(session.path)}
-            />
-          ))}
+          {sessions.map((session) => {
+            const active = session.path === activeSessionPath
+            const rowStatus = active ? status : (backgroundStatuses.get(session.path) ?? null)
+            return (
+              <SessionRow
+                key={session.path}
+                session={session}
+                active={active}
+                pinned={pinnedSessions.includes(session.path)}
+                status={rowStatus}
+                onSelect={() => onSelectSession(project.cwd, session.path)}
+                onTogglePin={() => onTogglePinSession(session.path)}
+                onDelete={() => onDeleteSession(session.path)}
+              />
+            )
+          })}
 
           {total > PAGE_SIZE && (
             <button

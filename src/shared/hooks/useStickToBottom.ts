@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 /** 判定「已在底部」的容差，避免像素级抖动导致误判 */
 const THRESHOLD = 80
@@ -12,8 +12,16 @@ const THRESHOLD = 80
  * 一个字一个字追加的，条数和块数自始至终不变，于是整段回答刷完，
  * 滚动条一次都不会动——回答越长，离底越远。
  */
-export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
+export function useStickToBottom(ref: RefObject<HTMLElement | null>) {
   const stuck = useRef(true)
+  const [awayFromBottom, setAwayFromBottom] = useState(false)
+  const jumpToBottom = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    stuck.current = true
+    el.scrollTop = el.scrollHeight
+    setAwayFromBottom(false)
+  }, [ref])
 
   useEffect(() => {
     const el = ref.current
@@ -21,16 +29,13 @@ export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
     if (!el || !content) return
     let lastScrollTop = el.scrollTop
 
+    const atBottom = () => el.scrollHeight - el.scrollTop - el.clientHeight <= THRESHOLD
     const onScroll = () => {
       const top = el.scrollTop
-      const dist = el.scrollHeight - top - el.clientHeight
-      if (top < lastScrollTop - 2) {
-        // 用户主动向上滚动阅读历史时解除贴底
-        stuck.current = dist <= THRESHOLD
-      } else if (dist <= THRESHOLD) {
-        stuck.current = true
-      }
+      const bottom = atBottom()
+      if (bottom || top < lastScrollTop - 2) stuck.current = bottom
       lastScrollTop = top
+      setAwayFromBottom(!atBottom())
     }
     el.addEventListener('scroll', onScroll, { passive: true })
 
@@ -39,19 +44,24 @@ export function useStickToBottom(ref: RefObject<HTMLElement | null>): void {
       if (el.dataset.restoringScroll === 'true') {
         delete el.dataset.restoringScroll
         lastScrollTop = el.scrollTop
-        stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight <= THRESHOLD
+        stuck.current = atBottom()
+        setAwayFromBottom(!atBottom())
         return
       }
       if (stuck.current) {
         el.scrollTop = el.scrollHeight
         lastScrollTop = el.scrollTop
       }
+      setAwayFromBottom(!atBottom())
     })
     observer.observe(content)
+    observer.observe(el)
 
     return () => {
       el.removeEventListener('scroll', onScroll)
       observer.disconnect()
     }
   }, [ref])
+
+  return { awayFromBottom, jumpToBottom }
 }

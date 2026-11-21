@@ -16,7 +16,7 @@ export interface SidebarHeaderProps {
  */
 export function SidebarHeader({ onSearch, onToggleSidebar }: SidebarHeaderProps) {
   return (
-    <header className={styles.header} data-tauri-drag-region>
+    <header className={styles.header} data-tauri-drag-region="deep">
       <div className={styles.actions}>
         <IconButton ariaLabel="搜索" title="搜索（⌘K）" onClick={onSearch}>
           <SearchIcon />

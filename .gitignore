@@ -12,3 +12,9 @@ e2e/.shots/
 # 系统与编辑器
 .DS_Store
 *.log
+
+# playwright-cli 的会话快照
+.playwright-cli/
+
+# 随应用打包的 Pi SDK 与 Node 运行时
+src-tauri/resources/pi-runtime/

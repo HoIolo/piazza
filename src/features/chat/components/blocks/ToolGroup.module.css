@@ -85,15 +85,57 @@
   overflow: hidden;
 }
 
-/* 对齐 Codex K5Kt grouped variant：gap 4px (--grouped-gap) + 缩进引导线 */
+/*
+ * 对齐 Codex K5Kt grouped variant：gap 4px (--grouped-gap) + 缩进引导线。
+ *
+ * 展开后限高滚动：模型一口气读二十个文件是常态，明细全铺开会把正文顶出屏幕，
+ * 想看结论得先滚过一整屏命令行。高度同时受视口约束，窗口小的时候不至于占满。
+ */
 .list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: var(--grouped-gap, 4px);
+  max-height: min(264px, 40vh);
   margin: var(--sp-1) 0 0 5px;
   padding-left: var(--sp-3);
   border-left: 1px solid var(--border);
+  overflow-y: auto;
+  /* 滚到边界就停住，别把滚动接力给外面的消息流 */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/*
+ * 被高度截断的那一侧渐隐：浮层滚动条不动就不出现，没有这层提示，
+ * 最后一行看着像渲染坏了。只隐真被遮住的一侧，滚到底就不再发虚。
+ */
+.list {
+  --edge-top: 0px;
+  --edge-bottom: 0px;
+
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--edge-top),
+    #000 calc(100% - var(--edge-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--edge-top),
+    #000 calc(100% - var(--edge-bottom)),
+    transparent 100%
+  );
+}
+
+.list[data-edge-top='true'] {
+  --edge-top: var(--sp-4);
+}
+
+.list[data-edge-bottom='true'] {
+  --edge-bottom: var(--sp-4);
 }
 
 .chevron {

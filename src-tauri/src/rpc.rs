@@ -1,16 +1,14 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
-
-use crate::pi_locate::PiLauncher;
 
 /// 一条通道对应一个 pi 进程，各自往前端发一组事件。
 ///
@@ -35,6 +33,12 @@ pub const SIDE: Channel = Channel {
     message: "pi-side://message",
     stderr: "pi-side://stderr",
     exit: "pi-side://exit",
+};
+
+pub const ACCOUNTS: Channel = Channel {
+    message: "pi-accounts://message",
+    stderr: "pi-accounts://stderr",
+    exit: "pi-accounts://exit",
 };
 
 /// 读取缓冲区大小。单帧可能远超此值（如大文件内容），
@@ -77,27 +81,50 @@ pub struct ExitPayload {
     pub stderr: String,
 }
 
-pub struct RpcState {
-    channel: Channel,
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SlotEvent<T> {
+    slot_id: String,
+    payload: T,
+}
+
+#[derive(Default)]
+struct SlotHandle {
     inner: Arc<Mutex<Option<RunningSession>>>,
     /// 会话代号。每次 start/stop 递增，用于区分「主动切换导致的退出」与「意外退出」——
     /// 切换会话时会先 kill 旧进程，若不区分就会每切一次都误报一次进程退出。
     generation: Arc<AtomicU64>,
 }
 
+pub struct RpcState {
+    channel: Channel,
+    slots: Mutex<HashMap<String, Arc<SlotHandle>>>,
+}
+
 impl RpcState {
     pub fn new(channel: Channel) -> Self {
         Self {
             channel,
-            inner: Arc::default(),
-            generation: Arc::default(),
+            slots: Mutex::default(),
         }
+    }
+
+    async fn get_or_create_slot(&self, slot_id: &str) -> Arc<SlotHandle> {
+        let mut map = self.slots.lock().await;
+        map.entry(slot_id.to_string())
+            .or_insert_with(|| Arc::new(SlotHandle::default()))
+            .clone()
+    }
+
+    async fn get_slot(&self, slot_id: &str) -> Option<Arc<SlotHandle>> {
+        self.slots.lock().await.get(slot_id).cloned()
     }
 }
 
 /// stdout reader 收尾时要用的东西：判断是否意外退出、取退出码、取死因
 struct ExitContext {
     channel: Channel,
+    slot_id: String,
     generation: Arc<AtomicU64>,
     my_generation: u64,
     session: Arc<Mutex<Option<RunningSession>>>,
@@ -110,20 +137,38 @@ struct RunningSession {
 }
 
 impl RpcState {
-    /// 启动 pi RPC 进程。已有进程时先终止，保证同一时刻只有一个会话。
+    /// 启动指定槽位的 pi RPC 进程。该槽位已有进程时先终止，其它槽位的进程互不干扰。
     pub async fn start(
         &self,
         app: AppHandle,
-        launcher: &PiLauncher,
         opts: StartOptions,
+        slot_id: &str,
     ) -> Result<(), String> {
-        let mut slot = self.inner.lock().await;
-        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let handle = self.get_or_create_slot(slot_id).await;
+        let mut slot = handle.inner.lock().await;
+        let generation = handle.generation.fetch_add(1, Ordering::SeqCst) + 1;
         if let Some(mut previous) = slot.take() {
             let _ = previous.child.kill().await;
         }
 
-        let mut extra = vec!["--mode".into(), "rpc".into()];
+        let runtime = app
+            .path()
+            .resolve("resources/pi-runtime", BaseDirectory::Resource)
+            .map_err(|e| format!("无法定位内置 Pi 运行时：{e}"))?;
+        let bin = runtime.join("bin");
+        let node = bin.join("node");
+        let worker = runtime.join("worker.mjs");
+        if !node.is_file() || !worker.is_file() {
+            return Err("Piazza 安装包缺少内置 Pi 运行时".into());
+        }
+        let inherited_path = std::env::var_os("PATH").unwrap_or_default();
+        let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&inherited_path)))
+            .map_err(|e| format!("无法设置内置运行时路径：{e}"))?;
+
+        let mut extra: Vec<String> = Vec::new();
+        if self.channel.message == ACCOUNTS.message {
+            extra.push("--accounts".into());
+        }
         if let Some(p) = opts.provider.filter(|s| !s.is_empty()) {
             extra.push("--provider".into());
             extra.push(p);
@@ -136,19 +181,32 @@ impl RpcState {
             extra.push("--session".into());
             extra.push(s);
         }
+        if self.channel.message == MAIN.message {
+            extra.push("--auto-title".into());
+            let extension = app
+                .path()
+                .resolve("resources/task-plan.ts", BaseDirectory::Resource)
+                .map_err(|e| format!("无法定位待办扩展：{e}"))?;
+            extra.push("--extension".into());
+            extra.push(extension.to_string_lossy().into_owned());
+        }
         if opts.ephemeral.unwrap_or(false) {
             extra.push("--no-session".into());
         }
 
-        let mut child = Command::new(&launcher.program)
-            .args(launcher.args_with(&extra))
+        let mut child = Command::new(node)
+            .arg(worker)
+            .args(&extra)
+            .env("PATH", path)
+            .env_remove("NODE_PATH")
+            .env_remove("NODE_OPTIONS")
             .current_dir(&opts.cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
-            .map_err(|e| format!("启动 pi 失败：{e}"))?;
+            .map_err(|e| format!("启动内置 Pi SDK 失败：{e}"))?;
 
         let stdin = child.stdin.take().ok_or("无法取得 pi 的 stdin")?;
         let stdout = child.stdout.take().ok_or("无法取得 pi 的 stdout")?;
@@ -163,19 +221,21 @@ impl RpcState {
             stdout,
             ExitContext {
                 channel: self.channel,
-                generation: Arc::clone(&self.generation),
+                slot_id: slot_id.to_string(),
+                generation: Arc::clone(&handle.generation),
                 my_generation: generation,
-                session: Arc::clone(&self.inner),
+                session: Arc::clone(&handle.inner),
                 stderr_tail: Arc::clone(&stderr_tail),
             },
         );
-        spawn_stderr_reader(app, self.channel, stderr, stderr_tail);
+        spawn_stderr_reader(app, self.channel, slot_id.to_string(), stderr, stderr_tail);
         Ok(())
     }
 
-    /// 发送一条 RPC 命令。协议要求每条命令占一行，以 LF 结尾。
-    pub async fn send(&self, payload: &serde_json::Value) -> Result<(), String> {
-        let mut guard = self.inner.lock().await;
+    /// 发送一条 RPC 命令到指定槽位。协议要求每条命令占一行，以 LF 结尾。
+    pub async fn send(&self, slot_id: &str, payload: &serde_json::Value) -> Result<(), String> {
+        let handle = self.get_slot(slot_id).await.ok_or("pi 会话尚未启动")?;
+        let mut guard = handle.inner.lock().await;
         let session = guard.as_mut().ok_or("pi 会话尚未启动")?;
 
         let mut line = serde_json::to_vec(payload).map_err(|e| e.to_string())?;
@@ -188,11 +248,18 @@ impl RpcState {
         }
     }
 
-    pub async fn stop(&self) -> Result<(), String> {
+    pub async fn stop(&self, slot_id: &str) -> Result<(), String> {
+        let handle = {
+            let mut map = self.slots.lock().await;
+            map.remove(slot_id)
+        };
+        let Some(handle) = handle else {
+            return Ok(());
+        };
         // 先让代号前进，旧 reader 随后发现自己已过期，便不会把这次退出报成异常
         let taken = {
-            let mut slot = self.inner.lock().await;
-            self.generation.fetch_add(1, Ordering::SeqCst);
+            let mut slot = handle.inner.lock().await;
+            handle.generation.fetch_add(1, Ordering::SeqCst);
             slot.take()
         };
         if let Some(mut session) = taken {
@@ -201,8 +268,12 @@ impl RpcState {
         Ok(())
     }
 
-    pub async fn is_running(&self) -> bool {
-        self.inner.lock().await.is_some()
+    pub async fn is_running(&self, slot_id: &str) -> bool {
+        let Some(handle) = self.get_slot(slot_id).await else {
+            return false;
+        };
+        let running = handle.inner.lock().await.is_some();
+        running
     }
 }
 
@@ -228,7 +299,7 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
             }
             buf.extend_from_slice(&chunk[..n]);
             for frame in take_frames(&mut buf) {
-                emit_frame(&app, ctx.channel, &frame);
+                emit_frame(&app, ctx.channel, &ctx.slot_id, &frame);
             }
         }
 
@@ -249,7 +320,7 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
             }
             // 进程结束时可能还有一帧没有 LF。
             if !buf.is_empty() {
-                emit_frame(&app, ctx.channel, &buf);
+                emit_frame(&app, ctx.channel, &ctx.slot_id, &buf);
             }
             slot.take()
         };
@@ -259,7 +330,13 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
         };
         let stderr = tail_snapshot(&ctx.stderr_tail).await;
         if ctx.generation.load(Ordering::SeqCst) == ctx.my_generation {
-            let _ = app.emit(ctx.channel.exit, ExitPayload { code, stderr });
+            let _ = app.emit(
+                ctx.channel.exit,
+                SlotEvent {
+                    slot_id: ctx.slot_id,
+                    payload: ExitPayload { code, stderr },
+                },
+            );
         }
     });
 }
@@ -318,18 +395,30 @@ fn take_frames(buf: &mut Vec<u8>) -> Vec<Vec<u8>> {
 }
 
 /// 解析并转发单帧。剥离可选的尾随 CR 以兼容 CRLF 输入。
-fn emit_frame(app: &AppHandle, channel: Channel, raw: &[u8]) {
+fn emit_frame(app: &AppHandle, channel: Channel, slot_id: &str, raw: &[u8]) {
     let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
     if raw.is_empty() {
         return;
     }
     match serde_json::from_slice::<serde_json::Value>(raw) {
         Ok(value) => {
-            let _ = app.emit(channel.message, value);
+            let _ = app.emit(
+                channel.message,
+                SlotEvent {
+                    slot_id: slot_id.to_string(),
+                    payload: value,
+                },
+            );
         }
         Err(e) => {
             let text = String::from_utf8_lossy(raw);
-            let _ = app.emit(channel.stderr, format!("帧解析失败：{e} | 原始内容：{text}"));
+            let _ = app.emit(
+                channel.stderr,
+                SlotEvent {
+                    slot_id: slot_id.to_string(),
+                    payload: format!("帧解析失败：{e} | 原始内容：{text}"),
+                },
+            );
         }
     }
 }
@@ -337,6 +426,7 @@ fn emit_frame(app: &AppHandle, channel: Channel, raw: &[u8]) {
 fn spawn_stderr_reader(
     app: AppHandle,
     channel: Channel,
+    slot_id: String,
     stderr: tokio::process::ChildStderr,
     tail: Arc<Mutex<VecDeque<String>>>,
 ) {
@@ -358,7 +448,13 @@ fn spawn_stderr_reader(
                 }
             }
 
-            let _ = app.emit(channel.stderr, text);
+            let _ = app.emit(
+                channel.stderr,
+                SlotEvent {
+                    slot_id: slot_id.clone(),
+                    payload: text,
+                },
+            );
         }
     });
 }

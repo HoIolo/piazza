@@ -33,6 +33,11 @@ export function trashSession(path: string): Promise<void> {
   return invoke('trash_session', { path })
 }
 
+/** 原地截断会话文件至目标用户消息之前，供编辑重发复用同一会话 */
+export function truncateSessionBefore(path: string, entryId: string): Promise<void> {
+  return invoke('truncate_session_before', { path, entryId })
+}
+
 /** 从磁盘直接读取会话当前活跃分支的消息快照，避免切换时苦等 pi 冷启 */
 export function readSessionSnapshot(path: string): Promise<SessionSnapshot> {
   return invoke<SessionSnapshot>('read_session_snapshot', { path })

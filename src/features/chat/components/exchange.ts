@@ -29,8 +29,11 @@ function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   const rawFinal = assistants.length > 0 ? assistants[assistants.length - 1] : null
   const { intermediate, final } = splitToolRounds(assistants.slice(0, -1), rawFinal)
 
-  // toolResult 由 ToolCallBlock 依 toolCallId 自行取用，不在这里重复渲染
-  const others = buffer.filter((m) => m.role === 'bashExecution')
+  // toolResult 由 ToolCallBlock 依 toolCallId 自行取用，不在这里重复渲染；
+  // 运行中插进来的引导勾在同一轮的过程区里，跟终端输出一样按原顺序排
+  const others = buffer.filter(
+    (m) => m.role === 'bashExecution' || (m.role === 'user' && m.steered),
+  )
 
   const startedAt = user?.timestamp ?? assistants[0]?.timestamp ?? null
   const endedAt = rawFinal?.timestamp ?? null
@@ -96,7 +99,11 @@ export function groupIntoExchanges(messages: ChatMessage[]): Exchange[] {
 
   for (const message of messages) {
     if ((message as { role?: string }).role === 'system') continue
-    if (isUser(message)) {
+    /*
+     * 只有真正「提了新问题」的用户消息才切开一轮。运行中打进去的引导属于
+     * 正在跑的那一轮，切开会让上一轮立刻变成非末轮，过程区当场折叠。
+     */
+    if (isUser(message) && !message.steered) {
       if (started) result.push(build(user, buffer))
       user = message
       buffer = []

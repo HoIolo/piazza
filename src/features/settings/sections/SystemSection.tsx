@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FolderOpen, RotateCw } from 'lucide-react'
+import { FolderOpen } from 'lucide-react'
 import { Card } from '@/design/primitives/Card'
 import { Pill } from '@/design/primitives/Pill'
 import { Row } from '@/design/primitives/Row'
@@ -7,19 +7,16 @@ import { Segmented } from '@/design/primitives/Segmented'
 import { TextField } from '@/design/primitives/TextField'
 import { getAgentDir } from '@/shared/api/agentResources'
 import { openPathWith } from '@/shared/api/pi'
-import { useAppStore } from '@/store/app.store'
-import { PiPathRow } from '../components/PiPathRow'
 import type { SectionProps } from './AppearanceSection'
 import styles from './SystemSection.module.css'
 
-/** 运行时与系统：pi 路径、网络代理与配置数据目录 */
+/** 运行时与系统：内置 Pi SDK、网络代理与配置数据目录 */
 export function SystemSection({ settings }: SectionProps) {
   const { read, update } = settings
   const savedProxy = read('httpProxy', '')
   const [forceCustom, setForceCustom] = useState(false)
   const [proxyDraft, setProxyDraft] = useState<string | null>(null)
   const [agentDir, setAgentDir] = useState('~/.pi/agent')
-  const reconnectSession = useAppStore((s) => s.reconnectSession)
 
   useEffect(() => {
     void getAgentDir()
@@ -32,7 +29,7 @@ export function SystemSection({ settings }: SectionProps) {
 
   const applyProxy = () => {
     const trimmed = displayedProxy.trim()
-    update('httpProxy', trimmed || undefined)
+    update('httpProxy', trimmed)
     setProxyDraft(null)
     if (!trimmed) setForceCustom(false)
   }
@@ -40,16 +37,7 @@ export function SystemSection({ settings }: SectionProps) {
   return (
     <>
       <Card title="pi 运行时">
-        <PiPathRow />
-        <Row
-          title="重启后台 pi 进程"
-          description="修改代理、扩展包或 MCP 配置后，可立即重新拉起 pi 会话进程使其生效"
-          control={
-            <Pill icon={<RotateCw size={13} />} onClick={reconnectSession}>
-              重新连接
-            </Pill>
-          }
-        />
+        <Row title="运行时来源" description="Piazza 内置 Pi SDK 和 Node.js" />
       </Card>
 
       <Card title="网络代理">
@@ -67,7 +55,7 @@ export function SystemSection({ settings }: SectionProps) {
                 if (mode === 'system') {
                   setForceCustom(false)
                   setProxyDraft(null)
-                  if (savedProxy) update('httpProxy', undefined)
+                  if (savedProxy) update('httpProxy', '')
                 } else {
                   setForceCustom(true)
                 }

@@ -1,12 +1,10 @@
 use tauri::{AppHandle, State};
-use tokio::sync::Mutex;
 
 use crate::agent_resources;
 use crate::config;
 use crate::external;
 use crate::files;
 use crate::git;
-use crate::pi_locate::{self, PiLauncher};
 use crate::rpc::{self, RpcState, StartOptions};
 use crate::sessions::{self, ProjectGroup, SessionSnapshot};
 use crate::terminal::TerminalState;
@@ -15,8 +13,7 @@ pub struct AppState {
     pub rpc: RpcState,
     /// 侧边聊天的 pi，与主会话各跑各的
     pub side_rpc: RpcState,
-    /// 缓存 pi 的解析结果：走 login shell 探测有明显开销，不宜每次启动会话都做一次
-    pub launcher: Mutex<Option<PiLauncher>>,
+    pub accounts_rpc: RpcState,
     pub terminal: TerminalState,
 }
 
@@ -25,7 +22,7 @@ impl Default for AppState {
         Self {
             rpc: RpcState::new(rpc::MAIN),
             side_rpc: RpcState::new(rpc::SIDE),
-            launcher: Mutex::default(),
+            accounts_rpc: RpcState::new(rpc::ACCOUNTS),
             terminal: TerminalState::default(),
         }
     }
@@ -33,8 +30,10 @@ impl Default for AppState {
 
 impl AppState {
     /// 取这次调用要操作的 pi。前端不传 side 时就是主会话
-    fn channel(&self, side: Option<bool>) -> &RpcState {
-        if side.unwrap_or(false) {
+    fn channel(&self, side: Option<bool>, accounts: Option<bool>) -> &RpcState {
+        if accounts.unwrap_or(false) {
+            &self.accounts_rpc
+        } else if side.unwrap_or(false) {
             &self.side_rpc
         } else {
             &self.rpc
@@ -42,44 +41,25 @@ impl AppState {
     }
 }
 
-/// 解析 pi 位置。`refresh` 为真时忽略缓存重新探测（设置页手动改路径后用）。
-#[tauri::command]
-pub async fn locate_pi(
-    state: State<'_, AppState>,
-    user_override: Option<String>,
-    refresh: Option<bool>,
-) -> Result<Option<PiLauncher>, String> {
-    let mut cache = state.launcher.lock().await;
-    if !refresh.unwrap_or(false) {
-        if let Some(cached) = cache.as_ref() {
-            return Ok(Some(cached.clone()));
-        }
-    }
-
-    let found = pi_locate::locate(user_override.as_deref());
-    *cache = found.clone();
-    Ok(found)
-}
+const DEFAULT_SLOT: &str = "default";
 
 #[tauri::command]
 pub async fn rpc_start(
     app: AppHandle,
     state: State<'_, AppState>,
-    opts: StartOptions,
-    pi_path: Option<String>,
+    mut opts: StartOptions,
     side: Option<bool>,
+    accounts: Option<bool>,
+    slot_id: Option<String>,
 ) -> Result<(), String> {
-    let launcher = {
-        let mut cache = state.launcher.lock().await;
-        if cache.is_none() {
-            *cache = pi_locate::locate(pi_path.as_deref());
-        }
-        cache
-            .clone()
-            .ok_or("未找到 pi 可执行文件，请在设置中手动指定路径")?
-    };
-
-    state.channel(side).start(app, &launcher, opts).await
+    let slot = slot_id.as_deref().unwrap_or(DEFAULT_SLOT);
+    if accounts.unwrap_or(false) {
+        opts.cwd = dirs::home_dir()
+            .ok_or("无法定位用户主目录")?
+            .to_string_lossy()
+            .into_owned();
+    }
+    state.channel(side, accounts).start(app, opts, slot).await
 }
 
 #[tauri::command]
@@ -87,18 +67,33 @@ pub async fn rpc_send(
     state: State<'_, AppState>,
     payload: serde_json::Value,
     side: Option<bool>,
+    accounts: Option<bool>,
+    slot_id: Option<String>,
 ) -> Result<(), String> {
-    state.channel(side).send(&payload).await
+    let slot = slot_id.as_deref().unwrap_or(DEFAULT_SLOT);
+    state.channel(side, accounts).send(slot, &payload).await
 }
 
 #[tauri::command]
-pub async fn rpc_stop(state: State<'_, AppState>, side: Option<bool>) -> Result<(), String> {
-    state.channel(side).stop().await
+pub async fn rpc_stop(
+    state: State<'_, AppState>,
+    side: Option<bool>,
+    accounts: Option<bool>,
+    slot_id: Option<String>,
+) -> Result<(), String> {
+    let slot = slot_id.as_deref().unwrap_or(DEFAULT_SLOT);
+    state.channel(side, accounts).stop(slot).await
 }
 
 #[tauri::command]
-pub async fn rpc_is_running(state: State<'_, AppState>, side: Option<bool>) -> Result<bool, String> {
-    Ok(state.channel(side).is_running().await)
+pub async fn rpc_is_running(
+    state: State<'_, AppState>,
+    side: Option<bool>,
+    accounts: Option<bool>,
+    slot_id: Option<String>,
+) -> Result<bool, String> {
+    let slot = slot_id.as_deref().unwrap_or(DEFAULT_SLOT);
+    Ok(state.channel(side, accounts).is_running(slot).await)
 }
 
 #[tauri::command]
@@ -110,6 +105,12 @@ pub fn scan_sessions() -> Result<Vec<ProjectGroup>, String> {
 #[tauri::command]
 pub fn trash_session(path: String) -> Result<(), String> {
     sessions::trash(&path)
+}
+
+/// 原地截断会话文件，只保留目标用户消息之前的历史，供编辑重发复用原会话
+#[tauri::command]
+pub fn truncate_session_before(path: String, entry_id: String) -> Result<(), String> {
+    sessions::truncate_before(&path, &entry_id)
 }
 
 /// 从磁盘直接读取会话消息快照，用于切换会话时先秒开内容
@@ -146,8 +147,10 @@ pub fn read_git_diff_stat(cwd: String) -> Option<(u32, u32)> {
 
 /// 工作区完整 diff，供右侧面板的「审阅」视图
 #[tauri::command]
-pub fn read_git_diff(cwd: String) -> Result<String, String> {
-    git::diff(&cwd)
+pub async fn read_git_diff(cwd: String, path: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || git::diff(&cwd, path.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// 列出 git worktree，供「工作模式」切换

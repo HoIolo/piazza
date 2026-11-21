@@ -35,6 +35,7 @@ function plainText(message: ChatAssistantMessage): string {
  * 不显示的话用户只看到「耗时 0 秒」加一片空白，完全不知道发生过什么。
  */
 function failureOf(message: ChatAssistantMessage): string | null {
+  if (message.stopReason === 'aborted') return null
   if (message.errorMessage) return message.errorMessage
   return message.stopReason === 'error' ? '模型调用失败，pi 未给出原因' : null
 }

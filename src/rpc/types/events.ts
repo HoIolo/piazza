@@ -31,8 +31,10 @@ export type AssistantMessageEvent =
 
 export type AgentEvent =
   | { type: 'agent_start' }
+  | { type: 'piazza_title_pending'; pending: boolean }
+  | { type: 'session_info_changed'; name?: string }
   | { type: 'agent_end'; messages: AgentMessage[]; willRetry: boolean }
-  | { type: 'agent_settled' }
+  | { type: 'agent_settled'; aborted?: boolean }
   | { type: 'turn_start' }
   | { type: 'turn_end'; message: AssistantMessage; toolResults: ToolResultMessage[] }
   | { type: 'message_start'; message: AgentMessage }

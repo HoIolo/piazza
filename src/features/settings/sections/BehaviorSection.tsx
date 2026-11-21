@@ -71,7 +71,7 @@ export function BehaviorSection({ settings }: SectionProps) {
       <Card title="会话默认项">
         <Row
           title="默认模型"
-          description="开启新对话时默认使用的模型，列表同步自「模型与 Provider」"
+          description="开启新对话时默认使用的模型，列表同步自「模型与账号」"
           control={
             <Select
               value={currentKey}

@@ -134,6 +134,15 @@ export function MoreIcon(props: IconProps) {
   )
 }
 
+/** 加号。侧栏「项目」标题行右侧的添加入口 */
+export function PlusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 5v10M5 10h10" />
+    </Svg>
+  )
+}
+
 export function PinIcon(props: IconProps) {
   return (
     <Svg {...props}>

@@ -6,11 +6,16 @@ interface SwitchResult {
   cancelled?: boolean
 }
 
-let launch = Promise.resolve()
-let runningCwd: string | null = null
+const slotLaunches = new Map<string, Promise<void>>()
+const slotCwds = new Map<string, string>()
 
-export function markRpcProcessExited(): void {
-  runningCwd = null
+export function getSlotCwd(slotId: string): string | null {
+  return slotCwds.get(slotId) ?? null
+}
+
+export function markRpcProcessExited(slotId: string): void {
+  slotCwds.delete(slotId)
+  slotLaunches.delete(slotId)
 }
 
 const BOOT_TIMEOUT_MS = 20_000
@@ -45,80 +50,85 @@ export function describeExit({ code, stderr }: ExitInfo): ChatError {
 }
 
 async function tryWarmSwitch(
+  slotId: string,
   cwd: string,
   sessionPath: string | null,
-  wasStreaming: boolean,
 ): Promise<boolean> {
-  if (runningCwd !== cwd) return false
+  if (slotCwds.get(slotId) !== cwd) return false
   try {
-    if (wasStreaming) {
-      await rpcClient.send({ type: 'abort' }).catch(() => undefined)
-    }
     const res = sessionPath
-      ? await rpcClient.send<SwitchResult>({ type: 'switch_session', sessionPath })
-      : await rpcClient.send<SwitchResult>({ type: 'new_session' })
+      ? await rpcClient.send<SwitchResult>({ type: 'switch_session', sessionPath }, slotId)
+      : await rpcClient.send<SwitchResult>({ type: 'new_session' }, slotId)
     return !res?.cancelled
   } catch {
-    runningCwd = null
+    slotCwds.delete(slotId)
     return false
   }
 }
 
 async function coldStart(
+  slotId: string,
   cwd: string,
   sessionPath: string | null,
   previous: SessionState | null,
 ): Promise<void> {
-  runningCwd = null
-  await rpcClient.start({
-    cwd,
-    sessionPath: sessionPath ?? undefined,
-    ...(!sessionPath && previous?.model
-      ? { provider: previous.model.provider, model: previous.model.id }
-      : {}),
-  })
-  runningCwd = cwd
+  slotCwds.delete(slotId)
+  await rpcClient.start(
+    {
+      cwd,
+      sessionPath: sessionPath ?? undefined,
+      ...(!sessionPath && previous?.model
+        ? { provider: previous.model.provider, model: previous.model.id }
+        : {}),
+    },
+    slotId,
+  )
+  slotCwds.set(slotId, cwd)
   if (!sessionPath && previous) {
-    await rpcClient.send({ type: 'set_thinking_level', level: previous.thinkingLevel })
+    await rpcClient.send({ type: 'set_thinking_level', level: previous.thinkingLevel }, slotId)
   }
 }
 
 export interface BootOptions {
+  slotId: string
   cwd: string
   sessionPath: string | null
   current: () => boolean
   previous: SessionState | null
-  wasStreaming: boolean
   forceCold: boolean
 }
 
 /**
- * 同项目切换会话直接复用运行中的 pi 进程（switch_session / new_session，约十余毫秒），
- * 仅在首次启动、切换项目目录、进程异常退出或显式重连时才冷启新进程。
+ * 同项目切换空闲会话直接复用当前槽位的 pi 进程（switch_session / new_session，约十余毫秒），
+ * 仅在首次启动、切换项目目录、进程异常退出、从流式会话切走新开槽位或显式重连时才冷启新进程。
  */
 export async function bootSession({
+  slotId,
   cwd,
   sessionPath,
   current,
   previous,
-  wasStreaming,
   forceCold,
 }: BootOptions) {
-  const startup = launch.then(async () => {
+  const prevLaunch = slotLaunches.get(slotId) ?? Promise.resolve()
+  const startup = prevLaunch.then(async () => {
     if (!current()) return
-    const warmed = !forceCold && (await tryWarmSwitch(cwd, sessionPath, wasStreaming))
+    const warmed = !forceCold && (await tryWarmSwitch(slotId, cwd, sessionPath))
     if (!warmed && current()) {
-      await coldStart(cwd, sessionPath, previous)
+      await coldStart(slotId, cwd, sessionPath, previous)
     }
   })
-  launch = startup.catch(() => undefined)
+  slotLaunches.set(
+    slotId,
+    startup.catch(() => undefined),
+  )
   await startup
   if (!current()) return null
 
   const [state, messagesData] = await Promise.all([
-    rpcClient.send<SessionState>({ type: 'get_state' }),
+    rpcClient.send<SessionState>({ type: 'get_state' }, slotId),
     sessionPath
-      ? rpcClient.send<MessagesData>({ type: 'get_messages' })
+      ? rpcClient.send<MessagesData>({ type: 'get_messages' }, slotId)
       : Promise.resolve<MessagesData | null>(null),
   ])
   if (!current()) return null

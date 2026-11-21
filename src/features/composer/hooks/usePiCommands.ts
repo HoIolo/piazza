@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { rpcClient } from '@/rpc/client'
-import type { CommandsData, PiCommand } from '@/rpc/types'
+import { getVisibleCommands } from '@/rpc/visibleCommands'
+import type { PiCommand } from '@/rpc/types'
 import { useChatStore } from '@/store/chat'
 
 export function usePiCommands() {
@@ -13,7 +13,7 @@ export function usePiCommands() {
     const finish = (commands: PiCommand[]) => {
       if (current) setResult({ sessionId, commands })
     }
-    void rpcClient.send<CommandsData>({ type: 'get_commands' }).then(
+    void getVisibleCommands().then(
       (data) => finish(data?.commands ?? []),
       () => finish([]),
     )

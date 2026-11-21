@@ -14,6 +14,10 @@ export interface SelectProps {
   onChange: (value: string) => void
   disabled?: boolean
   ariaLabel?: string
+  /** 尚未选择时的灰字提示；不传则回退到 value 本身 */
+  placeholder?: string
+  /** 撑满所在容器（表单里用），默认按内容宽度 */
+  fullWidth?: boolean
   /** 浮层与触发器的对齐边：设置行右侧控件默认右对齐，表单内可设为 start */
   align?: 'start' | 'end'
 }
@@ -28,6 +32,8 @@ export function Select({
   onChange,
   disabled = false,
   ariaLabel,
+  placeholder,
+  fullWidth = false,
   align = 'end',
 }: SelectProps) {
   const current = options.find((o) => o.value === value)
@@ -52,6 +58,7 @@ export function Select({
           className={styles.trigger}
           disabled={disabled}
           data-open={open}
+          data-full={fullWidth}
           aria-label={ariaLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
@@ -72,7 +79,9 @@ export function Select({
             }
           }}
         >
-          <span className={styles.label}>{current?.label ?? value}</span>
+          <span className={styles.label} data-empty={!current && !value}>
+            {current?.label ?? (value || placeholder || '')}
+          </span>
           <ChevronDown size={14} className={styles.chevron} data-open={open} aria-hidden />
         </button>
       )}

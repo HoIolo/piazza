@@ -27,8 +27,8 @@ function PanelTabs() {
   }, [view])
 
   return (
-    <nav className={styles.tabBar} aria-label="工作区标签" data-tauri-drag-region>
-      <div className={styles.tabStrip} data-tauri-drag-region>
+    <nav className={styles.tabBar} aria-label="工作区标签" data-tauri-drag-region="deep">
+      <div className={styles.tabStrip} data-tauri-drag-region="deep">
         {tabs.map((tab) => {
           const { label, icon: Icon } = PANEL_TABS[tab]
           const active = tab === view
@@ -39,7 +39,7 @@ function PanelTabs() {
               key={tab}
               ref={active ? activeTab : null}
             >
-              <button type="button" aria-pressed={active} onClick={() => openView(tab)}>
+              <button type="button" aria-pressed={active} onClick={() => openView(tab, true)}>
                 <Icon size={14} />
                 {label}
               </button>

@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
-import { GitBranch, Monitor, Plus } from 'lucide-react'
-import { MenuGroupLabel, MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
+import { useEffect, useState } from 'react'
+import { GitBranch, Monitor } from 'lucide-react'
+import { MenuGroupLabel, MenuItem } from '@/design/primitives/MenuList'
 import { Popover, type PopoverProps } from '@/design/primitives/Popover'
-import { addGitWorktree, listGitWorktrees, type Worktree } from '@/shared/api/git'
-import { errorMessage } from '@/shared/utils/error'
-import { useImeGuard } from '@/shared/hooks/useImeGuard'
+import { listGitWorktrees, type Worktree } from '@/shared/api/git'
 import { basename } from '@/shared/utils/path'
 import { useAppStore } from '@/store/app.store'
 import styles from './WorkModePicker.module.css'
@@ -45,33 +43,11 @@ export interface WorkModePickerProps {
 export function WorkModePicker({ side, localLabel = '本地' }: WorkModePickerProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const selectProject = useAppStore((s) => s.selectProject)
-  const refreshGit = useAppStore((s) => s.refreshGit)
   const [opened, setOpened] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const ime = useImeGuard()
   const worktrees = useWorktrees(cwd, opened)
 
   const current = worktrees.find((w) => w.path === cwd)
   const label = current && !current.isMain ? basename(current.path) : localLabel
-
-  const create = useCallback(
-    async (close: () => void) => {
-      const branch = name.trim()
-      if (!cwd || !branch) return
-      try {
-        const path = await addGitWorktree(cwd, branch)
-        refreshGit()
-        selectProject(path)
-        setName('')
-        close()
-      } catch (e) {
-        setError(errorMessage(e))
-      }
-    },
-    [cwd, name, refreshGit, selectProject],
-  )
 
   return (
     <Popover
@@ -83,7 +59,6 @@ export function WorkModePicker({ side, localLabel = '本地' }: WorkModePickerPr
           data-open={open}
           onClick={() => {
             setOpened(true)
-            setError(null)
             toggle()
           }}
           aria-haspopup="menu"
@@ -112,35 +87,6 @@ export function WorkModePicker({ side, localLabel = '本地' }: WorkModePickerPr
             </MenuItem>
           ))}
 
-          <MenuSeparator />
-
-          {creating ? (
-            <div className={styles.createRow}>
-              <input
-                className={styles.input}
-                placeholder="新分支名"
-                value={name}
-                autoFocus
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !ime.isComposing(e) && void create(close)}
-                {...ime.bind}
-              />
-              <button
-                type="button"
-                className={styles.confirm}
-                disabled={!name.trim()}
-                onClick={() => void create(close)}
-              >
-                创建
-              </button>
-            </div>
-          ) : (
-            <MenuItem icon={<Plus size={16} />} onClick={() => setCreating(true)}>
-              新建工作树
-            </MenuItem>
-          )}
-
-          {error && <div className={styles.error}>{error}</div>}
         </div>
       )}
     </Popover>

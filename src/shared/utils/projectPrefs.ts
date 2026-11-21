@@ -1,5 +1,5 @@
 /**
- * 界面自己的侧栏偏好（项目的置顶与隐藏、会话的置顶）。
+ * 界面自己的侧栏偏好（项目的置顶与隐藏、会话的置顶、手动添加的项目）。
  *
  * 存 localStorage 而不是 pi 的 settings.json：那是 pi 的运行配置，
  * 把纯界面状态写进去会污染用户手写的配置，也会让 pi 读到它不认识的键。
@@ -15,9 +15,16 @@ export interface ProjectPrefs {
   hidden: string[]
   /** 置顶的会话文件路径，排在所属项目的最前 */
   pinnedSessions: string[]
+  /**
+   * 手动添加过的项目根目录，按添加时间从新到旧。
+   *
+   * 侧栏本来是扫会话扫出来的，一个还没有任何会话的目录根本不会出现。
+   * 用户点了「添加项目」却看不见它，等于这个按钮没生效，所以在这里记一份。
+   */
+  known: string[]
 }
 
-const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [] }
+const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [], known: [] }
 
 /** 只留字符串项。存储可能被手改过，不能假定里面的形状 */
 function strings(value: unknown): string[] {
@@ -52,11 +59,12 @@ export function readProjectPrefs(): ProjectPrefs {
     if (!raw) return EMPTY
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return EMPTY
-    const { pinned, hidden, pinnedSessions } = parsed as Partial<ProjectPrefs>
+    const { pinned, hidden, pinnedSessions, known } = parsed as Partial<ProjectPrefs>
     return {
       pinned: strings(pinned),
       hidden: strings(hidden),
       pinnedSessions: strings(pinnedSessions),
+      known: strings(known),
     }
   } catch {
     // 存储损坏或不可用时退回空偏好，不该让侧栏因此打不开
@@ -64,9 +72,15 @@ export function readProjectPrefs(): ProjectPrefs {
   }
 }
 
-export function writeProjectPrefs(prefs: ProjectPrefs): void {
+/**
+ * 只写传进来的那几项，其余沿用盘上的值。
+ *
+ * 侧栏偏好被两个 store 各管一段（app.store 管置顶与隐藏，projects.store
+ * 管手动添加的项目）。整份覆盖的话，后写的一方会把另一方刚存的东西抹掉。
+ */
+export function writeProjectPrefs(patch: Partial<ProjectPrefs>): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(prefs))
+    localStorage.setItem(KEY, JSON.stringify({ ...readProjectPrefs(), ...patch }))
   } catch {
     // 写失败只影响下次启动的排序，不值得打断当前操作
   }

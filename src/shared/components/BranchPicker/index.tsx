@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Ellipsis, GitBranch, Plus, Search } from 'lucide-react'
+import { ChevronRight, GitBranch, Plus, Search } from 'lucide-react'
 import { MenuEmpty, MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover, type PopoverProps } from '@/design/primitives/Popover'
 import { Skeleton } from '@/design/primitives/Skeleton'
@@ -37,13 +37,13 @@ function useBranches(cwd: string | null, enabled: boolean) {
 
 export interface BranchPickerProps {
   branch: string
-  compact?: boolean
+  menuRow?: boolean
   /** 弹出方向。默认向上，贴着窗口上缘时要传 bottom */
   side?: PopoverProps['side']
 }
 
 /** 分支选择器。切换会改动工作区，失败时把 git 的原始错误显示出来 */
-export function BranchPicker({ branch, side, compact = false }: BranchPickerProps) {
+export function BranchPicker({ branch, side, menuRow = false }: BranchPickerProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const refreshGit = useAppStore((s) => s.refreshGit)
   const [opened, setOpened] = useState(false)
@@ -71,24 +71,26 @@ export function BranchPicker({ branch, side, compact = false }: BranchPickerProp
 
   return (
     <Popover
-      side={side}
+      side={menuRow ? 'right' : side}
+      className={menuRow ? styles.menuAnchor : undefined}
       trigger={({ toggle, open }) => (
         <button
           type="button"
-          className={styles.trigger}
+          className={menuRow ? styles.menuRow : styles.trigger}
           data-open={open}
           onClick={() => {
             setOpened(true)
             setError(null)
             toggle()
           }}
-          aria-label={compact ? `分支选项（${branch}）` : undefined}
-          title={compact ? branch : undefined}
+          aria-label={menuRow ? `分支（${branch}）` : undefined}
           aria-haspopup="menu"
           aria-expanded={open}
         >
-          {compact ? <Ellipsis size={16} /> : <GitBranch size={15} className={styles.icon} />}
-          {!compact && <span>{branch}</span>}
+          <GitBranch size={15} className={styles.icon} />
+          {menuRow && <span className={styles.menuLabel}>分支</span>}
+          <span>{branch}</span>
+          {menuRow && <ChevronRight size={14} />}
         </button>
       )}
     >

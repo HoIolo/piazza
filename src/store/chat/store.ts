@@ -9,10 +9,12 @@ import type {
   ThinkingLevel,
 } from '@/rpc/types'
 import type { DraftAttachment } from '@/shared/api/attachments'
+import { sessionMetadataPatch } from './sessionMetadata'
 import { reduceEvent } from './reducer'
 import { restoreTools } from './restoreTools'
 import {
   emptySnapshot,
+  wasPaused,
   type ChatError,
   type ChatMessage,
   type ChatSnapshot,
@@ -48,20 +50,27 @@ interface ChatStore extends ChatSnapshot {
   setRpcReady: (ready: boolean) => void
   beginSwitch: () => void
   hydrateSession: (payload: HydratePayload) => void
+  restoreLiveSession: (payload: {
+    viewKey: string
+    session: SessionState | null
+    snapshot: ChatSnapshot
+  }) => void
   setPendingDialog: (dialog: ExtensionUiDialog | null) => void
   reset: (viewKey?: string) => void
 }
+
+const emptyComposer = { draft: '', attachments: [] as DraftAttachment[], stopArmed: false }
 
 const SWITCH_FREEZE_PATCH = {
   streaming: null,
   isStreaming: false,
   turnStartedAt: null,
   rpcReady: false,
+  paused: false,
+  titlePending: false,
   pendingDialog: null,
   error: null,
-  draft: '',
-  attachments: [] as DraftAttachment[],
-  stopArmed: false,
+  ...emptyComposer,
 }
 
 function buildLocalEcho(text: string, images: ImageContent[], localId: string): ChatMessage {
@@ -89,10 +98,9 @@ function buildHydratedState(prev: ChatStore, payload: HydratePayload): Partial<C
     lastThinkingLevel: state ? state.thinkingLevel : prev.lastThinkingLevel,
     previewName: payload.sessionName ?? null,
     messages,
+    paused: wasPaused(messages),
     tools: payload.tools ?? restoreTools(messages),
-    draft: '',
-    attachments: [],
-    stopArmed: false,
+    ...emptyComposer,
   }
 }
 
@@ -101,16 +109,14 @@ export const useChatStore = create<ChatStore>((set) => ({
   session: null,
   lastModel: null,
   lastThinkingLevel: null,
-  draft: '',
-  attachments: [],
+  ...emptyComposer,
   setAttachments: (attachments) => set({ attachments }),
-  stopArmed: false,
 
-  applyEvent: (event) => set((state) => reduceEvent(state, event)),
+  applyEvent: (event) => set((state) => sessionMetadataPatch(state.session, event) ?? reduceEvent(state, event)),
   setMessages: (rawMessages, viewKey) =>
     set((prev) => {
       const messages = filterChatMessages(rawMessages)
-      return { viewKey: viewKey ?? prev.viewKey, messages, tools: restoreTools(messages) }
+      return { viewKey: viewKey ?? prev.viewKey, messages, paused: wasPaused(messages), tools: restoreTools(messages) }
     }),
   echoUserMessage: (text, images = []) => {
     const localId = crypto.randomUUID()
@@ -132,7 +138,16 @@ export const useChatStore = create<ChatStore>((set) => ({
   setRpcReady: (rpcReady) => set({ rpcReady }),
   beginSwitch: () => set(SWITCH_FREEZE_PATCH),
   hydrateSession: (payload) => set((prev) => buildHydratedState(prev, payload)),
+  restoreLiveSession: ({ viewKey, session, snapshot }) =>
+    set((prev) => ({
+      ...snapshot,
+      viewKey,
+      session,
+      lastModel: session?.model ?? prev.lastModel,
+      lastThinkingLevel: session?.thinkingLevel ?? prev.lastThinkingLevel,
+      ...emptyComposer,
+    })),
   setPendingDialog: (pendingDialog) => set({ pendingDialog }),
   reset: (viewKey = 'init') =>
-    set({ ...emptySnapshot(), viewKey, session: null, draft: '', attachments: [], stopArmed: false }),
+    set({ ...emptySnapshot(), viewKey, session: null, ...emptyComposer }),
 }))

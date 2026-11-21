@@ -16,10 +16,43 @@
   container-type: inline-size;
 }
 
-.mark {
-  color: var(--text-tertiary);
+.mascot {
+  color: var(--text-secondary);
+  display: block;
+  flex: none;
+  width: clamp(68px, 13vh, 100px);
+  height: auto;
   margin-bottom: var(--sp-6);
   animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+.waveArm {
+  transform-origin: 54px 65px;
+  animation: mascot-wave 4.8s ease-in-out infinite;
+}
+
+.waveMarks {
+  opacity: 0;
+  animation: mascot-wave-marks 4.8s ease-in-out infinite;
+}
+
+@keyframes mascot-wave {
+  0%, 15%, 40%, 100% { transform: rotate(0deg); }
+  21%, 32% { transform: rotate(-13deg); }
+  26%, 36% { transform: rotate(6deg); }
+}
+
+@keyframes mascot-wave-marks {
+  0%, 15%, 38%, 100% { opacity: 0; }
+  22%, 32% { opacity: 0.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot,
+  .waveArm,
+  .waveMarks {
+    animation: none;
+  }
 }
 
 .title {
