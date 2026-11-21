@@ -151,10 +151,6 @@
   background: var(--sidebar-row-highlight);
 }
 
-.projectRow[data-active='true'] {
-  background: var(--sidebar-row-highlight);
-}
-
 .folderIcon {
   flex: none;
   color: var(--sidebar-text);

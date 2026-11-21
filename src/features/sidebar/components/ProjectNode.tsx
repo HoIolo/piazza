@@ -11,7 +11,6 @@ const PAGE_SIZE = 5
 
 export interface ProjectNodeProps {
   project: ProjectGroup
-  currentCwd: string | null
   activeSessionPath: string | null
   status: SessionStatus
   /** 置顶的会话路径 */
@@ -24,7 +23,6 @@ export interface ProjectNodeProps {
 
 export function ProjectNode({
   project,
-  currentCwd,
   activeSessionPath,
   status,
   pinnedSessions,
@@ -54,7 +52,6 @@ export function ProjectNode({
     <div className={styles.project} data-open={open}>
       <div
         className={styles.projectRow}
-        data-active={project.cwd === currentCwd}
         data-open={open}
         role="button"
         tabIndex={0}

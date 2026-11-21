@@ -16,7 +16,6 @@ export function Sidebar() {
   const projects = useProjectsStore((s) => s.projects)
   const loading = useProjectsStore((s) => s.loading)
   const error = useProjectsStore((s) => s.error)
-  const currentCwd = useAppStore((s) => s.currentCwd)
   const currentSessionPath = useAppStore((s) => s.currentSessionPath)
   const liveSessionPath = useAppStore((s) => s.liveSessionPath)
   const pinned = useAppStore((s) => s.pinnedProjects)
@@ -77,7 +76,6 @@ export function Sidebar() {
       ) : visible.length > 0 ? (
         <ProjectTree
           projects={visible}
-          currentCwd={currentCwd}
           activeSessionPath={activeSessionPath}
           status={status}
           pinnedSessions={pinnedSessions}

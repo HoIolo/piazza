@@ -7,7 +7,6 @@ import styles from './ProjectTree.module.css'
 
 export interface ProjectTreeProps {
   projects: ProjectGroup[]
-  currentCwd: string | null
   /** pi 眼下开着的那条会话，用于标出选中行 */
   activeSessionPath: string | null
   status: SessionStatus
@@ -21,7 +20,6 @@ export interface ProjectTreeProps {
 /** 项目 → 会话两级列表。单个项目的展开/折叠由 ProjectNode 自己管 */
 export function ProjectTree({
   projects,
-  currentCwd,
   activeSessionPath,
   status,
   pinnedSessions,
@@ -50,7 +48,6 @@ export function ProjectTree({
           <ProjectNode
             key={project.cwd}
             project={project}
-            currentCwd={currentCwd}
             activeSessionPath={activeSessionPath}
             status={status}
             pinnedSessions={pinnedSessions}
