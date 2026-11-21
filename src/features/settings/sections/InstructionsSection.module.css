@@ -1,0 +1,81 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.savedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-desc);
+  color: var(--diff-add);
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--send-btn);
+  color: var(--text-on-dark);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.primaryBtn:disabled {
+  background: var(--send-btn-disabled);
+  cursor: default;
+}
+
+.editorWrap {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+
+.editor {
+  width: 100%;
+  min-height: 360px;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-item);
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 1.65;
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.editor:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+.error {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--diff-del);
+  border-radius: var(--r-item);
+  font-size: var(--fs-desc);
+  color: var(--diff-del);
+}

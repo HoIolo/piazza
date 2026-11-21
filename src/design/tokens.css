@@ -179,6 +179,16 @@
   }
 }
 
+[data-font-size='compact'] {
+  --fs-body: 13px;
+  --fs-code: 11.5px;
+}
+
+[data-font-size='large'] {
+  --fs-body: 15px;
+  --fs-code: 13px;
+}
+
 [data-theme='dark'] {
   color-scheme: dark;
   /* ---------- 深色表面（Codex Electron 纯中性灰阶） ---------- */

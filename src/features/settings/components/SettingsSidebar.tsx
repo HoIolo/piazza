@@ -20,7 +20,12 @@ export function SettingsSidebar({
   const keyword = query.trim().toLowerCase()
   const groups = SECTION_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.label.toLowerCase().includes(keyword)),
+    items: group.items.filter(
+      (item) =>
+        !keyword ||
+        item.label.toLowerCase().includes(keyword) ||
+        item.keywords.some((k) => k.toLowerCase().includes(keyword)),
+    ),
   })).filter((group) => group.items.length > 0)
 
   return (

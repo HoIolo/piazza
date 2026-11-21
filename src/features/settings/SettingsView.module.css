@@ -24,28 +24,46 @@
   flex: none;
 }
 
-/*
- * 设置是覆盖在主窗口上的一层，宽度随窗口变化。
- * 原来钉死 720px 且左对齐，窗口一宽右边就空一条。
- * 改为撑满可用宽度，只保留一个够宽的上限并居中——上限只在超宽屏才起作用，
- * 常规窗口下等同于占满。
- */
 .inner {
   flex: 1;
   width: 100%;
-  max-width: 1100px;
+  max-width: 960px;
   margin: 0 auto;
   padding: var(--sp-6) var(--sp-8) var(--sp-16);
 }
 
-/*
- * 大标题用 500 而非 600：PingFang 在 600 上已经很重，
- * 再叠负字距会挤成一团，比 Codex 明显厚一档。
- */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
 .title {
-  margin-bottom: var(--sp-8);
   font-size: var(--fs-settings-title);
   font-weight: var(--fw-medium);
+  line-height: 1.25;
+}
+
+.subtitle {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
+}
+
+.saveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--bg-hover);
+  font-size: var(--fs-code);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  animation: rise-in var(--dur-fast) var(--ease-out);
 }
 
 .error {
@@ -60,43 +78,4 @@
 /* 切换分区时内容淡入上移，让「换了一页」这件事被看见 */
 .section {
   animation: rise-in var(--dur-base) var(--ease-out);
-}
-
-/* 保存栏吸底，滚动时始终可见 */
-.saveBar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-8);
-  border-top: 1px solid var(--border);
-  background: var(--bg-surface);
-  animation: rise-in var(--dur-base) var(--ease-out);
-}
-
-.saveHint {
-  font-size: var(--fs-desc);
-  color: var(--text-secondary);
-}
-
-.saveButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: 30px;
-  padding: 0 var(--sp-4);
-  border-radius: var(--r-item);
-  background: var(--send-btn);
-  color: var(--text-on-dark);
-  font-size: var(--fs-desc);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  transition: background var(--dur-base) var(--ease);
-}
-
-.saveButton:disabled {
-  background: var(--send-btn-disabled);
-  cursor: default;
 }

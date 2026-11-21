@@ -1,0 +1,15 @@
+.proxyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.proxyRow > :first-child {
+  flex: 1;
+}
+
+.pathCode {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  color: var(--text-secondary);
+}

@@ -13,3 +13,26 @@
   font-size: var(--fs-desc);
   color: var(--text-error);
 }
+
+.textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-item);
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 1.55;
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+.textareaCompact {
+  min-height: 88px;
+}

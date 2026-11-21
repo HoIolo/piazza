@@ -14,6 +14,12 @@ export function useBootstrap(): void {
   const selectProject = useAppStore((s) => s.selectProject)
 
   useEffect(() => {
+    const savedFont = localStorage.getItem('piazza.fontSize')
+    if (savedFont === 'compact' || savedFont === 'large') {
+      document.documentElement.dataset.fontSize = savedFont
+    } else {
+      delete document.documentElement.dataset.fontSize
+    }
     void (async () => {
       const [settings, modelsConfig] = await Promise.all([
         readAppSettings().catch(() => null),

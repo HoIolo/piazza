@@ -1,6 +1,7 @@
 use tauri::{AppHandle, State};
 use tokio::sync::Mutex;
 
+use crate::agent_resources;
 use crate::config;
 use crate::external;
 use crate::files;
@@ -228,6 +229,56 @@ pub fn write_app_settings(patch: serde_json::Value) -> Result<serde_json::Value,
     let merged = config::merge_top_level(&original, &patch);
     config::write_json(&path, &merged)?;
     config::read_json(&path)
+}
+
+#[tauri::command]
+pub fn get_agent_dir() -> Result<String, String> {
+    agent_resources::agent_dir().map(|p| p.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn read_global_instructions() -> Result<agent_resources::InstructionDoc, String> {
+    agent_resources::read_global_instructions()
+}
+
+#[tauri::command]
+pub fn write_global_instructions(content: String) -> Result<agent_resources::InstructionDoc, String> {
+    agent_resources::write_global_instructions(&content)
+}
+
+#[tauri::command]
+pub fn list_agent_skills(cwd: Option<String>) -> Result<Vec<agent_resources::SkillRecord>, String> {
+    agent_resources::list_skills(cwd.as_deref())
+}
+
+#[tauri::command]
+pub fn save_agent_skill(
+    scope: String,
+    cwd: Option<String>,
+    slug: String,
+    content: String,
+) -> Result<agent_resources::SkillRecord, String> {
+    agent_resources::save_skill(&scope, cwd.as_deref(), &slug, &content)
+}
+
+#[tauri::command]
+pub fn delete_agent_skill(dir_path: String, cwd: Option<String>) -> Result<(), String> {
+    agent_resources::delete_skill(&dir_path, cwd.as_deref())
+}
+
+#[tauri::command]
+pub fn list_local_extensions() -> Result<Vec<agent_resources::ExtensionEntry>, String> {
+    agent_resources::list_local_extensions()
+}
+
+#[tauri::command]
+pub fn read_mcp_config() -> Result<serde_json::Value, String> {
+    agent_resources::read_mcp_config()
+}
+
+#[tauri::command]
+pub fn write_mcp_config(patch: serde_json::Value) -> Result<serde_json::Value, String> {
+    agent_resources::write_mcp_config(patch)
 }
 
 

@@ -1,3 +1,4 @@
+mod agent_resources;
 mod attachments;
 mod commands;
 mod config;
@@ -49,6 +50,15 @@ pub fn run() {
             commands::write_models_config,
             commands::read_app_settings,
             commands::write_app_settings,
+            commands::get_agent_dir,
+            commands::read_global_instructions,
+            commands::write_global_instructions,
+            commands::list_agent_skills,
+            commands::save_agent_skill,
+            commands::delete_agent_skill,
+            commands::list_local_extensions,
+            commands::read_mcp_config,
+            commands::write_mcp_config,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 应用启动失败");

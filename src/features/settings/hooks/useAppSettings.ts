@@ -1,34 +1,32 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { readAppSettings, writeAppSettings, type PiSettings } from '@/shared/api/config'
-import { useEditableConfig } from './useEditableConfig'
+import { errorMessage } from '@/shared/utils/error'
 
-interface UseAppSettingsResult {
+export interface AppSettingsHandle {
   settings: PiSettings
   loading: boolean
   error: string | null
-  dirty: boolean
   saved: boolean
   saving: boolean
-  /** 支持 "compaction.enabled" 形式的嵌套键 */
+  /** 支持 "compaction.enabled" 形式的嵌套键，修改后立即原子落盘 */
   update: (path: string, value: unknown) => void
+  /** 一次性原子更新多个键（例如同时切换 defaultProvider 与 defaultModel） */
+  updateMany: (entries: Array<[string, unknown]>) => void
   read: <T>(path: string, fallback: T) => T
-  save: () => void
 }
 
-/** 按点分路径写入嵌套对象，返回新对象（不修改原值） */
 function setDeep(source: PiSettings, path: string, value: unknown): PiSettings {
   const keys = path.split('.')
   const result = { ...source }
   let cursor: Record<string, unknown> = result
-
   keys.slice(0, -1).forEach((key) => {
     const existing = cursor[key]
     const next = typeof existing === 'object' && existing !== null ? { ...existing } : {}
     cursor[key] = next
     cursor = next as Record<string, unknown>
   })
-
-  cursor[keys[keys.length - 1]] = value
+  if (value === undefined) delete cursor[keys[keys.length - 1]]
+  else cursor[keys[keys.length - 1]] = value
   return result
 }
 
@@ -39,26 +37,83 @@ function getDeep(source: PiSettings, path: string): unknown {
   }, source)
 }
 
-/** 编辑 ~/.pi/agent/settings.json。与模型配置一样，改本地草稿、显式保存 */
-export function useAppSettings(): UseAppSettingsResult {
-  const { value, edit, loading, error, dirty, saved, saving, save } = useEditableConfig(
-    readAppSettings,
-    writeAppSettings,
-    {} as PiSettings,
-  )
+function useInitialLoad(
+  latestRef: React.MutableRefObject<PiSettings>,
+  setSettings: (v: PiSettings) => void,
+  setError: (e: string | null) => void,
+  setLoading: (l: boolean) => void,
+) {
+  useEffect(() => {
+    let cancelled = false
+    readAppSettings()
+      .then((data) => {
+        if (cancelled) return
+        latestRef.current = data
+        setSettings(data)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(errorMessage(e))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [latestRef, setSettings, setError, setLoading])
+}
+
+/** 读写 ~/.pi/agent/settings.json，对齐 PI-Desktop 的串行即时自动保存 */
+export function useAppSettings(): AppSettingsHandle {
+  const [settings, setSettings] = useState<PiSettings>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const latestRef = useRef<PiSettings>({})
+  const queueRef = useRef<Promise<void>>(Promise.resolve())
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useInitialLoad(latestRef, setSettings, setError, setLoading)
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  const persist = useCallback((next: PiSettings) => {
+    latestRef.current = next
+    setSettings(next)
+    setSaving(true)
+    setError(null)
+    queueRef.current = queueRef.current.then(async () => {
+      try {
+        const written = await writeAppSettings(next)
+        latestRef.current = written
+        setSettings(written)
+        setSaved(true)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => setSaved(false), 1800)
+      } catch (e: unknown) {
+        setError(errorMessage(e))
+      } finally {
+        setSaving(false)
+      }
+    })
+  }, [])
 
   const update = useCallback(
-    (path: string, next: unknown) => edit((prev) => setDeep(prev, path, next)),
-    [edit],
+    (path: string, next: unknown) => persist(setDeep(latestRef.current, path, next)),
+    [persist],
   )
-
+  const updateMany = useCallback(
+    (entries: Array<[string, unknown]>) =>
+      persist(entries.reduce((acc, [p, v]) => setDeep(acc, p, v), latestRef.current)),
+    [persist],
+  )
   const read = useCallback(
     <T,>(path: string, fallback: T): T => {
-      const found = getDeep(value, path)
+      const found = getDeep(settings, path)
       return (found === undefined ? fallback : found) as T
     },
-    [value],
+    [settings],
   )
 
-  return { settings: value, loading, error, dirty, saved, saving, update, read, save }
+  return { settings, loading, error, saved, saving, update, updateMany, read }
 }
