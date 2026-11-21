@@ -25,6 +25,10 @@ export function splitPromptAttachments(prompt: string) {
         return original
       }
     })
+    .replace(
+      /(?:^|\n+)\[Image: original \d+x\d+, displayed at \d+x\d+\. Multiply coordinates by [\d.]+ to map to original image\.\]/g,
+      '',
+    )
     .trim()
   return { text, attachments }
 }

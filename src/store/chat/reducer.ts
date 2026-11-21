@@ -4,7 +4,6 @@ import {
   type AgentMessage,
   type AssistantMessageEvent,
 } from '@/rpc/types'
-import { userText } from '@/shared/utils/message'
 import { applyDelta } from './stream'
 import type {
   ChatAssistantMessage,
@@ -188,23 +187,17 @@ function sealThinking(message: AgentMessage, streaming: ChatAssistantMessage | n
 }
 
 /**
- * pi 回传的用户消息若与最近的本地回显是同一句，就把回显顶掉。
+ * pi 回传权威的 user message_end 时，移除对应的本地乐观回显占位。
  *
- * 从末尾向前找最后一条 local 回显：切换模型后首次发送时，pi 会在 user 的
- * message_end 之前先推一条空的 system 消息，若只看 messages[length - 1]
- * 就会漏掉夹在前面的 local 回显，导致界面出现两条一模一样的用户气泡。
+ * 不能按纯文本严格相等比对：开启图片自动缩放时 pi 会在正文后追加
+ * `[Image: original WxH, displayed at ...]` 坐标换算说明，或展开斜杠模板，
+ * 导致权威文本与本地原文不同；既然本地回显只在空闲发问时压入一条占位，
+ * 收到权威 user 消息时直接移除最早的 local 占位即可彻底避免双气泡。
  */
 function dropLocalEcho(messages: ChatMessage[], incoming: AgentMessage): ChatMessage[] {
   if (incoming.role !== 'user') return messages
-  const incomingText = userText(incoming)
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const item = messages[i]
-    if (!item?.local || item.role !== 'user') continue
-    return userText(item) === incomingText
-      ? [...messages.slice(0, i), ...messages.slice(i + 1)]
-      : messages
-  }
-  return messages
+  const idx = messages.findIndex((item) => item.local && item.role === 'user')
+  return idx === -1 ? messages : [...messages.slice(0, idx), ...messages.slice(idx + 1)]
 }
 
 function upsertTool(state: ChatSnapshot, tool: ToolExecution): ChatSnapshot {
