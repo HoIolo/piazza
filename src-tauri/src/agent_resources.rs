@@ -34,18 +34,12 @@ pub struct ExtensionEntry {
     pub size_bytes: u64,
 }
 
-pub fn agent_dir() -> Result<PathBuf, String> {
-    dirs::home_dir()
-        .map(|h| h.join(".pi/agent"))
-        .ok_or_else(|| "无法定位用户主目录".to_string())
-}
-
 pub fn mcp_path() -> Result<PathBuf, String> {
-    Ok(agent_dir()?.join("mcp.json"))
+    Ok(crate::data_dir::agent_dir()?.join("mcp.json"))
 }
 
 pub fn read_global_instructions() -> Result<InstructionDoc, String> {
-    let dir = agent_dir()?;
+    let dir = crate::data_dir::agent_dir()?;
     let override_path = dir.join("AGENTS.override.md");
     let default_path = dir.join("AGENTS.md");
     let target = if override_path.is_file() {
@@ -67,7 +61,7 @@ pub fn read_global_instructions() -> Result<InstructionDoc, String> {
 }
 
 pub fn write_global_instructions(content: &str) -> Result<InstructionDoc, String> {
-    let dir = agent_dir()?;
+    let dir = crate::data_dir::agent_dir()?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败：{e}"))?;
     let override_path = dir.join("AGENTS.override.md");
     let target = if override_path.is_file() {
@@ -87,7 +81,7 @@ pub fn write_global_instructions(content: &str) -> Result<InstructionDoc, String
 
 pub fn list_skills(cwd: Option<&str>) -> Result<Vec<SkillRecord>, String> {
     let mut records = Vec::new();
-    let global_dir = agent_dir()?.join("skills");
+    let global_dir = crate::data_dir::agent_dir()?.join("skills");
     scan_skills_dir(&global_dir, "global", &mut records);
     if let Some(project_cwd) = cwd.filter(|c| !c.trim().is_empty()) {
         let project_dir = PathBuf::from(project_cwd).join(".pi/skills");
@@ -166,13 +160,13 @@ pub fn save_skill(
 pub fn delete_skill(dir_path: &str, cwd: Option<&str>) -> Result<(), String> {
     let target = PathBuf::from(dir_path);
     let meta = std::fs::symlink_metadata(&target).map_err(|e| format!("找不到技能目录：{e}"))?;
-    let allowed_global = agent_dir()?.join("skills");
+    let allowed_global = crate::data_dir::agent_dir()?.join("skills");
     let allowed_project = cwd.filter(|c| !c.trim().is_empty()).map(|c| PathBuf::from(c).join(".pi/skills"));
 
     let parent = target.parent().ok_or("无效的技能路径")?;
     let is_allowed = parent == allowed_global || allowed_project.as_deref() == Some(parent);
     if !is_allowed {
-        return Err("只能删除 ~/.pi/agent/skills 或当前项目 .pi/skills 下的技能".into());
+        return Err("只能删除 agent 目录下 skills/ 或当前项目 .pi/skills 下的技能".into());
     }
 
     if meta.file_type().is_symlink() {
@@ -193,7 +187,7 @@ pub fn delete_skill(dir_path: &str, cwd: Option<&str>) -> Result<(), String> {
 }
 
 pub fn list_local_extensions() -> Result<Vec<ExtensionEntry>, String> {
-    let dir = agent_dir()?.join("extensions");
+    let dir = crate::data_dir::agent_dir()?.join("extensions");
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return Ok(Vec::new());
     };
@@ -218,6 +212,39 @@ pub fn list_local_extensions() -> Result<Vec<ExtensionEntry>, String> {
     Ok(result)
 }
 
+/// 把本地扩展移进废纸篓。
+///
+/// 与删除技能同一套约束：路径必须落在 `<agent>/extensions` 下，
+/// 免得这个命令变成「把任意文件丢进废纸篓」的通道。
+/// 符号链接只删链接本身，不动它指向的东西。
+pub fn delete_local_extension(path: &str) -> Result<(), String> {
+    let root = crate::data_dir::agent_dir()?.join("extensions");
+    let root = root.canonicalize().map_err(|e| format!("扩展目录不存在：{e}"))?;
+    let target = PathBuf::from(path);
+    let meta = std::fs::symlink_metadata(&target).map_err(|e| format!("找不到扩展：{e}"))?;
+    let resolved = target.canonicalize().unwrap_or_else(|_| target.clone());
+
+    if !resolved.starts_with(&root) {
+        return Err("只能删除 agent 目录下 extensions 里的扩展".into());
+    }
+    if meta.file_type().is_symlink() {
+        return std::fs::remove_file(&target).map_err(|e| format!("移除扩展链接失败：{e}"));
+    }
+
+    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
+    let name = target.file_name().ok_or("无效的扩展名")?;
+    let trash = home.join(".Trash");
+    let mut dest = trash.join(name);
+    if dest.exists() {
+        // 废纸篓里已有同名项时补上时间戳，不覆盖先前删掉的那份
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        dest = trash.join(format!("{stamp}-{}", name.to_string_lossy()));
+    }
+    std::fs::rename(&target, &dest).map_err(|e| format!("移入废纸篓失败：{e}"))
+}
+
 pub fn read_mcp_config() -> Result<serde_json::Value, String> {
     config::read_json(&mcp_path()?)
 }
@@ -232,7 +259,7 @@ pub fn write_mcp_config(patch: serde_json::Value) -> Result<serde_json::Value, S
 
 fn resolve_skills_root(scope: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
     match scope {
-        "global" => Ok(agent_dir()?.join("skills")),
+        "global" => Ok(crate::data_dir::agent_dir()?.join("skills")),
         "project" => {
             let dir = cwd
                 .filter(|c| !c.trim().is_empty())

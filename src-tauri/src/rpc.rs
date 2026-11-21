@@ -183,21 +183,36 @@ impl RpcState {
         }
         if self.channel.message == MAIN.message {
             extra.push("--auto-title".into());
-            let extension = app
-                .path()
-                .resolve("resources/task-plan.ts", BaseDirectory::Resource)
-                .map_err(|e| format!("无法定位待办扩展：{e}"))?;
-            extra.push("--extension".into());
-            extra.push(extension.to_string_lossy().into_owned());
+            /*
+             * 两个内置扩展：待办清单，以及 Codex 风格的提问工具。
+             * 后者只提供「结构化问卷」的编码，具体长什么样由界面决定——
+             * 用户在 ~/.piazza/agent/extensions 里放了同名扩展时，pi 只认先
+             * 加载的那个（CLI 传入的优先），不会出现两个同名工具。
+             */
+            for name in ["task-plan.ts", "ask-user-question.ts"] {
+                let extension = app
+                    .path()
+                    .resolve(format!("resources/{name}"), BaseDirectory::Resource)
+                    .map_err(|e| format!("无法定位内置扩展 {name}：{e}"))?;
+                extra.push("--extension".into());
+                extra.push(extension.to_string_lossy().into_owned());
+            }
         }
         if opts.ephemeral.unwrap_or(false) {
             extra.push("--no-session".into());
         }
 
+        /*
+         * 把 pi 的 agent 目录指到应用自己的位置：凭据、设置、技能、扩展与会话
+         * 都跟 CLI 分开，两边同时跑不会互相覆写（对齐 PI-Desktop 的数据隔离）。
+         * SDK 认这个环境变量，worker 里的 getAgentDir() 会自动跟上。
+         */
+        let agent_dir = crate::data_dir::agent_dir()?;
         let mut child = Command::new(node)
             .arg(worker)
             .args(&extra)
             .env("PATH", path)
+            .env("PI_CODING_AGENT_DIR", agent_dir)
             .env_remove("NODE_PATH")
             .env_remove("NODE_OPTIONS")
             .current_dir(&opts.cwd)

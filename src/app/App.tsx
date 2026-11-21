@@ -1,5 +1,6 @@
 import { ChatView } from '@/features/chat'
 import { SideChat } from '@/features/chat/components/SideChat'
+import { ImportPiConfigDialog } from '@/features/onboarding/ImportPiConfigDialog'
 import { CommandPalette } from '@/features/palette'
 import { RightPanel } from '@/features/rightpanel'
 import { SettingsView } from '@/features/settings'
@@ -43,6 +44,9 @@ export function App() {
         <WorkspaceControls />
         <CommandPalette />
       </div>
+
+      {/* 换目录后第一次启动：问一次要不要把 pi CLI 的配置搬过来 */}
+      <ImportPiConfigDialog />
 
       {settingsMounted && (
         <div className={styles.settingsLayer} data-open={settingsOpen}>

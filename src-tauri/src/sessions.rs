@@ -5,10 +5,16 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-/// 只读取文件开头这么多字节来提取元信息。
-/// 会话文件可能有几十 MB，为了侧栏列表去整体解析是不可接受的；
-/// header 与首条用户消息都在文件最前面，这个窗口足够。
-const HEAD_BYTES: usize = 64 * 1024;
+/// 取标题时最多读到这么多字节。
+///
+/// 不能用「读前 N 字节再按行切」的老办法：一条带图的用户消息单行就能有
+/// 200KB 以上，按字节窗口切开会把 JSON 从中间劈断，解析失败后标题退化成
+/// 「新对话」，点进会话才被前端补上——表现就是「标题自己变了」。
+/// 这里改成逐行流式读（与 pi 的 buildSessionInfo 一致），窗口只限制总量。
+const TITLE_SCAN_BYTES: usize = 1024 * 1024;
+
+/// 用户显式改名写在文件尾部，单独从末尾倒着找，避免为了一个名字扫全文。
+const TAIL_BYTES: usize = 64 * 1024;
 
 /// 侧栏单条会话
 #[derive(Debug, Serialize)]
@@ -46,9 +52,7 @@ pub struct SessionSnapshot {
 /// 的真实 cwd 其实是 `/Users/haha/Desktop/xinlian/h5-live-streaming`
 /// （两级目录），反解会得到错误路径。真实 cwd 只能从文件头里读。
 pub fn scan() -> Result<Vec<ProjectGroup>, String> {
-    let root = dirs::home_dir()
-        .ok_or("无法定位用户主目录")?
-        .join(".pi/agent/sessions");
+    let root = crate::data_dir::sessions_dir()?;
 
     if !root.exists() {
         return Ok(Vec::new());
@@ -97,9 +101,7 @@ pub fn scan() -> Result<Vec<ProjectGroup>, String> {
 /// 路径来自前端，必须先确认它确实是会话目录下的 .jsonl——
 /// 否则这个命令就成了「把任意文件丢进废纸篓」的通道。
 pub fn trash(path: &str) -> Result<(), String> {
-    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
-    let root = home
-        .join(".pi/agent/sessions")
+    let root = crate::data_dir::sessions_dir()?
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
@@ -109,7 +111,7 @@ pub fn trash(path: &str) -> Result<(), String> {
     }
 
     let name = target.file_name().ok_or("会话路径无效")?;
-    let trash = home.join(".Trash");
+    let trash = dirs::home_dir().ok_or("无法定位用户主目录")?.join(".Trash");
     let mut dest = trash.join(name);
     if dest.exists() {
         // 废纸篓里已有同名文件时补上时间戳，不覆盖先前删掉的那份
@@ -124,9 +126,7 @@ pub fn trash(path: &str) -> Result<(), String> {
 /// 原地截断会话文件，只保留 session 头与 `entry_id` 之前的祖先链路，
 /// 用于「编辑用户消息后原地重发」而不像 fork 那样在侧栏多出一条新会话。
 pub fn truncate_before(path: &str, entry_id: &str) -> Result<(), String> {
-    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
-    let root = home
-        .join(".pi/agent/sessions")
+    let root = crate::data_dir::sessions_dir()?
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
@@ -179,7 +179,11 @@ fn filter_lines_before(raw: &str, entry_id: &str) -> Result<String, String> {
         .ok_or_else(|| format!("找不到待编辑的会话节点：{entry_id}"))?;
 
     let mut ancestors: Vec<usize> = Vec::new();
-    let mut cursor = lines[target_idx].1.as_deref().and_then(|p| by_id.get(p)).copied();
+    let mut cursor = lines[target_idx]
+        .1
+        .as_deref()
+        .and_then(|p| by_id.get(p))
+        .copied();
     let mut visited = 0usize;
     while let Some(idx) = cursor {
         ancestors.push(idx);
@@ -206,9 +210,7 @@ fn filter_lines_before(raw: &str, entry_id: &str) -> Result<String, String> {
 /// 与 pi 的 `buildSessionContext` 逻辑一致：沿 `parentId` 从最新叶节点回溯到根，
 /// 遇到 compaction 时从 `firstKeptEntryId` 起保留，避免跨项目切换时苦等 pi 冷启。
 pub fn read_snapshot(path: &str) -> Result<SessionSnapshot, String> {
-    let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
-    let root = home
-        .join(".pi/agent/sessions")
+    let root = crate::data_dir::sessions_dir()?
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let target = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
@@ -297,7 +299,11 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
         if visited > entries.len() {
             break;
         }
-        match entries[cur_idx].parent_id.as_deref().and_then(|p| by_id.get(p)) {
+        match entries[cur_idx]
+            .parent_id
+            .as_deref()
+            .and_then(|p| by_id.get(p))
+        {
             Some(&next) => cur_idx = next,
             None => break,
         }
@@ -371,9 +377,11 @@ fn normalize_snapshot_message(msg: &mut serde_json::Value) {
         for block in blocks {
             if let Some(text_val) = block.get_mut("text") {
                 if let Some(s) = text_val.as_str() {
-                    if s.len() > MAX_TOOL_RESULT_CHARS && s.chars().count() > MAX_TOOL_RESULT_CHARS {
+                    if s.len() > MAX_TOOL_RESULT_CHARS && s.chars().count() > MAX_TOOL_RESULT_CHARS
+                    {
                         let clipped: String = s.chars().take(MAX_TOOL_RESULT_CHARS).collect();
-                        *text_val = serde_json::Value::String(format!("{clipped}\n…[内容过长已截断]"));
+                        *text_val =
+                            serde_json::Value::String(format!("{clipped}\n…[内容过长已截断]"));
                     }
                 }
             }
@@ -388,13 +396,13 @@ fn project_name_of(cwd: &str) -> String {
         .unwrap_or_else(|| cwd.to_string())
 }
 
-/// 读取文件头部，提取 cwd 与会话元信息。
+/// 读一个会话文件的元信息：cwd、id、首条用户消息、显式命名。
+///
+/// 逐行流式读，不按字节窗口切：一条带图的用户消息可能有几百 KB，
+/// 窗口一劈就解析失败，标题会退化成「新对话」。
+/// 读到 `TITLE_SCAN_BYTES` 或拿到足够信息就停，几十 MB 的会话也不会拖慢列表。
 fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
-    let mut file = std::fs::File::open(path).ok()?;
-    let mut buf = vec![0u8; HEAD_BYTES];
-    let n = file.read(&mut buf).ok()?;
-    let text = String::from_utf8_lossy(&buf[..n]);
-
+    let file = std::fs::File::open(path).ok()?;
     let modified_ms = std::fs::metadata(path)
         .ok()
         .and_then(|m| m.modified().ok())
@@ -405,37 +413,54 @@ fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
     let mut cwd = None;
     let mut id = String::new();
     let mut timestamp = String::new();
-    let mut explicit_name = None;
     let mut first_user_text = None;
 
-    // 最后一行可能被 HEAD_BYTES 截断，跳过解析失败的行即可
-    for line in text.lines() {
-        let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    let mut scanned = 0usize;
+    while scanned < TITLE_SCAN_BYTES {
+        line.clear();
+        // read_line 只认 LF，正好对应 JSONL 的分隔约定，也不会在 U+2028 处断开
+        let Ok(n) = reader.read_line(&mut line) else {
+            break;
+        };
+        if n == 0 {
+            break;
+        }
+        scanned += n;
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(&line) else {
             continue;
         };
         match entry.get("type").and_then(|t| t.as_str()) {
             Some("session") => {
-                cwd = entry.get("cwd").and_then(|c| c.as_str()).map(str::to_string);
-                id = entry.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
+                cwd = entry
+                    .get("cwd")
+                    .and_then(|c| c.as_str())
+                    .map(str::to_string);
+                id = entry
+                    .get("id")
+                    .and_then(|i| i.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 timestamp = entry
                     .get("timestamp")
                     .and_then(|t| t.as_str())
                     .unwrap_or("")
                     .to_string();
             }
-            // 用户显式命名优先于从首条消息推断，取最后一次命名
-            Some("session_info") => {
-                if let Some(name) = entry.get("name").and_then(|n| n.as_str()) {
-                    explicit_name = Some(name.to_string());
-                }
-            }
             Some("message") if first_user_text.is_none() => {
                 first_user_text = extract_user_text(&entry);
             }
             _ => {}
         }
+        // 头部信息齐了就不必再往下读——后面动辄几十 MB 的工具输出
+        if cwd.is_some() && first_user_text.is_some() {
+            break;
+        }
     }
 
+    // 改名发生在会话中途，只可能在文件尾部，单独倒着找一次
+    let explicit_name = read_session_name(path);
     let title = explicit_name
         .or(first_user_text)
         .unwrap_or_else(|| "新对话".to_string());
@@ -450,6 +475,34 @@ fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
             modified_ms,
         },
     ))
+}
+
+/// 从文件尾部倒着找最后一次 `session_info` 的命名。
+///
+/// 取最后一次而不是第一次：用户可能改过好几次名字，也可能显式清空过。
+fn read_session_name(path: &PathBuf) -> Option<String> {
+    use std::io::{Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+    let start = size.saturating_sub(TAIL_BYTES as u64);
+    file.seek(SeekFrom::Start(start)).ok()?;
+    let mut tail = String::new();
+    file.read_to_string(&mut tail).ok()?;
+
+    let mut lines: Vec<&str> = tail.lines().collect();
+    // 从中间截断时第一行是残的，跳过它
+    if start > 0 && !lines.is_empty() {
+        lines.remove(0);
+    }
+    lines.iter().rev().find_map(|line| {
+        let entry = serde_json::from_str::<serde_json::Value>(line).ok()?;
+        if entry.get("type")?.as_str()? != "session_info" {
+            return None;
+        }
+        let name = entry.get("name")?.as_str()?.trim();
+        (!name.is_empty()).then(|| name.to_string())
+    })
 }
 
 /// 从 message 条目里取用户消息的纯文本。content 可能是字符串或内容块数组。
@@ -494,6 +547,7 @@ mod tests {
     use std::io::Cursor;
 
     use super::{filter_lines_before, parse_snapshot, truncate_title};
+    use std::io::Write;
 
     #[test]
     fn flattens_newlines_into_spaces() {
@@ -510,6 +564,78 @@ mod tests {
     #[test]
     fn keeps_short_title_intact() {
         assert_eq!(truncate_title("  修复登录问题  "), "修复登录问题");
+    }
+
+    /// 带图的首条提问单行可达几百 KB，按字节窗口切会把它劈断。
+    /// 这里造一条 200KB 的行，确认标题仍能读出来。
+    #[test]
+    fn reads_title_from_a_very_long_first_line() {
+        let dir = std::env::temp_dir().join("piazza-long-line");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("s.jsonl");
+
+        let image = "A".repeat(200 * 1024);
+        let long_text = format!("看看这张图\\n\\n[Image: {image}]");
+        let lines = [
+            r#"{"type":"session","id":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/tmp/demo"}"#.to_string(),
+            r#"{"type":"message","id":"m0","parentId":null,"message":{"role":"system","content":"sys"}}"#.to_string(),
+            format!(
+                r#"{{"type":"message","id":"m1","parentId":"m0","message":{{"role":"user","content":[{{"type":"text","text":"{long_text}"}},{{"type":"image","data":"{image}"}}]}}}}"#
+            ),
+        ];
+        let mut file = std::fs::File::create(&path).unwrap();
+        for line in &lines {
+            writeln!(file, "{line}").unwrap();
+        }
+        drop(file);
+
+        let (cwd, meta) = super::parse_session_head(&path).expect("应能解析");
+        assert_eq!(cwd, "/tmp/demo");
+        assert!(
+            meta.title.starts_with("看看这张图"),
+            "实际标题：{}",
+            meta.title
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// 改名写在文件尾部，头部扫描看不到，必须从末尾找
+    #[test]
+    fn prefers_the_latest_explicit_name_from_the_tail() {
+        let dir = std::env::temp_dir().join("piazza-tail-name");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("s.jsonl");
+
+        let mut lines = vec![
+            r#"{"type":"session","id":"s1","cwd":"/tmp/demo"}"#.to_string(),
+            r#"{"type":"message","id":"m1","parentId":null,"message":{"role":"user","content":"第一句提问"}}"#.to_string(),
+        ];
+        // 中间塞够多的噪声，确保改名条目落在尾部窗口之外/之内都能被找到
+        for i in 0..50 {
+            lines.push(format!(
+                r#"{{"type":"message","id":"n{i}","parentId":"m1","message":{{"role":"assistant","content":"{}"}}}}"#,
+                "填充".repeat(200)
+            ));
+        }
+        lines.push(
+            r#"{"type":"session_info","id":"i1","parentId":"n1","name":"旧名字"}"#.to_string(),
+        );
+        lines.push(
+            r#"{"type":"session_info","id":"i2","parentId":"i1","name":"修复登录重定向"}"#
+                .to_string(),
+        );
+
+        let mut file = std::fs::File::create(&path).unwrap();
+        for line in &lines {
+            writeln!(file, "{line}").unwrap();
+        }
+        drop(file);
+
+        let (_, meta) = super::parse_session_head(&path).expect("应能解析");
+        assert_eq!(meta.title, "修复登录重定向");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

@@ -2,7 +2,9 @@
 
 基于 [pi coding agent](https://github.com/earendil-works/pi) 的桌面 GUI，界面复刻 OpenAI Codex 桌面版，并把 pi 的自定义模型配置变成可视化编辑。
 
-Piazza 的 macOS 安装包包含 Pi SDK 和 Node.js。安装后可直接启动，并继续使用已有的 `~/.pi/agent` 配置与会话。首次使用需配置模型和凭据。
+Piazza 的 macOS 安装包包含 Pi SDK 和 Node.js。安装后可直接启动。
+
+配置目录与 pi CLI 隔离：凭据、设置、技能、扩展、MCP 与会话都在 `~/.piazza/agent`（可用 `PIAZZA_DATA_DIR` 覆盖）。首次启动会提示把 `~/.pi/agent` 里的已有配置搬过来——只复制，不动 CLI 那份。会话仍是 pi 的原生 JSONL，只换目录、不换格式。
 
 ## 构建环境
 
@@ -44,7 +46,9 @@ React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  
 |---|---|
 | `rpc.rs` | 子进程管理、JSONL 严格分帧、事件转发 |
 | `config.rs` | `models.json` / `settings.json` 的原子读写 |
-| `sessions.rs` | 扫描 `~/.pi/agent/sessions` 并按真实 cwd 分组 |
+| `data_dir.rs` | 应用数据根与 agent 目录（`~/.piazza/agent`），worker 通过 `PI_CODING_AGENT_DIR` 拿到同一个值 |
+| `import.rs` | 首次启动把 `~/.pi/agent` 的配置与会话复制进应用目录 |
+| `sessions.rs` | 扫描 `<agent>/sessions` 并按真实 cwd 分组 |
 | `git.rs` | 分支读取/列举/切换、worktree 管理、工作区增删统计 |
 | `files.rs` | 项目内文件搜索，供输入框的 @ 提及使用 |
 | `external.rs` | 探测已安装的编辑器，用 `open -a` 打开项目 |
@@ -119,7 +123,7 @@ app/               →  仅组装与布线
 - 扩展索取输入时（`ctx.ui.select()` 等）弹出问答卡片，侧栏同步显示转圈或「需要用户输入」
 - 会话操作：双击标题重命名、导出 HTML、用已安装的编辑器打开项目
 - 设置内嵌于主界面（非独立窗口）：内置运行时、默认模型、主题、压缩与重试、扩展包、项目信任
-- **模型配置**：可视化增删改 `~/.pi/agent/models.json` 的 provider 与 model。页面只是概览卡片，增改在对话框里完成、按保存即落盘；上下文窗口给 200K / 400K / 1M 三档加自定义。写前备份为 `.bak`，经临时文件原子落盘，保留 GUI 不认识的用户手写字段与键顺序
+- **模型配置**：可视化增删改 `~/.piazza/agent/models.json` 的 provider 与 model。页面只是概览卡片，增改在对话框里完成、按保存即落盘；上下文窗口给 200K / 400K / 1M 三档加自定义。写前备份为 `.bak`，经临时文件原子落盘，保留 GUI 不认识的用户手写字段与键顺序
 
 ## 未实现
 

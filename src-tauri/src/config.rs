@@ -1,18 +1,11 @@
 use std::path::PathBuf;
 
-/// pi 的配置目录：`~/.pi/agent`
-fn agent_dir() -> Result<PathBuf, String> {
-    dirs::home_dir()
-        .map(|h| h.join(".pi/agent"))
-        .ok_or_else(|| "无法定位用户主目录".to_string())
-}
-
 pub fn models_path() -> Result<PathBuf, String> {
-    Ok(agent_dir()?.join("models.json"))
+    Ok(crate::data_dir::agent_dir()?.join("models.json"))
 }
 
 pub fn settings_path() -> Result<PathBuf, String> {
-    Ok(agent_dir()?.join("settings.json"))
+    Ok(crate::data_dir::agent_dir()?.join("settings.json"))
 }
 
 /// 读取 JSON 配置。文件不存在时返回空对象而非报错——首次使用属正常情况。
@@ -111,7 +104,7 @@ mod tests {
         assert_eq!(read_json(&path).unwrap(), json!({}));
     }
 
-    /// 用真实的 ~/.pi/agent/models.json 走一遍完整读写路径，确认往返后逐字节一致。
+    /// 用真实的 models.json 走一遍完整读写路径，确认往返后逐字节一致。
     /// 会写用户文件，故默认跳过：`cargo test -- --ignored live_roundtrip`
     #[test]
     #[ignore = "会写入用户真实配置"]

@@ -2,9 +2,11 @@ use tauri::{AppHandle, State};
 
 use crate::agent_resources;
 use crate::config;
+use crate::data_dir;
 use crate::external;
 use crate::files;
 use crate::git;
+use crate::import;
 use crate::rpc::{self, RpcState, StartOptions};
 use crate::sessions::{self, ProjectGroup, SessionSnapshot};
 use crate::terminal::TerminalState;
@@ -236,7 +238,23 @@ pub fn write_app_settings(patch: serde_json::Value) -> Result<serde_json::Value,
 
 #[tauri::command]
 pub fn get_agent_dir() -> Result<String, String> {
-    agent_resources::agent_dir().map(|p| p.to_string_lossy().into_owned())
+    data_dir::agent_dir().map(|p| p.to_string_lossy().into_owned())
+}
+
+/// 首次启动是否需要提示从 pi CLI 导入配置
+#[tauri::command]
+pub fn pi_import_offer() -> Result<Option<import::ImportOffer>, String> {
+    import::offer()
+}
+
+#[tauri::command]
+pub fn pi_import(options: import::ImportOptions) -> Result<Vec<String>, String> {
+    import::run(&options)
+}
+
+#[tauri::command]
+pub fn pi_import_skip() -> Result<(), String> {
+    import::skip()
 }
 
 #[tauri::command]
@@ -272,6 +290,11 @@ pub fn delete_agent_skill(dir_path: String, cwd: Option<String>) -> Result<(), S
 #[tauri::command]
 pub fn list_local_extensions() -> Result<Vec<agent_resources::ExtensionEntry>, String> {
     agent_resources::list_local_extensions()
+}
+
+#[tauri::command]
+pub fn delete_local_extension(path: String) -> Result<(), String> {
+    agent_resources::delete_local_extension(&path)
 }
 
 #[tauri::command]
