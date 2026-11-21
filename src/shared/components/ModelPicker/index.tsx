@@ -6,7 +6,7 @@ import { Spinner } from '@/design/primitives/Spinner'
 import type { Model, ThinkingLevel } from '@/rpc/types'
 import { thinkingLabel } from '@/shared/utils/format'
 import { useChatStore, useSessionActions } from '@/store/chat'
-import { useModelOptions } from '../hooks/useModelOptions'
+import { useModelOptions } from './useModelOptions'
 import { ModelControls } from './ModelControls'
 import styles from './ModelPicker.module.css'
 

@@ -5,12 +5,16 @@ import { useChatActions, useChatStore } from '@/store/chat'
 
 let submitting = false
 
+function isStoreReadyForSubmit(): boolean {
+  const s = useChatStore.getState()
+  return s.rpcReady && !s.sessionLoading && !s.isCompacting && !s.pendingDialog
+}
+
 export function useComposerSubmit(closePanel: () => void) {
   const { sendPrompt } = useChatActions()
   const submit = async (behavior: StreamingBehavior = 'steer') => {
-    if (submitting) return
+    if (submitting || !isStoreReadyForSubmit()) return
     const store = useChatStore.getState()
-    if (!store.rpcReady || store.sessionLoading || store.pendingDialog) return
     const { message, images } = prepareAttachments(store.draft, store.attachments)
     if (!message && !images.length) return
     if (rejectUnsupportedImages(images.length)) return

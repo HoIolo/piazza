@@ -1,7 +1,7 @@
 import { AttachButton } from './AttachMenu'
 import { ContextUsageRing } from './ContextUsageRing'
-import { ModelPicker } from './ModelPicker'
-import { TrustPicker } from './TrustPicker'
+import { ModelPicker } from '@/shared/components/ModelPicker'
+import { TrustPicker } from '@/shared/components/TrustPicker'
 import styles from './ComposerToolbar.module.css'
 
 /**

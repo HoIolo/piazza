@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, Plus, Square } from 'lucide-react'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
 import { userText } from '@/shared/utils/message'
 import { useChatStore } from '@/store/chat'
+import { ModelPicker } from '@/shared/components/ModelPicker'
+import { TrustPicker } from '@/shared/components/TrustPicker'
 import styles from './SideChat.module.css'
 
 function parentExcerpt() {
@@ -23,6 +25,13 @@ function parentExcerpt() {
   return excerpt
 }
 
+/**
+ * 侧边聊天输入区。
+ *
+ * 结构与主输入区一致（Codex 也是同一个 composer）：上方输入，下方左侧是
+ * 「+」与权限标记、右侧是模型选择与发送键。侧边聊天不带附件能力，所以
+ * 「+」换成了「引用主对话」——它才是这里唯一需要的取材入口。
+ */
 export function SideComposer({
   blocked,
   running,
@@ -58,46 +67,64 @@ export function SideComposer({
   }
 
   return (
-    <div>
-      {hasParentMessages && (
-        <button type="button" className={styles.quote} onClick={quote}>
-          引用主对话
-        </button>
-      )}
-      <form
-        className={styles.composer}
-        onSubmit={(event) => {
+    <form
+      className={styles.composer}
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit()
+      }}
+    >
+      <textarea
+        rows={1}
+        aria-label="侧边聊天消息"
+        placeholder="和 Codex 一起工作"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || event.shiftKey || ime.isComposing(event)) return
           event.preventDefault()
           void submit()
         }}
-      >
-        <textarea
-          rows={2}
-          aria-label="侧边聊天消息"
-          placeholder="发送消息"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey || ime.isComposing(event)) return
-            event.preventDefault()
-            void submit()
-          }}
-          {...ime.bind}
-        />
+        {...ime.bind}
+      />
+
+      <div className={styles.composerBar}>
+        {/* 占 Codex 里「+」的位置：侧边聊天不带附件，这里唯一的取材入口是引用主对话 */}
+        <button
+          type="button"
+          className={styles.quote}
+          onClick={quote}
+          disabled={!hasParentMessages}
+          aria-label="引用主对话"
+          title="引用主对话"
+        >
+          <Plus size={16} />
+        </button>
+        <TrustPicker />
+
+        <span className={styles.spacer} />
+        <ModelPicker />
+
         {running ? (
-          <button type="button" aria-label="停止侧边聊天" onClick={() => void onStop()}>
-            <Square size={14} />
+          <button
+            type="button"
+            className={styles.send}
+            aria-label="停止侧边聊天"
+            onClick={() => void onStop()}
+          >
+            <Square size={13} />
           </button>
         ) : (
           <button
             type="submit"
+            className={styles.send}
             aria-label="发送侧边聊天消息"
             disabled={blocked || sending || !draft.trim()}
           >
-            <ArrowUp size={18} />
+            <ArrowUp size={17} />
           </button>
         )}
-      </form>
-    </div>
+      </div>
+    </form>
   )
 }

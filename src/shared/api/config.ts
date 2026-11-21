@@ -6,6 +6,11 @@ export interface ModelConfig {
   id: string
   name?: string
   reasoning?: boolean
+  /**
+   * 思考强度映射：pi 的档位 → 发给厂商的参数值。
+   * null 表示该档不支持，缺省则标准档走厂商默认、扩展档（xhigh/max）视为不支持。
+   */
+  thinkingLevelMap?: Record<string, string | null>
   input?: Array<'text' | 'image'>
   contextWindow?: number
   maxTokens?: number

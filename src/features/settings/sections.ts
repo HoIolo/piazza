@@ -7,20 +7,11 @@ import {
   Monitor,
   Palette,
   Server,
-  SlidersHorizontal,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type SectionId =
-  | 'appearance'
-  | 'behavior'
-  | 'models'
-  | 'instructions'
-  | 'skills'
-  | 'mcp'
-  | 'packages'
-  | 'shortcuts'
-  | 'system'
+  'appearance' | 'models' | 'instructions' | 'skills' | 'mcp' | 'packages' | 'shortcuts' | 'system'
 
 export interface SectionItem {
   id: SectionId
@@ -64,13 +55,6 @@ export const SECTION_GROUPS: SectionGroup[] = [
     group: 'Agent 与能力',
     items: [
       {
-        id: 'behavior',
-        label: 'Agent 行为',
-        subtitle: '新会话的默认模型、思考强度、项目信任与运行策略',
-        icon: SlidersHorizontal,
-        keywords: ['默认模型', '思考', '推理', '信任', '权限', '压缩', '重试', '图片', 'model', 'trust'],
-      },
-      {
         id: 'models',
         label: '模型与账号',
         subtitle: '连接厂商账号和 API Key，管理自定义服务商与模型',
@@ -80,7 +64,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
       {
         id: 'instructions',
         label: '全局指令',
-        subtitle: '编辑 ~/.pi/agent/AGENTS.md，对所有项目的会话生效',
+        subtitle: '编辑全局 AGENTS.md，对所有项目的会话生效',
         icon: FileText,
         keywords: ['agents.md', '系统提示', '规范', '指令', 'prompt', 'instructions'],
       },
@@ -94,7 +78,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
       {
         id: 'mcp',
         label: 'MCP 服务器',
-        subtitle: '管理 ~/.pi/agent/mcp.json 中的外部工具与服务连接',
+        subtitle: '管理全局 mcp.json 中的外部工具与服务连接',
         icon: Server,
         keywords: ['mcp', 'stdio', 'http', 'sse', '工具', '服务器'],
       },
@@ -113,9 +97,22 @@ export const SECTION_GROUPS: SectionGroup[] = [
       {
         id: 'system',
         label: '运行时与系统',
-        subtitle: '内置 Pi SDK、网络代理与配置数据目录',
+        subtitle: '内置 Pi SDK、网络代理、执行容错与配置数据目录',
         icon: Monitor,
-        keywords: ['pi', '路径', '运行时', '代理', 'proxy', 'http', '配置目录', '数据'],
+        keywords: [
+          'pi',
+          '路径',
+          '运行时',
+          '代理',
+          'proxy',
+          'http',
+          '配置目录',
+          '数据',
+          '压缩',
+          '上下文',
+          '重试',
+          '图片',
+        ],
       },
     ],
   },
@@ -127,4 +124,4 @@ export const SECTION_META: Record<SectionId, SectionItem> = Object.fromEntries(
   ALL_ITEMS.map((item) => [item.id, item]),
 ) as Record<SectionId, SectionItem>
 
-export const DEFAULT_SECTION: SectionId = 'behavior'
+export const DEFAULT_SECTION: SectionId = 'appearance'

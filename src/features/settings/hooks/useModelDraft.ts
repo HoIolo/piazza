@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ModelConfig } from '@/shared/api/config'
 import { CONTEXT_WINDOW_PRESETS } from '../constants'
+import type { LevelMap } from '../thinkingPresets'
+import { useThinkingDraft } from './useThinkingDraft'
 
 /** 上下文窗口分段控件里「自定义」一档的值 */
 export const CUSTOM_CONTEXT = 'custom'
@@ -15,6 +17,15 @@ function isPreset(value: number | undefined): boolean {
 export interface ModelDraft {
   draft: ModelConfig
   patch: (fields: Partial<ModelConfig>) => void
+  /** 思考强度映射，未自定义时来自匹配到的预设 */
+  levelMap: LevelMap | undefined
+  /** 用户是否已手动改过映射（改过就不再跟随预设） */
+  customized: boolean
+  setLevelMap: (map: LevelMap | undefined) => void
+  /** 展开高级配置：把当前预设固化下来再让用户改 */
+  customize: () => void
+  /** 丢掉自定义，回到预设 */
+  resetLevelMap: () => void
   /** 分段控件的当前值：预设档位的数字串，或「自定义」 */
   contextChoice: string
   pickContext: (choice: string) => void
@@ -31,6 +42,7 @@ export function useModelDraft(models: ModelConfig[], index: number | null): Mode
   const [custom, setCustom] = useState(index !== null && !isPreset(models[index].contextWindow))
 
   const patch = (fields: Partial<ModelConfig>) => setDraft((d) => ({ ...d, ...fields }))
+  const thinking = useThinkingDraft(models, index, draft.id, patch)
 
   const pickContext = (choice: string) => {
     if (choice === CUSTOM_CONTEXT) {
@@ -47,12 +59,25 @@ export function useModelDraft(models: ModelConfig[], index: number | null): Mode
     if (models.some((m, i) => i !== index && m.id === id)) return { error: `模型「${id}」已存在` }
     // 空名字不写进文件，显示时自然回落到 id
     const name = draft.name?.trim()
-    return { model: { ...draft, id, name: name || undefined } }
+    const thinkingLevelMap = thinking.resolved(draft)
+    return {
+      model: {
+        ...draft,
+        id,
+        name: name || undefined,
+        ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
+      },
+    }
   }
 
   return {
     draft,
     patch,
+    levelMap: thinking.levelMap,
+    customized: thinking.customized,
+    setLevelMap: thinking.setLevelMap,
+    customize: thinking.customize,
+    resetLevelMap: thinking.reset,
     contextChoice: custom ? CUSTOM_CONTEXT : String(draft.contextWindow),
     pickContext,
     hasImage: draft.input?.includes('image') ?? false,

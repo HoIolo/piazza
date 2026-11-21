@@ -14,6 +14,7 @@ import { useModelDraft } from '../hooks/useModelDraft'
 import type { ModelsConfigApi } from '../hooks/useModelsConfig'
 import { numberText, parseNumber } from '../numberField'
 import { ContextWindowField } from './ContextWindowField'
+import { ThinkingLevelField } from './ThinkingLevelField'
 import styles from './FormDialog.module.css'
 
 export interface ModelDialogProps {
@@ -103,6 +104,16 @@ export function ModelDialog({ providerKey, models, index, onClose, onCommit }: M
             onChange={(reasoning) => patch({ reasoning })}
           />
         </Field>
+
+        <ThinkingLevelField
+          modelId={draft.id}
+          reasoning={draft.reasoning ?? false}
+          map={form.levelMap}
+          customized={form.customized}
+          onMapChange={form.setLevelMap}
+          onCustomize={form.customize}
+          onReset={form.resetLevelMap}
+        />
 
         <Field label="支持图片输入" inline>
           <Toggle checked={form.hasImage} ariaLabel="支持图片输入" onChange={form.setImage} />

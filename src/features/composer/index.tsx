@@ -50,7 +50,9 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const panel = useMentionPanel({ draft, setDraft, textareaRef, rootRef })
   const groups = useMentionItems(cwd, panel.query)
   const ime = useImeGuard()
-  const sendingBlocked = useChatStore((s) => !s.rpcReady || s.pendingDialog !== null)
+  const sendingBlocked = useChatStore(
+    (s) => !s.rpcReady || s.isCompacting || s.pendingDialog !== null,
+  )
   const slash = useSlashMenu(draft, !panel.open, groups.commands, rootRef, setDraft)
   const stopArmed = useChatStore((s) => s.stopArmed)
 

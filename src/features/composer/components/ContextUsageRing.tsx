@@ -27,7 +27,9 @@ function usageTokens(usage: AssistantMessage['usage']): number {
   return sum > 0 ? sum : (usage.totalTokens ?? 0)
 }
 
-function latestMessageTokens(messages: ReturnType<typeof useChatStore.getState>['messages']): number {
+function latestMessageTokens(
+  messages: ReturnType<typeof useChatStore.getState>['messages'],
+): number {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const msg = messages[i]
     if (msg.role !== 'assistant') continue
@@ -42,16 +44,18 @@ function ringTone(percent: number): 'normal' | 'warn' | 'danger' {
   return percent >= 80 ? 'warn' : 'normal'
 }
 
-function useContextUsageStats() {
+function useContextUsageStats(savedWindow: number | undefined) {
   const rpcReady = useChatStore((s) => s.rpcReady)
   const sessionId = useChatStore((s) => s.session?.sessionId)
   const messageCount = useChatStore((s) => s.messages.length)
   const isStreaming = useChatStore((s) => s.isStreaming)
-  const key = `${sessionId ?? ''}:${messageCount}:${isStreaming ? 1 : 0}`
+  const isCompacting = useChatStore((s) => s.isCompacting)
+  const compactionCount = useChatStore((s) => s.compactionCount)
+  const key = `${sessionId ?? ''}:${messageCount}:${isStreaming ? 1 : 0}:${isCompacting ? 1 : 0}:${compactionCount}:${savedWindow ?? 0}`
   const [loaded, setLoaded] = useState<{ key: string; stats?: SessionStats['contextUsage'] }>()
 
   useEffect(() => {
-    if (!rpcReady || !sessionId || isStreaming) return
+    if (!rpcReady || !sessionId || isStreaming || isCompacting) return
     let active = true
     void rpcClient
       .send<SessionStats>({ type: 'get_session_stats' })
@@ -62,7 +66,7 @@ function useContextUsageStats() {
     return () => {
       active = false
     }
-  }, [rpcReady, sessionId, isStreaming, key])
+  }, [rpcReady, sessionId, isStreaming, isCompacting, key])
 
   return loaded?.key === key ? loaded.stats : undefined
 }
@@ -71,16 +75,19 @@ function useContextUsageStats() {
 export function ContextUsageRing() {
   const model = useChatStore((s) => s.session?.model ?? s.lastModel)
   const messages = useChatStore((s) => s.messages)
+  const compactedTokens = useChatStore((s) => s.compactedTokens)
   const modelContextWindows = useAppStore((s) => s.modelContextWindows)
-  const stats = useContextUsageStats()
+  const savedWindow = model
+    ? modelContextWindows[modelContextKey(model.provider, model.id)]
+    : undefined
+  const stats = useContextUsageStats(savedWindow)
 
   if (!model) return null
 
-  const savedWindow = modelContextWindows[modelContextKey(model.provider, model.id)]
   const total = savedWindow ?? stats?.contextWindow ?? model.contextWindow
   if (total <= 0) return null
 
-  const used = stats?.tokens ?? latestMessageTokens(messages)
+  const used = stats?.tokens ?? compactedTokens ?? latestMessageTokens(messages)
   const ratio = Math.max(0, Math.min(1, used / total))
   const percent = Math.min(100, Math.round(ratio * 100))
   const offset = CIRCUMFERENCE * (1 - ratio)

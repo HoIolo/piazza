@@ -10,12 +10,15 @@ interface SlashAction {
   run?: () => void
 }
 
+const COMPACT_TIMEOUT_MS = 300_000
+
 const LOCAL_ACTIONS: SlashAction[] = [
   { name: 'new', description: '开始新对话', run: () => useAppStore.getState().startNewSession() },
   {
     name: 'compact',
     description: '压缩当前会话上下文',
-    run: () => void runRpc(() => rpcClient.send({ type: 'compact' })),
+    run: () =>
+      void runRpc(() => rpcClient.send({ type: 'compact' }, undefined, COMPACT_TIMEOUT_MS)),
   },
 ]
 
@@ -87,7 +90,8 @@ export function useSlashMenu(
   const [position, setPosition] = useState<{ text: string; index: number }>()
   const query = /^\/([\p{L}\p{N}_.:-]*)$/u.exec(draft)?.[1]?.toLowerCase()
   const ready = useChatStore(
-    (state) => !!state.session && !state.sessionLoading && !state.isStreaming,
+    (state) =>
+      !!state.session && !state.sessionLoading && !state.isStreaming && !state.isCompacting,
   )
   const open = ready && enabled && query !== undefined && dismissed !== draft
   const items = filterCommands(commands, query)

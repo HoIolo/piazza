@@ -1,74 +1,112 @@
+/*
+ * 面板可被拖到 280px，内容必须能跟着缩而不是撑破。
+ * min-width: 0 是这条链上每一层都要的——漏一层，子元素的最小内容宽度
+ * 就会把整块顶宽，表现为面板里的内容溢到边框外。
+ */
+.root {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
 .chat {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   min-height: 0;
-}
-
-.header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-1) var(--sp-2);
-  flex: none;
-  min-height: 40px;
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--fs-desc);
-  overflow-wrap: anywhere;
-}
-
-.header span,
-.empty,
-.status {
-  color: var(--text-secondary);
-  font-size: var(--fs-desc);
 }
 
 .feed {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  overscroll-behavior: contain;
+}
+
+/* 空态要真正居中：内容撑满高度，再由 place-content 居中 */
+.feed[data-empty='true'] {
+  display: grid;
+  place-items: center;
 }
 
 .feed > article + article {
-  margin-top: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.welcome {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  max-width: 260px;
+  text-align: center;
+}
+
+.welcomeIcon {
+  color: var(--text-tertiary);
+}
+
+.welcome h2 {
+  font-size: var(--fs-section);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+
+.welcome p {
+  font-size: var(--fs-desc);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .controls {
   flex: none;
+  min-width: 0;
   max-height: 60%;
   overflow-y: auto;
-  padding: var(--sp-3);
+  padding: 0 var(--sp-3) var(--sp-3);
 }
 
 .empty {
-  padding: var(--sp-2);
+  padding: var(--sp-3);
+  font-size: var(--fs-desc);
+  color: var(--text-secondary);
 }
 
 .error,
 .status {
   margin-bottom: var(--sp-2);
   overflow-wrap: anywhere;
+  font-size: var(--fs-desc);
 }
 
 .error {
   color: var(--text-error);
-  font-size: var(--fs-desc);
+}
+
+.status {
+  color: var(--text-secondary);
 }
 
 .retry {
   margin-bottom: var(--sp-2);
   color: var(--blue-link);
+  font-size: var(--fs-desc);
   cursor: pointer;
 }
 
+/*
+ * 输入卡片：与主输入区同一套（圆角、毛玻璃底、内阴影）。
+ * 上面是 textarea，下面一行是控件条——Codex 的 composer 就是这个分层。
+ */
 .composer {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  min-width: 0;
+  padding: var(--sp-2);
   border-radius: var(--r-input);
   corner-shape: var(--corner-shape);
   background: var(--bg-input);
@@ -76,21 +114,72 @@
 }
 
 .composer textarea {
-  flex: 1;
+  display: block;
+  width: 100%;
   min-width: 0;
-  padding: var(--sp-1) 0;
+  min-height: 40px;
+  max-height: 160px;
+  padding: var(--sp-2) var(--sp-1) 0;
   font-size: var(--fs-body);
   line-height: 20px;
+  color: var(--text-primary);
   resize: none;
   background: transparent;
+  /*
+   * 只让高度随内容长，宽度必须被容器锁死。
+   * field-sizing: content 会同时量宽，textarea 于是撑破窄面板。
+   */
+  field-sizing: content;
+  max-width: 100%;
 }
 
-.composer button {
+.composer textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.composerBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* 「+」：占 Codex 附件按钮的位置，只有主对话有内容时才可用 */
+.quote {
   display: grid;
-  width: 28px;
-  height: 28px;
   flex: none;
   place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.quote:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.quote:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--composer-primary);
   color: var(--composer-primary-text);
@@ -98,41 +187,7 @@
   transition: opacity var(--dur-fast) var(--ease);
 }
 
-.composer button:disabled {
+.send:disabled {
   opacity: 0.35;
   cursor: default;
-}
-
-.welcome {
-  display: grid;
-  min-height: 100%;
-  place-content: center;
-  justify-items: center;
-  gap: var(--sp-2);
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: var(--fs-desc);
-}
-
-.welcome h2 {
-  color: var(--text-primary);
-  font-weight: var(--fw-semibold);
-  font-size: var(--fs-section);
-}
-
-.quote {
-  margin-bottom: var(--sp-2);
-  padding: 4px 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-pill);
-  background: var(--bg-code);
-  color: var(--text-secondary);
-  font-size: var(--fs-code);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
-}
-
-.quote:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }

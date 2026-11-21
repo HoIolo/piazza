@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { MessagesSquare } from 'lucide-react'
-import { basename } from '@/shared/utils/path'
 import { useAppStore } from '@/store/app.store'
 import type { ChatSnapshot } from '@/store/chat/types'
 import { AssistantMessage } from './AssistantMessage'
@@ -20,18 +19,21 @@ function SideTranscript({ cwd, snapshot }: { cwd: string; snapshot: ChatSnapshot
     if (el && follow.current) el.scrollTop = el.scrollHeight
   }, [messages, streaming, tools])
 
+  const empty = messages.length === 0 && !streaming
+
   return (
     <div
       className={styles.feed}
+      data-empty={empty}
       ref={feed}
       onScroll={(event) => {
         const el = event.currentTarget
         if (el.clientHeight) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32
       }}
     >
-      {messages.length === 0 && !streaming && (
+      {empty && (
         <div className={styles.welcome}>
-          <MessagesSquare size={24} />
+          <MessagesSquare size={24} className={styles.welcomeIcon} />
           <h2>侧边聊天</h2>
           <p>可以在这里追问，消息会保留在这个标签里。</p>
         </div>
@@ -52,10 +54,10 @@ function SideSession({ cwd, retry }: { cwd: string; retry: () => void }) {
 
   return (
     <div className={styles.chat}>
-      <header className={styles.header}>
-        <strong title={cwd}>{basename(cwd)}</strong>
-        <span>临时对话</span>
-      </header>
+      {/*
+       * 不画标题条：面板顶部已有「侧边聊天」标签，再挂一行项目名只是重复。
+       * Codex 的侧边聊天也是从标签直接进消息区。
+       */}
       <SideTranscript cwd={cwd} snapshot={snapshot} />
       <div className={styles.controls}>
         {error && (
@@ -97,5 +99,9 @@ export function SideChat() {
   const retry = () => setAttempt((n) => n + 1)
 
   if (!cwd) return <p className={styles.empty}>请选择项目后开始侧边聊天。</p>
-  return <SideSession key={`${cwd}\0${attempt}`} cwd={cwd} retry={retry} />
+  return (
+    <div className={styles.root}>
+      <SideSession key={`${cwd}\0${attempt}`} cwd={cwd} retry={retry} />
+    </div>
+  )
 }

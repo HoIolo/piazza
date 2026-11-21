@@ -1,7 +1,6 @@
 import type { SectionId } from '../sections'
 import type { AppSettingsHandle } from '../hooks/useAppSettings'
 import { AppearanceSection } from '../sections/AppearanceSection'
-import { BehaviorSection } from '../sections/BehaviorSection'
 import { InstructionsSection } from '../sections/InstructionsSection'
 import { McpSection } from '../sections/McpSection'
 import { ModelsSection } from '../sections/ModelsSection'
@@ -20,8 +19,6 @@ export function SectionContent({ id, settings }: SectionContentProps) {
   switch (id) {
     case 'appearance':
       return <AppearanceSection settings={settings} />
-    case 'behavior':
-      return <BehaviorSection settings={settings} />
     case 'models':
       return <ModelsSection />
     case 'instructions':
