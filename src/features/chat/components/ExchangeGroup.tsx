@@ -15,6 +15,8 @@ export interface ExchangeGroupProps {
   cwd: string | null
   /** 本次交互仍在进行中 */
   active?: boolean
+  /** 正在执行上下文压缩 */
+  compacting?: boolean
   paused?: boolean
   /** 任意轮次运行中，禁止对历史用户消息发起编辑分叉 */
   disabled?: boolean
@@ -28,6 +30,8 @@ export interface ExchangeGroupProps {
    * 那些轮次只能退回时间戳差值，拿不到真实耗时。
    */
   finishedMs?: number | null
+  /** 滚动锚点标识：内容在视口上方变化时靠它把位移补回去 */
+  scrollKey?: string
   /** 供刻度导航定位到这一组 */
   ref?: React.Ref<HTMLElement>
 }
@@ -37,22 +41,43 @@ function shouldKeepOpen(active: boolean, paused: boolean | undefined, final: Exc
   return active || paused === true || final?.stopReason === 'aborted'
 }
 
+function resolveStatusDuration(
+  busy: boolean,
+  elapsedMs: number | null | undefined,
+  finishedMs: number | null | undefined,
+  fallback: number | null,
+) {
+  return busy ? (elapsedMs ?? null) : (finishedMs ?? fallback)
+}
+
 function deriveView(
   exchange: Exchange,
   active: boolean,
+  compacting: boolean | undefined,
   elapsedMs: number | null | undefined,
   finishedMs: number | null | undefined,
   keepOpen: boolean,
 ) {
   const hasProcess = exchange.intermediate.length + exchange.others.length > 0
+  const busy = active || Boolean(compacting)
   return {
     hasProcess,
-    showStatus: hasProcess || active || exchange.durationMs !== null,
-    statusDuration: active ? (elapsedMs ?? null) : (finishedMs ?? exchange.durationMs),
+    showStatus: hasProcess || busy || exchange.durationMs !== null,
+    statusDuration: resolveStatusDuration(busy, elapsedMs, finishedMs, exchange.durationMs),
     expandable: hasProcess && !keepOpen,
     // 模型是否已经吐出东西。有过程轮次，或本轮已有内容块，都算它开口了
     responded: hasProcess || (exchange.final?.content.length ?? 0) > 0,
   }
+}
+
+function computeChanges(
+  active: boolean,
+  intermediate: Exchange['intermediate'],
+  final: Exchange['final'],
+  tools: Record<string, ToolExecution>,
+  cwd: string | null,
+) {
+  return !active && final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []
 }
 
 /**
@@ -65,10 +90,12 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   tools,
   cwd,
   active = false,
+  compacting,
   paused,
   disabled = false,
   elapsedMs,
   finishedMs,
+  scrollKey,
   ref,
 }: ExchangeGroupProps) {
   const [expanded, setExpanded] = useState(false)
@@ -76,19 +103,20 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   const { forkFromTurn } = useChatActions()
   const { user, intermediate, final, others } = exchange
   const keepOpen = shouldKeepOpen(active, paused, final)
-  const view = deriveView(exchange, active, elapsedMs, finishedMs, keepOpen)
+  const view = deriveView(exchange, active, compacting, elapsedMs, finishedMs, keepOpen)
   const changes = useMemo(
-    () => (!active && final ? exchangeFileChanges([...intermediate, final], tools, cwd) : []),
+    () => computeChanges(active, intermediate, final, tools, cwd),
     [active, intermediate, final, tools, cwd],
   )
 
   return (
-    <section className={styles.group} ref={ref}>
+    <section className={styles.group} data-scroll-key={scrollKey} ref={ref}>
       {user && <UserMessage message={user} userIndex={userIndex} editable={!disabled} />}
 
       {view.showStatus && (
         <StatusLine
           active={active}
+          compacting={compacting}
           durationMs={view.statusDuration}
           responded={view.responded}
           expandable={view.expandable}

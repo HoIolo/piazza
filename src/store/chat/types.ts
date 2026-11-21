@@ -82,6 +82,11 @@ export interface ChatSnapshot {
   /** 按 toolCallId 索引的工具执行状态 */
   tools: Record<string, ToolExecution>
   isStreaming: boolean
+  isCompacting: boolean
+  /** 本会话内完成过的压缩次数，用来触发上下文用量环重新拉取统计 */
+  compactionCount: number
+  /** 刚完成压缩、尚未产生新助手回复时的估算 token 数 */
+  compactedTokens: number | null
   paused: boolean
   titlePending: boolean
   /** 本轮开始时间，用于「已处理 3m 15s」计时 */
@@ -109,6 +114,7 @@ export type ChatRowStatus = 'loading' | 'working' | 'reply' | 'input' | 'confirm
 export function deriveSessionStatus(s: ChatSnapshot): ChatRowStatus {
   if (s.sessionLoading) return 'loading'
   if (s.pendingDialog) return s.pendingDialog.method === 'confirm' ? 'confirm' : 'input'
+  if (s.isCompacting) return 'working'
   if (!s.isStreaming) return null
   return s.streaming?.content.length || Object.values(s.tools).some((t) => t.status === 'running')
     ? 'working'
@@ -131,6 +137,9 @@ export function emptySnapshot(): ChatSnapshot {
     streaming: null,
     tools: {},
     isStreaming: false,
+    isCompacting: false,
+    compactionCount: 0,
+    compactedTokens: null,
     paused: false,
     titlePending: false,
     turnStartedAt: null,
@@ -151,6 +160,9 @@ export function backgroundSnapshot(state: ChatSnapshot): ChatSnapshot {
     streaming: state.streaming,
     tools: state.tools,
     isStreaming: state.isStreaming,
+    isCompacting: state.isCompacting,
+    compactionCount: state.compactionCount,
+    compactedTokens: state.compactedTokens,
     paused: state.paused,
     titlePending: state.titlePending,
     turnStartedAt: state.turnStartedAt,
@@ -165,5 +177,5 @@ export function backgroundSnapshot(state: ChatSnapshot): ChatSnapshot {
 }
 
 export function hasPendingWork(state: ChatSnapshot) {
-  return state.isStreaming || state.titlePending
+  return state.isStreaming || state.isCompacting || state.titlePending
 }

@@ -1,67 +1,55 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-
-/** 判定「已在底部」的容差，避免像素级抖动导致误判 */
-const THRESHOLD = 80
+import { useCallback, useRef, useState, type RefObject } from 'react'
+import { FOLLOW, PINNED, initialState, useFollowOnMessages, useScrollWatch } from './scrollWatch'
+import { EMPTY_ANCHOR } from './scrollAnchor'
 
 /**
  * 内容增长时自动滚到底，但仅在用户本来就停在底部时才滚。
  * 用户向上翻阅历史时不应被新内容强行拽回去。
  *
- * 盯的是内容的实际高度，而不是「消息条数变了没有」。
- * 后者看着够用，实际漏掉了最主要的场景：流式输出是往同一个文本块里
- * 一个字一个字追加的，条数和块数自始至终不变，于是整段回答刷完，
- * 滚动条一次都不会动——回答越长，离底越远。
+ * 对齐 Codex 的 conversation viewport，补齐三点：
+ * 1. 双阈值（96 / 10）。原先进出共用一个 80px，轻微上滚后仍会被拽回底部。
+ * 2. 按「最后一条是否新增」分档，见 scrollWatch.ts。
+ * 3. 锚点回补，见 scrollAnchor.ts。
+ *
+ * 细节实现拆在 scrollWatch.ts / scrollAnchor.ts，这里只做编排。
  */
-export function useStickToBottom(ref: RefObject<HTMLElement | null>) {
-  const stuck = useRef(true)
+export function useStickToBottom(
+  ref: RefObject<HTMLElement | null>,
+  sessionKey: string,
+  lastKey: string | null,
+) {
+  const state = useRef(initialState(sessionKey))
   const [awayFromBottom, setAwayFromBottom] = useState(false)
+
+  const measure = useCallback(() => {
+    const el = ref.current
+    const content = el?.firstElementChild
+    if (!el || !content) return null
+    return { el, content, distance: el.scrollHeight - el.scrollTop - el.clientHeight }
+  }, [ref])
+
+  const sync = useCallback(() => {
+    const m = measure()
+    if (!m) return
+    state.current.following = m.distance <= FOLLOW
+    state.current.pinnedToBottom = m.distance <= PINNED
+    // 按钮显隐跟 following 走：Codex 是 isScrolledFromBottom = !nearBottom(96)
+    setAwayFromBottom(m.distance > FOLLOW)
+  }, [measure])
+
   const jumpToBottom = useCallback(() => {
     const el = ref.current
     if (!el) return
-    stuck.current = true
-    el.scrollTop = el.scrollHeight
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'instant' : 'smooth' })
+    state.current.following = true
+    state.current.pinnedToBottom = true
+    state.current.anchor = EMPTY_ANCHOR
     setAwayFromBottom(false)
   }, [ref])
 
-  useEffect(() => {
-    const el = ref.current
-    const content = el?.firstElementChild
-    if (!el || !content) return
-    let lastScrollTop = el.scrollTop
-
-    const atBottom = () => el.scrollHeight - el.scrollTop - el.clientHeight <= THRESHOLD
-    const onScroll = () => {
-      const top = el.scrollTop
-      const bottom = atBottom()
-      if (bottom || top < lastScrollTop - 2) stuck.current = bottom
-      lastScrollTop = top
-      setAwayFromBottom(!atBottom())
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-
-    // 观察里面那一坨内容：滚动容器自己的高度是固定的，长高的是它的孩子
-    const observer = new ResizeObserver(() => {
-      if (el.dataset.restoringScroll === 'true') {
-        delete el.dataset.restoringScroll
-        lastScrollTop = el.scrollTop
-        stuck.current = atBottom()
-        setAwayFromBottom(!atBottom())
-        return
-      }
-      if (stuck.current) {
-        el.scrollTop = el.scrollHeight
-        lastScrollTop = el.scrollTop
-      }
-      setAwayFromBottom(!atBottom())
-    })
-    observer.observe(content)
-    observer.observe(el)
-
-    return () => {
-      el.removeEventListener('scroll', onScroll)
-      observer.disconnect()
-    }
-  }, [ref])
+  useScrollWatch({ stateRef: state, measure, sync })
+  useFollowOnMessages({ stateRef: state, measure, sync }, sessionKey, lastKey)
 
   return { awayFromBottom, jumpToBottom }
 }

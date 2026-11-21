@@ -67,7 +67,9 @@
   color: var(--ink-muted);
   font-size: var(--fs-xs);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
 .olderBtn:hover {

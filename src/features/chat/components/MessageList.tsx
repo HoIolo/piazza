@@ -18,6 +18,22 @@ function computeUserOrdinals(exchanges: Exchange[]): Array<number | undefined> {
   return exchanges.map((exchange) => (exchange.user ? ordinal++ : undefined))
 }
 
+/** 「回到底部」浮钮，和 Codex 一样只在离开底部超过 96px 时出现 */
+function JumpToBottom({ show, onClick }: { show: boolean; onClick: () => void }) {
+  if (!show) return null
+  return (
+    <button
+      type="button"
+      className={styles.jumpToBottom}
+      onClick={onClick}
+      aria-label="回到底部"
+      title="回到底部"
+    >
+      <ArrowDown size={18} />
+    </button>
+  )
+}
+
 /** 消息流滚动容器 */
 export function MessageList() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -30,13 +46,14 @@ export function MessageList() {
   const tools = useChatStore((s) => s.tools)
   const paused = useChatStore((s) => s.paused)
   const isStreaming = useChatStore((s) => s.isStreaming)
+  const isCompacting = useChatStore((s) => s.isCompacting)
   const turnStartedAt = useChatStore((s) => s.turnStartedAt)
   const lastTurnDurationMs = useChatStore((s) => s.lastTurnDurationMs)
   const cwd = useAppStore((s) => s.currentCwd)
   const sessionKey = viewKey
   const sessionPath = viewKey.startsWith('new:') || viewKey === 'init' ? null : viewKey
 
-  const elapsedMs = useElapsed(isStreaming ? turnStartedAt : null)
+  const elapsedMs = useElapsed(isStreaming || isCompacting ? turnStartedAt : null)
 
   // 流式中的消息尚未进入 messages，先并进去再分组，
   // 这样进行中的这次交互与历史走同一套渲染，不必写两份
@@ -53,8 +70,9 @@ export function MessageList() {
     exchanges.length,
   )
 
-  // 内容长高就贴底，由 ResizeObserver 直接盯高度
-  const { awayFromBottom, jumpToBottom } = useStickToBottom(containerRef)
+  // 内容长高就贴底；分档与锚点补偿对齐 Codex 的 conversation viewport
+  const lastScrollKey = exchanges.length > 0 ? `${sessionKey}:${exchanges.length - 1}` : null
+  const { awayFromBottom, jumpToBottom } = useStickToBottom(containerRef, sessionKey, lastScrollKey)
 
   const activeIndex = useActiveExchange(containerRef, groupRefs, exchanges.length - start)
 
@@ -107,28 +125,20 @@ export function MessageList() {
                 tools={tools}
                 cwd={cwd}
                 active={isStreaming && isLast}
+                compacting={isCompacting && isLast}
                 paused={paused && isLast}
-                disabled={isStreaming}
+                disabled={isStreaming || isCompacting}
+                scrollKey={`${sessionKey}:${index}`}
                 elapsedMs={isLast ? elapsedMs : null}
                 /* 本地量的耗时只属于刚跑完的那一轮，更早的没有 */
-                finishedMs={!isStreaming && isLast ? lastTurnDurationMs : null}
+                finishedMs={!isStreaming && !isCompacting && isLast ? lastTurnDurationMs : null}
               />
             )
           })}
         </div>
       </div>
       <ScrollThumb containerRef={containerRef} />
-      {awayFromBottom && (
-        <button
-          type="button"
-          className={styles.jumpToBottom}
-          onClick={jumpToBottom}
-          aria-label="回到底部"
-          title="回到底部"
-        >
-          <ArrowDown size={18} />
-        </button>
-      )}
+      <JumpToBottom show={awayFromBottom} onClick={jumpToBottom} />
     </div>
   )
 }

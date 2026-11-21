@@ -1,8 +1,7 @@
-import { userText } from '@/shared/utils/message'
 import type { ChatAssistantMessage, ChatMessage, ToolExecution } from '@/store/chat'
 import { AssistantMessage } from './AssistantMessage'
 import { BashExecutionItem } from './BashExecutionItem'
-import { SteeredNote } from './SteeredNote'
+import { UserMessage } from './UserMessage'
 import type { Exchange } from './exchange'
 import styles from './ExchangeGroup.module.css'
 
@@ -26,11 +25,11 @@ export function ProcessArea({
 }: Pick<Exchange, 'intermediate' | 'others'> & {
   tools: Record<string, ToolExecution>
   cwd: string | null
-
   active: boolean
   visible: boolean
   mounted: boolean
 }) {
+  const lastIntermediate = intermediate[intermediate.length - 1]
   return (
     <div
       className={styles.processWrap}
@@ -49,13 +48,19 @@ export function ProcessArea({
                     message={message}
                     tools={tools}
                     cwd={cwd}
+                    streaming={active && message === lastIntermediate}
                     hideFooter
                   />
                 )
               if (message.role === 'bashExecution')
                 return <BashExecutionItem key={index} message={message} />
+              /*
+               * 引导同样用完整的用户气泡，只多一行「已引导对话」标签：
+               * 它是用户说过的话，不该缩成一行灰字（对齐 Codex）。
+               * 过程区里的消息不给编辑入口，历史轮次的分叉没意义。
+               */
               if (message.role === 'user')
-                return <SteeredNote key={index} text={userText(message)} />
+                return <UserMessage key={index} message={message} steered />
               return null
             })}
           </div>

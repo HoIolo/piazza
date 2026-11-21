@@ -47,9 +47,16 @@ function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   }
 }
 
+function hasVisibleContent(content: ChatAssistantMessage['content']): boolean {
+  return content.some(
+    (block) => block.type !== 'thinking' && (block.type !== 'text' || Boolean(block.text.trim())),
+  )
+}
+
 /**
  * 将最后一轮消息内的工具调用拨入过程区，外层 final 只保留工具调用之后的正文总结：
  * - 流式运行中：避免 mergeToolRounds 合并连续工具轮次时 intermediate 与 final 反复横跳导致列表跳回顶部；
+ *   工具后若紧跟进行中的思考且尚无正文，将思考保留在过程区末尾，折叠进同一工具组；
  * - 响应完成后：所有工具过程随 ProcessArea 一同折叠，外层仅展示最后一轮总结文案与改动卡片。
  */
 function splitToolRounds(
@@ -67,12 +74,19 @@ function splitToolRounds(
   }
   if (lastToolIdx === -1) return { intermediate, final }
 
+  const restContent = final.content.slice(lastToolIdx + 1)
+  if (final.thinking?.startedAt != null && !hasVisibleContent(restContent)) {
+    return {
+      intermediate: [...intermediate, final],
+      final: { ...final, content: [], thinking: undefined },
+    }
+  }
+
   const processPart: ChatAssistantMessage = {
     ...final,
     content: final.content.slice(0, lastToolIdx + 1),
     thinking: undefined,
   }
-  const restContent = final.content.slice(lastToolIdx + 1)
   const hasTrailingThinking = restContent.some((b) => b.type === 'thinking')
   const summaryPart: ChatAssistantMessage = {
     ...final,
@@ -116,4 +130,9 @@ export function groupIntoExchanges(messages: ChatMessage[]): Exchange[] {
 
   if (started) result.push(build(user, buffer))
   return result
+}
+
+/** 轮次在滚动锚点里的标识：会话切换后同一序号也是不同元素 */
+export function scrollKeyOf(sessionKey: string, index: number): string {
+  return `${sessionKey}:${index}`
 }

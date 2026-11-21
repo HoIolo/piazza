@@ -23,6 +23,7 @@ export function commitMessage(state: ChatSnapshot, message: AgentMessage): ChatS
     ...state,
     messages: [...messages, sealThinking(committed, state.streaming)],
     streaming: alreadyStreamed ? null : state.streaming,
+    compactedTokens: message.role === 'assistant' ? null : state.compactedTokens,
   }
 }
 
