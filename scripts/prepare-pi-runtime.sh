@@ -16,7 +16,7 @@ case "${TAURI_ENV_TARGET_TRIPLE:-$(uname -m)}" in
 esac
 
 output="$PWD/src-tauri/resources/pi-runtime"
-fingerprint=$(shasum -a 256 "$0" pi-runtime/package.json pi-runtime/package-lock.json pi-runtime/worker.mjs pi-runtime/accounts.mjs pi-runtime/title.mjs pi-runtime/resume.mjs | shasum -a 256)
+fingerprint=$(shasum -a 256 "$0" pi-runtime/package.json pi-runtime/package-lock.json pi-runtime/worker.mjs pi-runtime/accounts.mjs pi-runtime/title.mjs pi-runtime/resume.mjs pi-runtime/context-window.mjs | shasum -a 256)
 stamp="$arch $version $fingerprint"
 if [[ -x "$output/bin/node" && -f "$output/.ready" && $(cat "$output/.ready") == "$stamp" ]]; then
   exit 0
@@ -44,7 +44,7 @@ exec "\$bin_dir/node" "\$bin_dir/../lib/npm/bin/$name-cli.js" "\$@"
 WRAPPER
   chmod +x "$runtime/bin/$name"
 done
-cp pi-runtime/{package.json,package-lock.json,worker.mjs,accounts.mjs,title.mjs,resume.mjs} "$runtime/"
+cp pi-runtime/{package.json,package-lock.json,worker.mjs,accounts.mjs,title.mjs,resume.mjs,context-window.mjs} "$runtime/"
 PATH="$runtime/bin:$PATH" "$runtime/bin/npm" ci --prefix "$runtime" --omit=dev --no-audit --no-fund
 printf '%s\n' "$stamp" > "$runtime/.ready"
 if [[ -d "$output" ]]; then mv "$output" "$stage/previous-runtime"; fi

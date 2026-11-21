@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import type { ExtensionUiDialog } from '@/rpc/types'
 import { useImeGuard } from '@/shared/hooks/useImeGuard'
+import { encodeAnswers, parseQuestionnaire, type Question } from '@/shared/utils/questionnaire'
+import { QuestionnairePanel } from './questionnaire/QuestionnairePanel'
 import styles from './DialogCard.module.css'
 
 export interface DialogCardProps {
@@ -89,7 +91,67 @@ function TextBody({
  * 扩展索取用户输入时的卡片，贴住输入框上方。
  * pi 的四种对话方法在这里各自呈现，但共用同一套外框与关闭行为。
  */
+/** 四种对话方法各自的正交渲染 */
+function MethodBody({
+  dialog,
+  onAnswer,
+}: {
+  dialog: ExtensionUiDialog
+  onAnswer: DialogCardProps['onAnswer']
+}) {
+  switch (dialog.method) {
+    case 'select':
+      return <SelectBody options={dialog.options} onPick={(value) => onAnswer({ value })} />
+    case 'confirm':
+      return <ConfirmBody onConfirm={(confirmed) => onAnswer({ confirmed })} />
+    case 'input':
+      return (
+        <TextBody
+          multiline={false}
+          placeholder={dialog.placeholder}
+          onSubmit={(value) => onAnswer({ value })}
+        />
+      )
+    case 'editor':
+      return (
+        <TextBody multiline prefill={dialog.prefill} onSubmit={(value) => onAnswer({ value })} />
+      )
+  }
+}
+
+/** 只有 select 可能是结构化问卷；其余方法没有标题承载题目 */
+function questionnaireOf(dialog: ExtensionUiDialog): Question[] | null {
+  return dialog.method === 'select' ? parseQuestionnaire(dialog.title) : null
+}
+
+/**
+ * 结构化问卷的包装：把面板的作答编码回 select 的 value。
+ * 单独一层是为了让 DialogCard 自己只管「四种基础方法」的分派。
+ */
+function QuestionnaireCard({
+  questions,
+  onAnswer,
+}: {
+  questions: Question[]
+  onAnswer: DialogCardProps['onAnswer']
+}) {
+  return (
+    <QuestionnairePanel
+      questions={questions}
+      onSubmit={(answers) => onAnswer({ value: encodeAnswers(answers) })}
+      onDismiss={() => onAnswer({ cancelled: true })}
+    />
+  )
+}
+
 export function DialogCard({ dialog, onAnswer }: DialogCardProps) {
+  /*
+   * 结构化问卷走 Codex 的面板；认不出标记的 select 还是原来那串编号选项，
+   * 老扩展（或别的扩展）的 select 用法不受影响。
+   */
+  const questions = questionnaireOf(dialog)
+  if (questions) return <QuestionnaireCard questions={questions} onAnswer={onAnswer} />
+
   return (
     <div className={styles.card} role="dialog" aria-label={dialog.title ?? '需要你的输入'}>
       <header className={styles.head}>
@@ -108,20 +170,7 @@ export function DialogCard({ dialog, onAnswer }: DialogCardProps) {
 
       {dialog.message && <p className={styles.message}>{dialog.message}</p>}
 
-      {dialog.method === 'select' && (
-        <SelectBody options={dialog.options} onPick={(value) => onAnswer({ value })} />
-      )}
-      {dialog.method === 'confirm' && (
-        <ConfirmBody onConfirm={(confirmed) => onAnswer({ confirmed })} />
-      )}
-      {(dialog.method === 'input' || dialog.method === 'editor') && (
-        <TextBody
-          multiline={dialog.method === 'editor'}
-          placeholder={dialog.method === 'input' ? dialog.placeholder : undefined}
-          prefill={dialog.method === 'editor' ? dialog.prefill : undefined}
-          onSubmit={(value) => onAnswer({ value })}
-        />
-      )}
+      <MethodBody dialog={dialog} onAnswer={onAnswer} />
     </div>
   )
 }

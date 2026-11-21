@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { applySavedContextWindow, createContextWindowExtension } from './context-window.mjs'
 import { resumeExtension } from './resume.mjs'
 import { nameNewSession } from './title.mjs'
 import { runAccounts } from './accounts.mjs'
@@ -68,6 +69,11 @@ async function runSession() {
       projectTrusted: rememberedTrust ?? (!hasProjectResources && (trustStore.get(cwd) ?? true)),
     })
     const diagnostics = []
+    let currentSession = null
+    const contextWindowExtension = createContextWindowExtension({
+      getSession: () => currentSession,
+      settingsManager,
+    })
     const services = await createAgentSessionServices({
       cwd,
       agentDir,
@@ -75,7 +81,11 @@ async function runSession() {
       modelRuntimeSignal: AbortSignal.timeout(15_000),
       resourceLoaderOptions: {
         packageCommandOutput: 'capture',
-        extensionFactories: values['auto-title'] ? [...builtInExtensions, resumeExtension] : builtInExtensions,
+        extensionFactories: [
+          ...builtInExtensions,
+          contextWindowExtension,
+          ...(values['auto-title'] ? [resumeExtension] : []),
+        ],
         additionalExtensionPaths: values.extension ? [values.extension] : [],
       },
       resourceLoaderReloadOptions: hasProjectResources && rememberedTrust === undefined ? {
@@ -104,6 +114,8 @@ async function runSession() {
     const created = await createAgentSessionFromServices({
       services, sessionManager, sessionStartEvent, model,
     })
+    currentSession = created.session
+    applySavedContextWindow(created.session, settingsManager)
     if (values['auto-title']) {
       nameNewSession(created.session, modelRuntime, () => runtime.session === created.session, (pending) => {
         writeRawStdout(JSON.stringify({ type: 'piazza_title_pending', pending }) + '\n')

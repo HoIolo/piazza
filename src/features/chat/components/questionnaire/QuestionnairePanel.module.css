@@ -1,0 +1,332 @@
+/*
+ * 提问面板，对齐 ChatGPT/Codex 的 request_input 卡片：
+ * 圆角描边卡片 + 标题行（‹ n of m › ✕）+ 编号方块选项 + 铅笔图标的自填行。
+ * 选项 hover 才出箭头，自填行右侧常驻麦克风位与「跳过」。
+ */
+@import '../../../../design/keyframes/rise-in.css';
+
+/* 卡片本体：rounded-2xl + 1px 描边，头部 ps-4 pe-3 pt-4 pb-2，主体 gap-3 py-1 */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0 auto var(--sp-3);
+  padding: var(--sp-1) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  corner-shape: var(--corner-shape-card);
+  background: var(--bg-surface);
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+.panel:focus {
+  outline: none;
+}
+
+/* 标题行：左标题、右「翻页器 + 关闭」 */
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-3) var(--sp-2) var(--sp-4);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  line-height: 1.5;
+  color: var(--text-primary);
+  user-select: text;
+}
+
+.headActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.iconBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 主体：选项列 gap-1、左右 px-2 */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
+}
+
+/*
+ * 选项行：min-h-8、px-2 py-1.5、rounded-xl、hover 一层浅底。
+ * 单行内是「编号方块 + 标签（可带推荐徽标）+ 描述」，窄了自动折到下一行。
+ */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.option:hover,
+.option[data-cursor='true'] {
+  background: var(--bg-hover);
+}
+
+/* 编号方块：静息是浅灰底描边，选中/高亮时反转成实心深底白字 */
+.marker {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  color: var(--text-tertiary);
+  transition:
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.option[data-cursor='true'] .marker,
+.option[data-checked='true'] .marker {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg-surface);
+}
+
+/* 标签与描述：baseline 对齐，窄容器里描述自己占一行 */
+.optionText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--sp-2);
+}
+
+.labelRow {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.label {
+  min-width: 0;
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  line-height: 1.5;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.desc {
+  min-width: 0;
+  font-size: var(--fs-desc);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+/* 「推荐」徽标：标签右侧的小灰块 */
+.badge {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--bg-hover);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
+/* 右侧箭头：静息不出现，悬停或当前行才显示（对齐 group-hover） */
+.go {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.option:hover .go,
+.option[data-cursor='true'] .go {
+  opacity: 1;
+}
+
+/*
+ * 自填行：与选项同一行高，左侧铅笔图标、中间一条能长高的文本域、
+ * 右侧「跳过」按钮（对齐截图里 other 行的构造）。
+ */
+.other {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-surface);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.other:hover {
+  background: var(--bg-hover);
+}
+
+.other:focus-within {
+  border-color: var(--border-strong);
+}
+
+.otherIcon {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.custom {
+  width: 100%;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--fs-desc);
+  line-height: 20px;
+  color: var(--text-primary);
+  resize: none;
+  overflow: hidden;
+}
+
+.custom::placeholder {
+  color: var(--text-tertiary);
+}
+
+.custom:focus {
+  outline: none;
+}
+
+/* 「跳过」：描边胶囊，静息就在自填行右侧 */
+.skip {
+  flex: none;
+  height: 26px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  font-size: var(--fs-desc);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.skip:hover {
+  background: var(--bg-hover);
+}
+
+/* 自填有内容时替换「跳过」为实心提交/继续胶囊 */
+.send {
+  flex: none;
+  height: 26px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--send-btn);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  color: var(--text-on-dark);
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+
+.send:hover {
+  filter: brightness(0.94);
+}
+
+/* 主按钮只在多选时需要（单选选中即走），右对齐贴在卡片底部 */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--send-btn);
+  font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
+  color: var(--text-on-dark);
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+
+.submit:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.submit:disabled {
+  background: var(--send-btn-disabled);
+  cursor: default;
+}
+
+.kbd {
+  padding: 1px var(--sp-1);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--text-on-dark) 18%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 14px;
+}
