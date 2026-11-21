@@ -102,6 +102,7 @@ export function ProviderDialog({ providers, providerKey, onClose, onCommit }: Pr
           <Select
             value={draft.api ?? 'openai-completions'}
             options={API_OPTIONS}
+            align="start"
             ariaLabel="API 类型"
             onChange={(api) => patch({ api: api as ApiType })}
           />

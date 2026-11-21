@@ -112,6 +112,7 @@ export function ModelDialog({ providerKey, models, index, onClose, onCommit }: M
           <Select
             value={draft.api ?? ''}
             options={API_OVERRIDE_OPTIONS}
+            align="start"
             ariaLabel="API 类型"
             onChange={(api) => patch({ api: (api || undefined) as ApiType | undefined })}
           />
