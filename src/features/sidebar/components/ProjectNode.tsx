@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { ComposeIcon, FolderIcon, FolderOpenIcon } from '@/design/icons'
+import { FolderIcon, FolderOpenIcon } from '@/design/icons'
 import type { ProjectGroup } from '@/shared/api/sessions'
-import { ProjectMenu } from './ProjectMenu'
-import { SessionRow, type SessionStatus } from './SessionRow'
+import { dragHandlers } from './projectDrag'
+import { ProjectRowActions, SessionList } from './ProjectRowParts'
+import type { SessionStatus } from './SessionRow'
 import styles from './ProjectTree.module.css'
 
 /** 初始露出及每次点击「展开显示」递增的会话条数（对齐 Codex：每次多展开 5 个） */
@@ -11,6 +12,16 @@ const PAGE_SIZE = 5
 
 export interface ProjectNodeProps {
   project: ProjectGroup
+  /** 是否允许拖动排序（侧栏里始终为真；@提及等只读场景不传） */
+  draggable?: boolean
+  /** 正在被拖动 */
+  dragging?: boolean
+  /** 拖动经过它、松手会落在这里 */
+  dropTarget?: boolean
+  onDragStart?: () => void
+  onDragOver?: () => void
+  onDragEnd?: () => void
+  onDrop?: () => void
   activeSessionPath: string | null
   status: SessionStatus
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
@@ -24,6 +35,13 @@ export interface ProjectNodeProps {
 
 export function ProjectNode({
   project,
+  draggable = false,
+  dragging = false,
+  dropTarget = false,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
   activeSessionPath,
   status,
   backgroundStatuses,
@@ -55,9 +73,12 @@ export function ProjectNode({
       <div
         className={styles.projectRow}
         data-open={open}
+        data-dragging={dragging}
+        data-drop-target={dropTarget}
         role="button"
         tabIndex={0}
         aria-expanded={open}
+        {...dragHandlers(project.cwd, { draggable, onDragStart, onDragOver, onDragEnd, onDrop })}
         onClick={toggleOpen}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
@@ -76,52 +97,24 @@ export function ProjectNode({
         </span>
         <span className={styles.projectName}>{project.name}</span>
 
-        <div className={styles.rowActions}>
-          <ProjectMenu cwd={project.cwd} />
-          <button
-            type="button"
-            className={styles.action}
-            onClick={(e) => {
-              e.stopPropagation()
-              onSelectProject(project.cwd)
-            }}
-            aria-label="在此项目新建对话"
-            title="在此项目新建对话"
-          >
-            <ComposeIcon size={18} />
-          </button>
-        </div>
+        <ProjectRowActions cwd={project.cwd} onNewSession={() => onSelectProject(project.cwd)} />
       </div>
 
-      {open && sessions.length > 0 && (
-        <div className={styles.sessionList}>
-          {sessions.map((session) => {
-            const active = session.path === activeSessionPath
-            const rowStatus = active ? status : (backgroundStatuses.get(session.path) ?? null)
-            return (
-              <SessionRow
-                key={session.path}
-                session={session}
-                active={active}
-                pinned={pinnedSessions.includes(session.path)}
-                status={rowStatus}
-                onSelect={() => onSelectSession(project.cwd, session.path)}
-                onTogglePin={() => onTogglePinSession(session.path)}
-                onDelete={() => onDeleteSession(session.path)}
-              />
-            )
-          })}
-
-          {total > PAGE_SIZE && (
-            <button
-              type="button"
-              className={styles.more}
-              onClick={() => setVisibleCount((c) => (hasMore ? c + PAGE_SIZE : PAGE_SIZE))}
-            >
-              {hasMore ? '展开显示' : '收起'}
-            </button>
-          )}
-        </div>
+      {open && (
+        <SessionList
+          sessions={sessions}
+          total={total}
+          hasMore={hasMore}
+          cwd={project.cwd}
+          activeSessionPath={activeSessionPath}
+          status={status}
+          backgroundStatuses={backgroundStatuses}
+          pinnedSessions={pinnedSessions}
+          onSelectSession={onSelectSession}
+          onTogglePinSession={onTogglePinSession}
+          onDeleteSession={onDeleteSession}
+          onToggleMore={() => setVisibleCount((c) => (hasMore ? c + PAGE_SIZE : PAGE_SIZE))}
+        />
       )}
     </div>
   )

@@ -5,11 +5,13 @@
   height: var(--sidebar-row-h);
   flex: none;
   position: relative;
-  /* 会话缩进对齐项目名文字，而非文件夹图标 */
-  padding: 0 var(--sp-1) 0 var(--sidebar-label-inset);
+  /* 缩进由外层 .sessionList 统一给，行内只留 8px，文字才和项目名对齐 */
+  padding: 0 var(--sp-2);
   border-radius: var(--r-row);
   font-size: var(--fs-session);
-  font-weight: var(--fw-medium);
+  /* Codex ThreadRow 标题：text-base + leading-5，字重继承 400 */
+  font-weight: var(--fw-normal);
+  line-height: 20px;
   cursor: pointer;
   outline: none;
   transition: background var(--dur-fast) var(--ease);
@@ -27,8 +29,6 @@
 
 .pin {
   flex: none;
-  position: absolute;
-  left: var(--sp-2);
   color: var(--text-tertiary);
 }
 
@@ -41,6 +41,13 @@
   padding-right: var(--sp-2);
 }
 
+/*
+ * 只在“确实被切掉”时才渐隐。
+ *
+ * 悬停时右侧会浮出置顶与更多两个按钮，标题让位；此时若继续用同一套
+ * mask，文字会落在渐隐区内——而它其实已经完整可见。所以悬停态把渐隐
+ * 收到按钮区域之后，让全文干净地露出来。
+ */
 .title[data-overflow='true'] {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
@@ -72,6 +79,28 @@
   mask-image: linear-gradient(to right, #000 calc(100% - 72px), transparent calc(100% - 56px));
 }
 
+/*
+ * 悬停时横向滚动会把整段标题推入可视区，此时不能再叠右缘渐隐——
+ * 滚动终点正好落在渐隐区里，等于把刚滚出来的字又抹掉一截。
+ * 用硬切遮罩在按钮区左缘（100% - 56px）截断：滚动终点完整清晰，
+ * 且不会画进 padding-right 与右侧置顶/更多按钮重叠。
+ */
+.row:is(:hover, :focus-within, :has([data-open='true'])) .title[data-hover-overflow='true'] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 56px),
+    transparent calc(100% - 56px)
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent calc(100% - 56px));
+}
+
+/*
+ * 悬停横移。
+ *
+ * Codex 用一条带缓动的 animation 从 0 推到末尾再停住；这里用 transition
+ * 等价表达——起点静止、匀速移动、终点保持。延时 160ms 是为了让“悬停”先
+ * 被感知到，否则鼠标一扫而过标题就跳走了。
+ */
 .row:is(:hover, :focus-within, :has([data-open='true']))
   .title[data-hover-overflow='true']
   .titleText {

@@ -39,6 +39,14 @@ export function usePendingSession(): PendingSession | null {
  * 这一行只在侧栏合成，不写回 store：@提及那边挑会话是要真去打开文件的，
  * 给它一个还不存在的路径只会出错。
  */
+/**
+ * 占位标题：pi 还没落盘消息、也没有显式命名时用的名字。
+ *
+ * 这类标题随时可以被首条提问替换掉——会话文件在发出消息之前就已经创建，
+ * 第一轮扫描读到的必然是它；不认这几个名字，侧栏就会一直停在「新对话」。
+ */
+const PLACEHOLDER_TITLES = new Set(['新对话', 'New chat', 'New thread', 'Untitled'])
+
 export function withPendingSession(
   projects: ProjectGroup[],
   pending: PendingSession | null,
@@ -46,7 +54,25 @@ export function withPendingSession(
   if (!pending) return projects
 
   const owner = projects.find((p) => p.cwd === pending.cwd)
-  if (owner?.sessions.some((s) => s.path === pending.path)) return projects
+  const existing = owner?.sessions.find((s) => s.path === pending.path)
+  if (existing) {
+    /*
+     * 盘上已经有这条会话了，但标题还是占位符：说明扫描发生在用户消息落盘
+     * 之前（新会话文件是先建后写的）。这时用首条提问顶上，别让侧栏停在
+     * 「新对话」——下一轮扫描带回真标题后自然覆盖。
+     */
+    if (!PLACEHOLDER_TITLES.has(existing.title.trim())) return projects
+    return projects.map((p) =>
+      p === owner
+        ? {
+            ...p,
+            sessions: p.sessions.map((s) =>
+              s.path === pending.path ? { ...s, title: pending.title } : s,
+            ),
+          }
+        : p,
+    )
+  }
 
   const row: SessionMeta = {
     id: pending.path,

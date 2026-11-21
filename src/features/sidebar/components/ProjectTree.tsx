@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { moveItem } from '../projectOrder'
 import { PlusIcon } from '@/design/icons'
 import type { ProjectGroup } from '@/shared/api/sessions'
 import type { SessionStatus } from './SessionRow'
@@ -19,6 +20,8 @@ export interface ProjectTreeProps {
   onDeleteSession: (sessionPath: string) => void
   /** 打开系统目录选择器，把选中的目录加进列表 */
   onAddProject: () => void
+  /** 拖拽结束后回报新的项目顺序（cwd 列表） */
+  onReorder: (order: string[]) => void
 }
 
 /** 项目 → 会话两级列表。单个项目的展开/折叠由 ProjectNode 自己管 */
@@ -33,8 +36,26 @@ export function ProjectTree({
   onTogglePinSession,
   onDeleteSession,
   onAddProject,
+  onReorder,
 }: ProjectTreeProps) {
   const [open, setOpen] = useState(true)
+  /** 正在拖的项目 cwd 与拖到它上面的目标 cwd */
+  const [drag, setDrag] = useState<{ from: string; over: string | null } | null>(null)
+
+  /*
+   * 拖完把 from 挪到 to 的位置并回报。
+   *
+   * 传的是整份 cwd 顺序而不是「谁插到谁前面」：只记最终顺序，
+   * 将来加了新项目也能算出它该落在哪，不必回放一串相对操作。
+   */
+  const drop = (to: string) => {
+    const from = drag?.from
+    setDrag(null)
+    if (!from || from === to) return
+    const cwds = projects.map((p) => p.cwd)
+    const next = moveItem(cwds, cwds.indexOf(from), cwds.indexOf(to))
+    if (next !== cwds) onReorder(next)
+  }
 
   return (
     <div className={styles.tree}>
@@ -46,7 +67,8 @@ export function ProjectTree({
           onClick={() => setOpen((value) => !value)}
         >
           项目
-          <ChevronDown size={12} data-open={open} />
+          {/* Codex 只在折叠时露箭头（showCollapsedChevron），展开时是纯文字 */}
+          {!open && <ChevronDown size={12} data-open={false} />}
         </button>
 
         {/* 对齐 Codex：添加入口在「项目」标题行右端，悬停才浮出来 */}
@@ -65,6 +87,15 @@ export function ProjectTree({
           <ProjectNode
             key={project.cwd}
             project={project}
+            draggable
+            dragging={drag?.from === project.cwd}
+            dropTarget={drag !== null && drag.over === project.cwd && drag.from !== project.cwd}
+            onDragStart={() => setDrag({ from: project.cwd, over: null })}
+            onDragOver={() => {
+              if (drag && drag.over !== project.cwd) setDrag({ ...drag, over: project.cwd })
+            }}
+            onDragEnd={() => setDrag(null)}
+            onDrop={() => drop(project.cwd)}
             activeSessionPath={activeSessionPath}
             status={status}
             backgroundStatuses={backgroundStatuses}

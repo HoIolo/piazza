@@ -3,9 +3,21 @@ import styles from './SessionRow.module.css'
 
 /** 悬停时右侧置顶与更多菜单两个按钮占用的宽度（2 * 24px + 间距） */
 const HOVER_ACTIONS_W = 56
-/** 滚动速度（px/s），对齐 Codex 侧栏标题平滑匀速横移 */
-const SCROLL_SPEED_PX = 42
+/** Codex `--marquee-speed-em-per-second: 2`，换算成像素要乘字号 */
+const SPEED_EM_PER_SECOND = 2
+/** 会话行字号，与 --fs-session 一致（Codex ThreadRow text-base = 14px） */
+const FONT_SIZE_PX = 14
+/** Codex 的时长公式：0.35s 起速缓冲 + 行程 + 1.85s 停在末尾，方便读完 */
+const LEAD_IN_S = 0.35
+const TAIL_HOLD_S = 1.85
 
+/**
+ * 会话标题。溢出时悬停横向滚动，与 Codex 的 marquee 组件同参数。
+ *
+ * 时长不是「距离 / 速度」那么简单——Codex 在两端各留了缓冲：0.35s 让眼睛
+ * 反应过来，1.85s 停在末尾把话读完。少了尾巴，标题刚滚到底就开始回弹，
+ * 长标题永远读不完整。
+ */
 export function SessionTitle({ title }: { title: string }) {
   const viewport = useRef<HTMLSpanElement>(null)
   const text = useRef<HTMLSpanElement>(null)
@@ -37,7 +49,7 @@ export function SessionTitle({ title }: { title: string }) {
     state.hoverShift > 0
       ? ({
           '--title-scroll': `-${state.hoverShift}px`,
-          '--title-dur': `${Math.max(1.1, state.hoverShift / SCROLL_SPEED_PX).toFixed(2)}s`,
+          '--title-dur': `${durationOf(state.hoverShift).toFixed(2)}s`,
         } as CSSProperties)
       : undefined
 
@@ -54,4 +66,9 @@ export function SessionTitle({ title }: { title: string }) {
       </span>
     </span>
   )
+}
+
+/** 行程决定时长，两端各留缓冲（对齐 Codex 的 marquee 时长公式） */
+function durationOf(distance: number): number {
+  return LEAD_IN_S + distance / (SPEED_EM_PER_SECOND * FONT_SIZE_PX) + TAIL_HOLD_S
 }

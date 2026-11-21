@@ -13,6 +13,11 @@ export interface ProjectPrefsState {
   hiddenProjects: string[]
   /** 置顶的会话文件路径，排在所属项目的最前 */
   pinnedSessions: string[]
+  /**
+   * 用户拖出来的项目顺序。非空时侧栏按它排，不再按最近活跃自动重排。
+   * 空数组表示「还没手动排过」，此时沿用扫描结果。
+   */
+  projectOrder: string[]
 }
 
 export interface ProjectPrefsActions {
@@ -21,6 +26,8 @@ export interface ProjectPrefsActions {
   /** 取消隐藏。重新添加一个曾被移除的项目时要走这一步，否则加了也看不见 */
   showProject: (cwd: string) => void
   togglePinnedSession: (path: string) => void
+  /** 拖拽结束后写入新的项目顺序（只影响显示，不动会话文件） */
+  setProjectOrder: (order: string[]) => void
 }
 
 type Setter = (updater: (state: ProjectPrefsState) => Partial<ProjectPrefsState>) => void
@@ -31,6 +38,7 @@ export const projectPrefsInitialState: ProjectPrefsState = {
   pinnedProjects: saved.pinned,
   hiddenProjects: saved.hidden,
   pinnedSessions: saved.pinnedSessions,
+  projectOrder: saved.order,
 }
 
 /** 有则去掉，无则加上 */
@@ -48,6 +56,7 @@ function persistPrefs(
     pinned: next.pinnedProjects,
     hidden: next.hiddenProjects,
     pinnedSessions: next.pinnedSessions,
+    order: next.projectOrder,
   })
   return patch
 }
@@ -73,5 +82,7 @@ export function createProjectPrefsActions(set: Setter): ProjectPrefsActions {
 
     togglePinnedSession: (path) =>
       set((s) => persistPrefs(s, { pinnedSessions: toggled(s.pinnedSessions, path) })),
+
+    setProjectOrder: (order) => set((s) => persistPrefs(s, { projectOrder: order })),
   }
 }

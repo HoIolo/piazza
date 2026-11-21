@@ -55,7 +55,7 @@ function WorktreeRow({
  *
  * Codex 原版还有「编辑项目」与「归档聊天」：pi 没有项目级配置，也没有归档的概念，
  * 摆上去就是点了没反应的死按钮，因此不列入。「移除」也只是从侧栏隐藏——
- * 侧栏是扫 ~/.pi/agent/sessions 得来的，真删就是删用户的会话记录，不能这么干。
+ * 侧栏是扫 <agent>/sessions 得来的，真删就是删用户的会话记录，不能这么干。
  */
 export function ProjectMenu({ cwd }: ProjectMenuProps) {
   const pinned = useAppStore((s) => s.pinnedProjects.includes(cwd))

@@ -11,7 +11,7 @@ interface ProjectsStore {
   knownProjects: string[]
   loading: boolean
   error: string | null
-  /** 重新扫描 ~/.pi/agent/sessions，返回最新列表 */
+  /** 重新扫描 <agent>/sessions，返回最新列表 */
   refresh: () => Promise<ProjectGroup[]>
   /** 把手动添加的项目并进扫描结果，空目录因此也能出现在侧栏 */
   addProjects: (paths: string[]) => void

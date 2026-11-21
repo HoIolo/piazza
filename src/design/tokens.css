@@ -89,15 +89,18 @@
   --corner-shape: round;
   --corner-shape-card: round;
 
-  /* Codex Electron 项目列表：30px 行高、1px 行距、32px 子项缩进。 */
+  /* Codex Electron 侧栏：30px 行高（--height-token-nav-row）、1px 行距、32px 子项缩进 */
   --sidebar-row-h: 30px;
   --sidebar-row-gap: 1px;
   --sidebar-label-inset: 32px;
-  --sidebar-text: #414141;
+  /* Codex --color-text: light-dark(#1a1c1f,#dfdfdf) */
+  --sidebar-text: #1a1c1f;
   --sidebar-muted: #8f8f8f;
-  --sidebar-row-highlight: rgba(0, 0, 0, 0.04);
+  /* Codex --color-background-secondary-ghost-hover: 8% / 12%，悬停与选中同一底色 */
+  --sidebar-row-highlight: rgba(13, 13, 13, 0.08);
 
-  /* ---------- 字号（Codex Electron：--text-base 14px / --text-sm 12px） ---------- */
+  /* ---------- 字号 ---------- */
+  /* 侧栏会话标题用 Codex ThreadRow 的 text-base（titleSize 默认 base）= 14px */
   --fs-nav: 14px;
   --fs-session: 14px;
   --fs-body: 14px; /* --codex-chat-font-size: var(--text-base) = 14px */
@@ -192,9 +195,9 @@
 [data-theme='dark'] {
   color-scheme: dark;
   /* ---------- 深色表面（Codex Electron 纯中性灰阶） ---------- */
-  --sidebar-text: #dcdcdc;
+  --sidebar-text: #dfdfdf;
   --sidebar-muted: #8f8f8f;
-  --sidebar-row-highlight: rgba(255, 255, 255, 0.08);
+  --sidebar-row-highlight: rgba(255, 255, 255, 0.1);
   --bg-sidebar: #131313; /* --gray-fixed-950 */
   --bg-sidebar-vibrancy: rgba(19, 19, 19, 0.78);
   --bg-settings-sidebar: #131313;

@@ -16,6 +16,7 @@ import { SidebarHeader } from './components/SidebarHeader'
 import { SidebarNav } from './components/SidebarNav'
 import { addProject } from '@/shared/utils/addProject'
 import { usePendingSession, withPendingSessions } from './pendingSession'
+import { applyProjectOrder } from './projectOrder'
 import styles from './Sidebar.module.css'
 
 /** 左侧栏容器：只做组装与事件转接，具体渲染交给四个子组件 */
@@ -28,6 +29,8 @@ export function Sidebar() {
   const pinned = useAppStore((s) => s.pinnedProjects)
   const hiddenProjects = useAppStore((s) => s.hiddenProjects)
   const pinnedSessions = useAppStore((s) => s.pinnedSessions)
+  const projectOrder = useAppStore((s) => s.projectOrder)
+  const setProjectOrder = useAppStore((s) => s.setProjectOrder)
   const togglePinnedSession = useAppStore((s) => s.togglePinnedSession)
   const selectProject = useAppStore((s) => s.selectProject)
   const selectSession = useAppStore((s) => s.selectSession)
@@ -41,10 +44,18 @@ export function Sidebar() {
   const bgStatusMap = new Map(bgSessions.map((bg) => [bg.path, bg.status]))
   const pending = usePendingSession()
 
-  // 隐藏的剔除、置顶的提前；其余保持后端按最近活跃排好的顺序
-  const visible = withPendingSessions(projects, [...bgSessions, pending])
-    .filter((p) => !hiddenProjects.includes(p.cwd))
-    .sort((a, b) => Number(pinned.includes(b.cwd)) - Number(pinned.includes(a.cwd)))
+  /*
+   * 隐藏的剔除、置顶的提前。
+   *
+   * 其余顺序：用户拖过就完全按拖出来的排（不再参考最近活跃，否则下一轮
+   * 对话结束就被重排回去）；没拖过才沿用后端按最近活跃给的顺序。
+   */
+  const visible = applyProjectOrder(
+    withPendingSessions(projects, [...bgSessions, pending]).filter(
+      (p) => !hiddenProjects.includes(p.cwd),
+    ),
+    projectOrder,
+  ).sort((a, b) => Number(pinned.includes(b.cwd)) - Number(pinned.includes(a.cwd)))
 
   /*
    * 高亮以 pi 实际打开的那条为准，还不知道时才退回请求的那条。
@@ -77,6 +88,7 @@ export function Sidebar() {
       onTogglePinSession={togglePinnedSession}
       onDeleteSession={(path) => void deleteSession(path)}
       onAddProject={() => void addProject()}
+      onReorder={(order) => setProjectOrder(order)}
     />
   )
 

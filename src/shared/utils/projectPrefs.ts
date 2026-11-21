@@ -22,9 +22,16 @@ export interface ProjectPrefs {
    * 用户点了「添加项目」却看不见它，等于这个按钮没生效，所以在这里记一份。
    */
   known: string[]
+  /**
+   * 用户手动拖出来的项目顺序（cwd 列表）。
+   *
+   * 有它就不再按「最近活跃」重排：拖过一次之后，列表顺序归用户所有。
+   * 新出现的项目（拖完才添加的）追加在末尾，而不是插到最前面把它顶掉。
+   */
+  order: string[]
 }
 
-const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [], known: [] }
+const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [], known: [], order: [] }
 
 /** 只留字符串项。存储可能被手改过，不能假定里面的形状 */
 function strings(value: unknown): string[] {
@@ -59,12 +66,13 @@ export function readProjectPrefs(): ProjectPrefs {
     if (!raw) return EMPTY
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return EMPTY
-    const { pinned, hidden, pinnedSessions, known } = parsed as Partial<ProjectPrefs>
+    const { pinned, hidden, pinnedSessions, known, order } = parsed as Partial<ProjectPrefs>
     return {
       pinned: strings(pinned),
       hidden: strings(hidden),
       pinnedSessions: strings(pinnedSessions),
       known: strings(known),
+      order: strings(order),
     }
   } catch {
     // 存储损坏或不可用时退回空偏好，不该让侧栏因此打不开
