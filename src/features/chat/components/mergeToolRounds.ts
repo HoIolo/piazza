@@ -16,6 +16,12 @@ function onlyTools(message: ChatAssistantMessage) {
   return visible.length > 0 && visible.every((block) => block.type === 'toolCall')
 }
 
+function isActiveThinkingOnly(message: ChatAssistantMessage) {
+  if (message.errorMessage || message.stopReason === 'error' || message.stopReason === 'aborted')
+    return false
+  return message.thinking?.startedAt != null && message.content.every((block) => !isVisible(block))
+}
+
 function mergeThinking(previous: ChatAssistantMessage, current: ChatAssistantMessage) {
   const durations = [previous.thinking?.durationMs, current.thinking?.durationMs].filter(
     (value): value is number => value != null,
@@ -26,14 +32,18 @@ function mergeThinking(previous: ChatAssistantMessage, current: ChatAssistantMes
   }
 }
 
-/** 工具连续跨轮出现时仍用一组。正文、错误和独立终端输出保留边界。 */
+/** 工具连续跨轮出现时仍用一组；紧随其后的流式思考也并入该组。正文、错误、终端输出与引导保留边界。 */
 export function mergeToolRounds(messages: ChatMessage[]): ChatAssistantMessage[] {
   const result: ChatAssistantMessage[] = []
   let previous: ChatAssistantMessage | undefined
   for (const message of messages) {
-    if (message.role === 'bashExecution') previous = undefined
+    if (message.role === 'bashExecution' || message.role === 'user') previous = undefined
     if (message.role !== 'assistant') continue
-    if (previous && endsWithTool(previous) && onlyTools(message)) {
+    if (
+      previous &&
+      endsWithTool(previous) &&
+      (onlyTools(message) || isActiveThinkingOnly(message))
+    ) {
       previous = {
         ...message,
         content: [...previous.content, ...message.content],

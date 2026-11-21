@@ -23,7 +23,7 @@ export interface SessionSnapshot {
   messages: AgentMessage[]
 }
 
-/** 扫描 ~/.pi/agent/sessions，按真实工作目录分组 */
+/** 扫描 <agent>/sessions（应用自有目录），按真实工作目录分组 */
 export function scanSessions(): Promise<ProjectGroup[]> {
   return invoke<ProjectGroup[]>('scan_sessions')
 }

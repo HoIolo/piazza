@@ -74,6 +74,11 @@ export function listLocalExtensions(): Promise<ExtensionEntry[]> {
   return invoke<ExtensionEntry[]>('list_local_extensions')
 }
 
+/** 把本地扩展移进废纸篓（只允许 agent 目录下 extensions 里的项） */
+export function deleteLocalExtension(path: string): Promise<void> {
+  return invoke<void>('delete_local_extension', { path })
+}
+
 export function readMcpConfig(): Promise<McpConfig> {
   return invoke<McpConfig>('read_mcp_config')
 }

@@ -13,7 +13,9 @@
   border-radius: var(--r-item);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
 .main {

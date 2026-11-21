@@ -9,11 +9,13 @@ export function MessageSegment({
   tools,
   cwd,
   caret,
+  thinking = null,
 }: {
   segment: Segment
   tools: Record<string, ToolExecution>
   cwd: string | null
   caret: boolean
+  thinking?: string | null
 }) {
   if (segment.kind === 'text')
     return (
@@ -22,5 +24,10 @@ export function MessageSegment({
       </Markdown>
     )
   if (segment.kind === 'image') return <MessageImages images={[segment.image]} />
-  return <ToolGroup executions={segment.ids.flatMap((id) => (tools[id] ? [tools[id]] : []))} />
+  return (
+    <ToolGroup
+      executions={segment.ids.flatMap((id) => (tools[id] ? [tools[id]] : []))}
+      thinking={thinking}
+    />
+  )
 }

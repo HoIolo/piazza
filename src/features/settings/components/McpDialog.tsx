@@ -85,7 +85,7 @@ function TransportFields({
   )
 }
 
-/** 新增 / 编辑 ~/.pi/agent/mcp.json 中的 MCP 服务器 */
+/** 新增 / 编辑全局 mcp.json 中的 MCP 服务器 */
 export function McpDialog({ servers, editingName, onClose, onSave }: McpDialogProps) {
   const [draft, setDraft] = useState<McpDraft>(() =>
     draftFromEntry(editingName, editingName ? servers[editingName] : undefined),

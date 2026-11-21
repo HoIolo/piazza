@@ -12,11 +12,11 @@ import type { DraftAttachment } from '@/shared/api/attachments'
 import { sessionMetadataPatch } from './sessionMetadata'
 import { reduceEvent } from './reducer'
 import { restoreTools } from './restoreTools'
+import { buildHydratedState, echoMessage, emptyComposer, filterChatMessages } from './storeBuilders'
 import {
   emptySnapshot,
   wasPaused,
   type ChatError,
-  type ChatMessage,
   type ChatSnapshot,
   type ToolExecution,
 } from './types'
@@ -29,7 +29,7 @@ export interface HydratePayload {
   tools?: Record<string, ToolExecution>
 }
 
-interface ChatStore extends ChatSnapshot {
+export interface ChatStore extends ChatSnapshot {
   session: SessionState | null
   lastModel: Model | null
   lastThinkingLevel: ThinkingLevel | null
@@ -59,11 +59,12 @@ interface ChatStore extends ChatSnapshot {
   reset: (viewKey?: string) => void
 }
 
-const emptyComposer = { draft: '', attachments: [] as DraftAttachment[], stopArmed: false }
-
 const SWITCH_FREEZE_PATCH = {
   streaming: null,
   isStreaming: false,
+  isCompacting: false,
+  compactionCount: 0,
+  compactedTokens: null,
   turnStartedAt: null,
   rpcReady: false,
   paused: false,
@@ -71,37 +72,6 @@ const SWITCH_FREEZE_PATCH = {
   pendingDialog: null,
   error: null,
   ...emptyComposer,
-}
-
-function buildLocalEcho(text: string, images: ImageContent[], localId: string): ChatMessage {
-  return {
-    role: 'user',
-    content: images.length ? [...(text ? [{ type: 'text' as const, text }] : []), ...images] : text,
-    timestamp: Date.now(),
-    local: true,
-    localId,
-  }
-}
-
-function filterChatMessages(messages: AgentMessage[]): AgentMessage[] {
-  return messages.filter((m) => (m as { role?: string }).role !== 'system')
-}
-
-function buildHydratedState(prev: ChatStore, payload: HydratePayload): Partial<ChatStore> {
-  const state = payload.state ?? null
-  const messages = filterChatMessages(payload.messages)
-  return {
-    ...emptySnapshot(),
-    viewKey: payload.viewKey,
-    session: state,
-    lastModel: state ? state.model : prev.lastModel,
-    lastThinkingLevel: state ? state.thinkingLevel : prev.lastThinkingLevel,
-    previewName: payload.sessionName ?? null,
-    messages,
-    paused: wasPaused(messages),
-    tools: payload.tools ?? restoreTools(messages),
-    ...emptyComposer,
-  }
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -112,17 +82,19 @@ export const useChatStore = create<ChatStore>((set) => ({
   ...emptyComposer,
   setAttachments: (attachments) => set({ attachments }),
 
-  applyEvent: (event) => set((state) => sessionMetadataPatch(state.session, event) ?? reduceEvent(state, event)),
+  applyEvent: (event) =>
+    set((state) => sessionMetadataPatch(state.session, event) ?? reduceEvent(state, event)),
   setMessages: (rawMessages, viewKey) =>
     set((prev) => {
       const messages = filterChatMessages(rawMessages)
-      return { viewKey: viewKey ?? prev.viewKey, messages, paused: wasPaused(messages), tools: restoreTools(messages) }
+      return {
+        viewKey: viewKey ?? prev.viewKey,
+        messages,
+        paused: wasPaused(messages),
+        tools: restoreTools(messages),
+      }
     }),
-  echoUserMessage: (text, images = []) => {
-    const localId = crypto.randomUUID()
-    set((state) => ({ messages: [...state.messages, buildLocalEcho(text, images, localId)] }))
-    return localId
-  },
+  echoUserMessage: (text, images = []) => echoMessage(set, text, images),
   removeLocalEcho: (id) =>
     set((state) => ({ messages: state.messages.filter((m) => m.localId !== id) })),
   setSession: (session) =>

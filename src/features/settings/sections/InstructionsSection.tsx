@@ -50,7 +50,7 @@ function HeaderActions({
   )
 }
 
-/** 全局指令：编辑 ~/.pi/agent/AGENTS.md，对所有项目的会话生效 */
+/** 全局指令：编辑全局 AGENTS.md，对所有项目的会话生效 */
 export function InstructionsSection() {
   const [doc, setDoc] = useState<InstructionDoc | null>(null)
   const [draft, setDraft] = useState('')
@@ -98,7 +98,7 @@ export function InstructionsSection() {
       {error && <p className={styles.error}>{error}</p>}
       <Card title="全局 AGENTS.md">
         <div className={styles.header}>
-          <code className={styles.path}>{doc?.path ?? '~/.pi/agent/AGENTS.md'}</code>
+          <code className={styles.path}>{doc?.path ?? 'AGENTS.md'}</code>
           <HeaderActions
             parentDir={parentDir}
             saved={saved}

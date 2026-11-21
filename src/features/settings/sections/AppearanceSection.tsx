@@ -37,7 +37,7 @@ export function AppearanceSection({ settings }: SectionProps) {
       <Card title="主题">
         <Row
           title="界面主题"
-          description="同步写入 ~/.pi/agent/settings.json，浅色与深色模式即时切换"
+          description="同步写入 settings.json，浅色与深色模式即时切换"
           control={
             <Segmented
               value={theme}
@@ -68,8 +68,7 @@ export function AppearanceSection({ settings }: SectionProps) {
                 { value: 'large', label: '宽松' },
               ]}
               onChange={(value) => {
-                const next: FontScale =
-                  value === 'compact' || value === 'large' ? value : 'normal'
+                const next: FontScale = value === 'compact' || value === 'large' ? value : 'normal'
                 setFontScale(next)
                 applyFontScale(next)
               }}

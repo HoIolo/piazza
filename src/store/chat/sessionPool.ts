@@ -7,7 +7,12 @@ import { markRpcProcessExited } from './bootSession'
 import { sessionMetadataPatch } from './sessionMetadata'
 import { reduceEvent } from './reducer'
 import { putCachedSession } from './sessionCache'
-import { backgroundSnapshot, deriveSessionStatus, type ChatRowStatus, type ChatSnapshot } from './types'
+import {
+  backgroundSnapshot,
+  deriveSessionStatus,
+  type ChatRowStatus,
+  type ChatSnapshot,
+} from './types'
 
 export interface BackgroundSession {
   slotId: string
@@ -113,7 +118,9 @@ function settleBackground({ slotId, session, sessionFile, snapshot }: Background
 }
 
 function settleIfIdle(bg: BackgroundSession): void {
-  if (!bg.snapshot.isStreaming && !bg.snapshot.titlePending) settleBackground(bg)
+  if (!bg.snapshot.isStreaming && !bg.snapshot.isCompacting && !bg.snapshot.titlePending) {
+    settleBackground(bg)
+  }
 }
 
 /** 处理后台槽位发来的 agent 事件：更新其快照，完成时落缓存并回收进程 */

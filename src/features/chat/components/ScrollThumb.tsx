@@ -33,7 +33,13 @@ function measure(el: HTMLElement): Metrics {
  */
 export function ScrollThumb({ containerRef }: { containerRef: RefObject<HTMLDivElement | null> }) {
   const thumbRef = useRef<HTMLDivElement>(null)
-  const metricsRef = useRef<Metrics>({ visible: false, top: TRACK_INSET, height: 0, maxScroll: 0, maxTravel: 0 })
+  const metricsRef = useRef<Metrics>({
+    visible: false,
+    top: TRACK_INSET,
+    height: 0,
+    maxScroll: 0,
+    maxTravel: 0,
+  })
   const dragRef = useRef<{ startY: number; startTop: number } | null>(null)
   const [shown, setShown] = useState(false)
   const [dragging, setDragging] = useState(false)

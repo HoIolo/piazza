@@ -43,6 +43,15 @@ export default tseslint.config(
     },
   },
   {
+    /*
+     * 滚动贴底的 hook 必须用 useLayoutEffect 在 paint 前改 DOM，
+     * 而「贴不贴底」是 DOM 量出来的结果，只能在 effect 里回写成 state。
+     * 这与 set-state-in-effect 想拦的「用 effect 做派生计算」不是一回事。
+     */
+    files: ['src/shared/hooks/useStickToBottom.ts'],
+    rules: { 'react-hooks/set-state-in-effect': 'off' },
+  },
+  {
     // features 之间不得互相依赖：要共享就上提到 shared/ 或 store/。
     // 横向依赖会让「改一个 feature 波及另一个」，是分层失效的第一步。
     files: ['src/features/**/*.{ts,tsx}'],

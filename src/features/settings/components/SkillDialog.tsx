@@ -5,6 +5,7 @@ import { Field } from '@/design/primitives/Field'
 import { Segmented } from '@/design/primitives/Segmented'
 import { TextField } from '@/design/primitives/TextField'
 import { saveAgentSkill, type SkillRecord } from '@/shared/api/agentResources'
+import { useAgentDir } from '@/shared/hooks/useAgentDir'
 import { errorMessage } from '@/shared/utils/error'
 import styles from './FormDialog.module.css'
 
@@ -34,7 +35,8 @@ function ScopeField({
   cwd: string | null
   onChange: (scope: 'global' | 'project') => void
 }) {
-  const options = [{ value: 'global', label: '全局 (~/.pi/agent/skills)' }]
+  const agentDir = useAgentDir()
+  const options = [{ value: 'global', label: agentDir ? `全局 (${agentDir}/skills)` : '全局' }]
   if (cwd) options.push({ value: 'project', label: '当前项目 (.pi/skills)' })
   return (
     <Field label="作用范围">

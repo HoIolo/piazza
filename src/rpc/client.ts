@@ -1,22 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { subscribe, type Pending } from './pending'
+import { COMMAND_TIMEOUT_MS, MAIN, SIDE, type Channel } from './channels'
 import type { AgentEvent, RpcCommand, RpcFrame, RpcResponse } from './types'
-
-/**
- * 一条通道对应 Rust 侧的一个 pi 进程。事件名前缀需与 src-tauri/src/rpc.rs 的
- * MAIN / SIDE 保持一致；side 为真时命令发给侧边聊天那个 pi。
- */
-interface Channel {
-  prefix: string
-  side: boolean
-  accounts?: boolean
-}
-
-const MAIN: Channel = { prefix: 'pi', side: false }
-const SIDE: Channel = { prefix: 'pi-side', side: true }
-
-/** 单条命令的等待上限。超时只拒绝该 Promise，不影响会话本身 */
-const COMMAND_TIMEOUT_MS = 60_000
 
 export interface StartOptions {
   cwd: string
@@ -40,13 +26,6 @@ interface SlotEvent<T> {
   payload: T
 }
 
-type Pending = {
-  slotId: string
-  resolve: (value: unknown) => void
-  reject: (reason: Error) => void
-  timer: ReturnType<typeof setTimeout>
-}
-
 /**
  * pi RPC 客户端（支持多槽位并发进程）。
  *
@@ -61,7 +40,10 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
   private exitListeners = new Set<(info: ExitInfo, slotId: string) => void>()
   private binding?: Promise<void>
 
-  constructor(private readonly channel: Channel, private readonly timeout = COMMAND_TIMEOUT_MS) {}
+  constructor(
+    private readonly channel: Channel,
+    private readonly timeout = COMMAND_TIMEOUT_MS,
+  ) {}
 
   getActiveSlot = (): string => this.activeSlot
   setActiveSlot = (slotId: string): void => {
@@ -98,21 +80,15 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
   }
 
   private dispatch(frame: RpcFrame, slotId: string): void {
-    if (frame.type === 'response') {
-      this.settle(frame as RpcResponse)
+    if (frame.type !== 'response') {
+      this.eventListeners.forEach((cb) => cb(frame as Event, slotId))
       return
     }
-    this.eventListeners.forEach((cb) => cb(frame as Event, slotId))
-  }
-
-  private settle(response: RpcResponse): void {
-    if (!response.id) return
-    const entry = this.pending.get(response.id)
+    const response = frame as RpcResponse
+    const entry = response.id ? this.pending.get(response.id) : undefined
     if (!entry) return
-
-    this.pending.delete(response.id)
+    this.pending.delete(response.id as string)
     clearTimeout(entry.timer)
-
     if (response.success) entry.resolve(response.data)
     else entry.reject(new Error(response.error ?? `命令 ${response.command} 执行失败`))
   }
@@ -129,6 +105,7 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
   async start(options: StartOptions, slotId = this.activeSlot): Promise<void> {
     await this.bind()
     this.rejectPendingForSlot(slotId, new Error('会话正在切换'))
+    // 缺省字段一律显式传 null：Rust 侧按 Option 解析，缺键与 null 不等价
     const opts = {
       cwd: options.cwd,
       provider: options.provider ?? null,
@@ -136,18 +113,22 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
       sessionPath: options.sessionPath ?? null,
       ephemeral: options.ephemeral ?? false,
     }
-    await invoke('rpc_start', { opts, side: this.channel.side, accounts: this.channel.accounts, slotId })
+    await invoke('rpc_start', { opts, ...this.target(slotId) })
   }
 
   /** 发送命令并等待其应答 */
-  async send<T = unknown>(command: Command, slotId = this.activeSlot): Promise<T> {
+  async send<T = unknown>(
+    command: Command,
+    slotId = this.activeSlot,
+    timeoutMs = this.timeout,
+  ): Promise<T> {
     await this.bind()
     const id = crypto.randomUUID()
     const waiter = new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`命令 ${command.type} 超时未响应`))
-      }, this.timeout)
+      }, timeoutMs)
       this.pending.set(id, { slotId, resolve: resolve as (v: unknown) => void, reject, timer })
     })
     const delivery = this.notify({ ...command, id }, slotId).catch((reason: unknown) => {
@@ -161,35 +142,36 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
     return result
   }
 
-  /**
-   * 单向投递，不等待应答。
-   *
-   * 扩展 UI 的回应属于这一类：pi 收下就继续跑，不会回 response 帧，
-   * 用 send() 发会一直挂到超时。
-   */
+  /** 单向投递，不等待应答。扩展 UI 的回应属于这一类：pi 收下就继续跑，不回 response 帧 */
   async notify(payload: Record<string, unknown>, slotId = this.activeSlot): Promise<void> {
-    await invoke('rpc_send', { payload, side: this.channel.side, accounts: this.channel.accounts, slotId })
+    await invoke('rpc_send', { payload, ...this.target(slotId) })
+  }
+
+  /** invoke 的公共参数：Rust 侧按 side/accounts/slotId 三元组定位进程 */
+  private target(slotId: string) {
+    const { side, accounts } = this.channel
+    return { side, accounts, slotId }
   }
 
   onEvent(cb: (event: Event, slotId: string) => void): () => void {
-    return (this.eventListeners.add(cb), () => this.eventListeners.delete(cb))
+    return subscribe(this.eventListeners, cb)
   }
 
   onStderr(cb: (text: string, slotId: string) => void): () => void {
-    return (this.stderrListeners.add(cb), () => this.stderrListeners.delete(cb))
+    return subscribe(this.stderrListeners, cb)
   }
 
   onExit(cb: (info: ExitInfo, slotId: string) => void): () => void {
-    return (this.exitListeners.add(cb), () => this.exitListeners.delete(cb))
+    return subscribe(this.exitListeners, cb)
   }
 
   async stop(slotId = this.activeSlot): Promise<void> {
     this.rejectPendingForSlot(slotId, new Error('会话已停止'))
-    await invoke('rpc_stop', { side: this.channel.side, accounts: this.channel.accounts, slotId })
+    await invoke('rpc_stop', this.target(slotId))
   }
 
   async isRunning(slotId = this.activeSlot): Promise<boolean> {
-    return invoke<boolean>('rpc_is_running', { side: this.channel.side, accounts: this.channel.accounts, slotId })
+    return invoke<boolean>('rpc_is_running', this.target(slotId))
   }
 }
 

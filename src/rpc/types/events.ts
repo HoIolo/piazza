@@ -66,8 +66,15 @@ export type AgentEvent =
       isError: boolean
     }
   | { type: 'queue_update'; steering: string[]; followUp: string[] }
-  | { type: 'compaction_start' }
-  | { type: 'compaction_end' }
+  | { type: 'compaction_start'; reason?: 'threshold' | 'overflow' | 'manual' }
+  | {
+      type: 'compaction_end'
+      reason?: 'threshold' | 'overflow' | 'manual'
+      result?: { tokensBefore?: number; estimatedTokensAfter?: number }
+      aborted?: boolean
+      willRetry?: boolean
+      errorMessage?: string
+    }
   | { type: 'auto_retry_start'; attempt?: number; delayMs?: number }
   | { type: 'auto_retry_end'; success?: boolean }
   | { type: 'extension_error'; error: string }

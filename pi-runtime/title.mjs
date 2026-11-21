@@ -1,14 +1,16 @@
-import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
-
 const MAX_INPUT = 2_000
-function pickModel(session, models) {
-  const selected = session.model
-  if (!selected) return
-  const supportsOff = (model) => getSupportedThinkingLevels(model).includes('off')
-  if (supportsOff(selected)) return selected
-  return models.getAvailableSnapshot().find((model) =>
-    model.provider === selected.provider && supportsOff(model),
-  )
+
+/*
+ * 就用当前会话的模型，不另找「支持关闭思考」的替代品。
+ *
+ * 早先会去挑一个 thinking levels 含 off 的模型，可自定义 provider 的
+ * 模型（deepseek / glm 这类）普遍没有 off 档，结果一个都挑不到、
+ * 标题永远生成不出来，侧栏里每条都叫「新会话」。
+ * 没有 off 档并不是问题：下面照样传 reasoning: 'off'，
+ * 不支持的 provider 会忽略它，标题请求本身也只要几十个 token。
+ */
+function pickModel(session) {
+  return session.model ?? undefined
 }
 
 function titleText(message) {
@@ -23,7 +25,7 @@ export function nameNewSession(session, models, isCurrent, emitPending) {
     if (event.type !== 'message_end' || event.message.role !== 'user') return
     unsubscribe()
     const text = titleText(event.message)
-    const model = pickModel(session, models)
+    const model = pickModel(session)
     if (!text || !model || session.sessionName) return
     emitPending(true)
     void generateTitle(session, models, model, text, isCurrent).finally(() => emitPending(false))

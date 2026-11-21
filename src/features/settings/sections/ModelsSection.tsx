@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { Plus } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
+import { useAgentDir } from '@/shared/hooks/useAgentDir'
 import { Segmented } from '@/design/primitives/Segmented'
 import { ProviderAccounts } from '../components/ProviderAccounts'
 import { Skeleton } from '@/design/primitives/Skeleton'
@@ -41,7 +42,7 @@ function ModelsSkeleton() {
  * 模型与账号配置页。
  *
  * 页面只是概览：每个 provider 一张卡，列出它的模型和几个能力标签。
- * 所有输入框都在对话框里，按「保存」即写入 ~/.pi/agent/models.json——
+ * 所有输入框都在对话框里，按「保存」即写入 <agent>/models.json——
  * 没有页面级的草稿与保存按钮，改一处就落一处。
  */
 export function ModelsSection() {
@@ -60,14 +61,17 @@ export function ModelsSection() {
           onChange={setTab}
         />
       </div>
-      {tab === 'custom'
-        ? <CustomProviders />
-        : <ProviderAccounts method={tab === 'oauth' ? 'oauth' : 'api_key'} />}
+      {tab === 'custom' ? (
+        <CustomProviders />
+      ) : (
+        <ProviderAccounts method={tab === 'oauth' ? 'oauth' : 'api_key'} />
+      )}
     </div>
   )
 }
 
 function CustomProviders() {
+  const agentDir = useAgentDir()
   const { providers, loading, error, saved, commit } = useModelsConfig()
   const [editor, setEditor] = useState<Editor | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -95,7 +99,7 @@ function CustomProviders() {
     <div>
       <div className={styles.toolbar}>
         <p className={styles.path}>
-          配置文件：~/.pi/agent/models.json
+          配置文件：{agentDir ? `${agentDir}/models.json` : 'models.json'}
           {saved && <span className={styles.saved}>已保存，原文件备份为 .bak</span>}
         </p>
         <Pill icon={<Plus size={14} />} onClick={() => setEditor({ kind: 'provider', key: null })}>

@@ -30,26 +30,55 @@ function reduceLifecycle(state: ChatSnapshot, event: AgentEvent): ChatSnapshot |
   switch (event.type) {
     case 'agent_start':
       return { ...state, isStreaming: true, paused: false, error: null, turnStartedAt: Date.now() }
-    case 'agent_settled': {
-      const paused = event.aborted || wasPaused(state.messages)
-      const messages =
-        paused && state.streaming
-          ? [...state.messages, { ...state.streaming, stopReason: 'aborted' as const }]
-          : state.messages
+    case 'agent_settled':
+      return settleRun(state, event.aborted === true)
+    case 'compaction_start':
       return {
         ...state,
-        isStreaming: false,
-        paused,
-        messages,
-        streaming: null,
-        lastTurnDurationMs: state.turnStartedAt ? Date.now() - state.turnStartedAt : null,
-        turnStartedAt: null,
-        // 运行已结束，任何未回应的对话都不会再有人接，留着只会挂住界面
-        pendingDialog: null,
+        isCompacting: true,
+        turnStartedAt: state.turnStartedAt ?? Date.now(),
       }
-    }
+    case 'compaction_end':
+      return settleCompaction(state, event)
     default:
       return null
+  }
+}
+
+/** 一轮结束：把流式消息落定（被中断时补一条 aborted），清掉对话请求 */
+function settleRun(state: ChatSnapshot, aborted: boolean): ChatSnapshot {
+  const paused = aborted || wasPaused(state.messages)
+  const messages =
+    paused && state.streaming
+      ? [...state.messages, { ...state.streaming, stopReason: 'aborted' as const }]
+      : state.messages
+  return {
+    ...state,
+    isStreaming: false,
+    isCompacting: false,
+    paused,
+    messages,
+    streaming: null,
+    lastTurnDurationMs: state.turnStartedAt ? Date.now() - state.turnStartedAt : null,
+    turnStartedAt: null,
+    // 运行已结束，任何未回应的对话都不会再有人接，留着只会挂住界面
+    pendingDialog: null,
+  }
+}
+
+/** 压缩结束：成功时记一次计数与压缩后的估算用量，失败则报错 */
+function settleCompaction(
+  state: ChatSnapshot,
+  event: Extract<AgentEvent, { type: 'compaction_end' }>,
+): ChatSnapshot {
+  const estimated = event.result?.estimatedTokensAfter
+  const compacted = !event.aborted && !event.errorMessage
+  return {
+    ...state,
+    isCompacting: false,
+    compactionCount: compacted ? state.compactionCount + 1 : state.compactionCount,
+    compactedTokens: compacted && typeof estimated === 'number' ? estimated : state.compactedTokens,
+    error: event.errorMessage ? { message: event.errorMessage } : state.error,
   }
 }
 

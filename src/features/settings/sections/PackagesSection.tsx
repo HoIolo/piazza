@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
-import { FolderOpen, Plus, Trash2 } from 'lucide-react'
+import { ask } from '@tauri-apps/plugin-dialog'
+import { Plus, Trash2 } from 'lucide-react'
 import { Card } from '@/design/primitives/Card'
 import { Pill } from '@/design/primitives/Pill'
 import { TextField } from '@/design/primitives/TextField'
 import {
+  deleteLocalExtension,
   getAgentDir,
   listLocalExtensions,
   type ExtensionEntry,
 } from '@/shared/api/agentResources'
-import { openPathWith } from '@/shared/api/pi'
+import { errorMessage } from '@/shared/utils/error'
+import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import type { SectionProps } from './AppearanceSection'
+import { LocalExtensionsCard } from './LocalExtensionsCard'
 import styles from './CapabilityList.module.css'
 
 function packageSourceTag(pkg: string): string {
@@ -18,64 +22,23 @@ function packageSourceTag(pkg: string): string {
   return 'local'
 }
 
-function formatSize(bytes: number): string {
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
-}
-
-function LocalExtensionsCard({
-  extensions,
-  extDir,
-}: {
-  extensions: ExtensionEntry[]
-  extDir: string
-}) {
-  return (
-    <Card title="本地扩展脚本 (~/.pi/agent/extensions)">
-      <div className={styles.list}>
-        {extensions.length === 0 ? (
-          <p className={styles.empty}>~/.pi/agent/extensions 下暂无本地扩展脚本</p>
-        ) : (
-          extensions.map((ext) => (
-            <div key={ext.path} className={styles.item}>
-              <div className={styles.itemMain}>
-                <div className={styles.itemHead}>
-                  <span className={styles.itemName}>{ext.name}</span>
-                  <span className={styles.badge}>
-                    {ext.isDir ? '目录' : formatSize(ext.sizeBytes)}
-                  </span>
-                </div>
-                <span className={styles.itemPath}>{ext.path}</span>
-              </div>
-              <div className={styles.itemActions}>
-                <button
-                  type="button"
-                  className={styles.iconBtn}
-                  title="在访达中打开"
-                  aria-label="在访达中打开"
-                  onClick={() => void openPathWith('', extDir || ext.path)}
-                >
-                  <FolderOpen size={14} />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </Card>
-  )
-}
-
-/** 扩展与包：展示 ~/.pi/agent/extensions 本地扩展并管理 settings.json 的 packages */
+/** 扩展与包：展示 <agent>/extensions 本地扩展并管理 settings.json 的 packages */
 export function PackagesSection({ settings }: SectionProps) {
   const packages = settings.read<string[]>('packages', [])
   const [draftPkg, setDraftPkg] = useState('')
   const [extensions, setExtensions] = useState<ExtensionEntry[]>([])
   const [agentDir, setAgentDir] = useState('')
+  const [nonce, setNonce] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    void listLocalExtensions().then(setExtensions).catch(() => undefined)
-    void getAgentDir().then(setAgentDir).catch(() => undefined)
-  }, [])
+    void listLocalExtensions()
+      .then(setExtensions)
+      .catch(() => undefined)
+    void getAgentDir()
+      .then(setAgentDir)
+      .catch(() => undefined)
+  }, [nonce])
 
   const addPackage = () => {
     const trimmed = draftPkg.trim()
@@ -84,8 +47,33 @@ export function PackagesSection({ settings }: SectionProps) {
     setDraftPkg('')
   }
 
+  const deleteExtension = async (ext: ExtensionEntry) => {
+    const ok = await ask(`「${ext.name}」会被移入废纸篓，之后 pi 不再加载它。`, {
+      title: '删除扩展？',
+      kind: 'warning',
+      okLabel: '删除',
+      cancelLabel: '取消',
+    })
+    if (!ok) return
+    try {
+      await deleteLocalExtension(ext.path)
+      // 扩展是启动时加载的，删完得重启 pi 才会真正从工具列表里消失
+      refreshRuntimeAfterSave()
+      setError(null)
+      setNonce((n) => n + 1)
+    } catch (e: unknown) {
+      setError(errorMessage(e))
+    }
+  }
+
   return (
     <>
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+
       <Card title="已安装的扩展包 (packages)">
         <div className={styles.list}>
           {packages.length === 0 ? (
@@ -103,7 +91,12 @@ export function PackagesSection({ settings }: SectionProps) {
                   <button
                     type="button"
                     className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    onClick={() => settings.update('packages', packages.filter((_, i) => i !== index))}
+                    onClick={() =>
+                      settings.update(
+                        'packages',
+                        packages.filter((_, i) => i !== index),
+                      )
+                    }
                     aria-label="移除包"
                     title="移除包"
                   >
@@ -128,7 +121,11 @@ export function PackagesSection({ settings }: SectionProps) {
         </div>
       </Card>
 
-      <LocalExtensionsCard extensions={extensions} extDir={agentDir ? `${agentDir}/extensions` : ''} />
+      <LocalExtensionsCard
+        extensions={extensions}
+        extDir={agentDir ? `${agentDir}/extensions` : ''}
+        onDelete={(ext) => void deleteExtension(ext)}
+      />
     </>
   )
 }

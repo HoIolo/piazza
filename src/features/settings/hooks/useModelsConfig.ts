@@ -21,7 +21,7 @@ function normalize(config: ModelsConfig): ModelsConfig {
 }
 
 /**
- * 编辑 ~/.pi/agent/models.json 的 provider 与 model。
+ * 编辑 <agent>/models.json 的 provider 与 model。
  *
  * 不走「草稿 + 页面级保存」那套：这一页的每次改动都在一个对话框里完成，
  * 对话框按下「保存」就是一次完整的事务，直接落盘最省事，也不会留下

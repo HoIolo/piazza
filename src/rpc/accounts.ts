@@ -20,7 +20,7 @@ export type AccountPrompt = { message: string } & (
   | { type: 'select'; options: Array<{ id: string; label: string; description?: string }> }
 )
 
-type AccountEvent =
+export type AccountEvent =
   | { type: 'account_notice'; notice: AccountNotice }
   | { type: 'account_prompt'; id: string; prompt: AccountPrompt }
   | { type: 'account_prompt_closed'; id: string }

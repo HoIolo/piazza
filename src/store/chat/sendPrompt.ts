@@ -4,6 +4,9 @@ import type { ImageContent, StreamingBehavior } from '@/rpc/types'
 import { errorMessage } from '@/shared/utils/error'
 import { useChatStore } from './store'
 
+/** 发问前若触发自动压缩，pi 会在压缩完成后才回 preflight 响应，需预留更长超时 */
+const PROMPT_TIMEOUT_MS = 300_000
+
 function promptType(running: boolean, behavior: StreamingBehavior) {
   if (!running) return 'prompt'
   return behavior === 'steer' ? 'steer' : 'follow_up'
@@ -19,11 +22,15 @@ export async function dispatchPrompt(
   const { isStreaming: running, echoUserMessage } = useChatStore.getState()
   const echoId = !running ? echoUserMessage(text, images) : null
   try {
-    await rpcClient.send({
-      type: promptType(running, behavior),
-      message: text,
-      ...(images.length ? { images } : {}),
-    })
+    await rpcClient.send(
+      {
+        type: promptType(running, behavior),
+        message: text,
+        ...(images.length ? { images } : {}),
+      },
+      undefined,
+      PROMPT_TIMEOUT_MS,
+    )
     return true
   } catch (error) {
     if (echoId) useChatStore.getState().removeLocalEcho(echoId)

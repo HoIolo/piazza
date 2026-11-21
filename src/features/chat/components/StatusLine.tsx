@@ -6,6 +6,8 @@ import styles from './StatusLine.module.css'
 export interface StatusLineProps {
   /** 本轮仍在进行 */
   active: boolean
+  /** 正在压缩上下文 */
+  compacting?: boolean
   durationMs: number | null
   /** 模型是否已经开口。没开口时显示等待回复 */
   responded: boolean
@@ -23,7 +25,14 @@ export interface StatusLineProps {
  * 但计时一路从发问那一刻算起，不在转换时重置：用户关心的是「我等了多久」，
  * 而不是「模型开口后又过了多久」。这也是 Codex 的做法。
  */
-function statusLabel(active: boolean, durationMs: number | null, responded: boolean): string {
+function statusLabel(
+  active: boolean,
+  compacting: boolean,
+  durationMs: number | null,
+  responded: boolean,
+): string {
+  if (compacting)
+    return durationMs ? `正在压缩上下文 ${formatDuration(durationMs)}` : '正在压缩上下文'
   if (!active) return durationMs !== null ? `耗时 ${formatDuration(durationMs)}` : '已完成'
   if (!responded) return '等待回复'
   return durationMs ? `处理中 ${formatDuration(durationMs)}` : '处理中'
@@ -32,14 +41,16 @@ function statusLabel(active: boolean, durationMs: number | null, responded: bool
 /** 轮次顶部状态行，结束后可点开看中间过程 */
 export function StatusLine({
   active,
+  compacting = false,
   durationMs,
   responded,
   expandable,
   expanded,
   onToggle,
 }: StatusLineProps) {
+  const busy = active || compacting
   return (
-    <div className={styles.statusRow} data-waiting={active && !responded}>
+    <div className={styles.statusRow} data-waiting={busy && !responded}>
       <button
         type="button"
         className={styles.status}
@@ -47,7 +58,9 @@ export function StatusLine({
         disabled={!expandable}
         aria-expanded={expandable ? expanded : undefined}
       >
-        <ShimmerText active={active}>{statusLabel(active, durationMs, responded)}</ShimmerText>
+        <ShimmerText active={busy}>
+          {statusLabel(active, compacting, durationMs, responded)}
+        </ShimmerText>
         {expandable && (
           <ChevronRight size={13} className={styles.chevron} data-expanded={expanded} />
         )}
