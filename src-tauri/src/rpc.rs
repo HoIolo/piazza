@@ -209,14 +209,19 @@ impl RpcState {
          * SDK 认这个环境变量，worker 里的 getAgentDir() 会自动跟上。
          */
         let agent_dir = crate::data_dir::agent_dir()?;
-        let mut child = Command::new(node)
+        let cwd = spawn_cwd(&opts.cwd)?;
+        let mut command = Command::new(node);
+        command
             .arg(worker)
             .args(&extra)
             .env("PATH", path)
             .env("PI_CODING_AGENT_DIR", agent_dir)
             .env_remove("NODE_PATH")
-            .env_remove("NODE_OPTIONS")
-            .current_dir(&opts.cwd)
+            .env_remove("NODE_OPTIONS");
+        if let Some(dir) = cwd {
+            command.current_dir(dir);
+        }
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -299,6 +304,26 @@ impl RpcState {
 /// 可选的 CR。绝不能使用通用行读取器——Node 的 readline 会额外在
 /// U+2028 / U+2029 处断行，而这两个字符在 JSON 字符串内是合法内容，
 /// 那样会把一帧劈成两半导致解析失败。这里手工按字节扫描 0x0A。
+/// 决定子进程的工作目录。
+///
+/// 空串必须当成「不用改」，不能直接交给 `Command::current_dir`：
+/// 空路径会让 chdir 失败，整个 spawn 报 ENOENT——macOS 上是
+/// "No such file or directory"，Windows 上是「系统找不到指定的文件」，
+/// 用户看到的却只是「pi 进程找不到」。账号授权那条通道本来就不关心 cwd，
+/// 传的就是空串。
+///
+/// 非空但目录已不存在（例如从 mac 导入的会话在 Windows 上打开），
+/// 直接报清楚是哪个目录，比冒一句 ENOENT 强。
+fn spawn_cwd(cwd: &str) -> Result<Option<&str>, String> {
+    if cwd.is_empty() {
+        return Ok(None);
+    }
+    if !std::path::Path::new(cwd).is_dir() {
+        return Err(format!("项目目录不存在：{cwd}"));
+    }
+    Ok(Some(cwd))
+}
+
 fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: ExitContext) {
     tauri::async_runtime::spawn(async move {
         let mut reader = BufReader::new(stdout);
@@ -477,7 +502,7 @@ fn spawn_stderr_reader(
 
 #[cfg(test)]
 mod tests {
-    use super::{clip_tail, take_frames, wait_code, EXIT_WAIT, STDERR_TAIL_CHARS};
+    use super::{clip_tail, spawn_cwd, take_frames, wait_code, EXIT_WAIT, STDERR_TAIL_CHARS};
     use std::process::Stdio;
     use tokio::process::Command;
 
@@ -605,5 +630,28 @@ mod tests {
             .expect("spawn sh");
 
         assert_eq!(wait_code(&mut child).await, Some(7));
+    }
+
+    /// 空串不能交给 current_dir：那会让 spawn 直接 ENOENT，
+    /// 而账号授权通道正是这么传的（见 useProviderAccounts 的 start({ cwd: '' })）
+    #[test]
+    fn empty_cwd_means_leave_it_alone() {
+        assert_eq!(spawn_cwd("").unwrap(), None);
+    }
+
+    #[test]
+    fn existing_cwd_is_passed_through() {
+        let dir = std::env::temp_dir();
+        let dir = dir.to_string_lossy().into_owned();
+        let resolved = spawn_cwd(&dir).unwrap();
+        assert_eq!(resolved, Some(dir.as_str()));
+    }
+
+    /// 从别的平台导入的会话，cwd 在本机并不存在：要说清是哪个目录
+    #[test]
+    fn missing_cwd_names_the_directory() {
+        let error = spawn_cwd("/definitely/not/a/real/directory").unwrap_err();
+        assert!(error.contains("项目目录不存在"), "错误信息太含糊：{error}");
+        assert!(error.contains("/definitely/not/a/real/directory"));
     }
 }
