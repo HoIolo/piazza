@@ -101,6 +101,39 @@ function writeLaunchers(bin, isWin) {
   }
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * 把装好的 runtime 摆到最终位置。
+ *
+ * POSIX 上一次 rename 就完事且是原子的；Windows 上目录常被杀软/索引器
+ * 短暂占住，rename 会抛 EPERM，所以先重试几次，实在不行退回整目录复制。
+ */
+async function publish(runtime, output, stage) {
+  const backup = join(stage, 'previous-runtime')
+  if (existsSync(output)) {
+    try {
+      renameSync(output, backup)
+    } catch {
+      // 备份不动就先留着，下面 rm 兜底
+    }
+  }
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      rmSync(output, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+      renameSync(runtime, output)
+      return
+    } catch (error) {
+      if (attempt >= 5) {
+        console.warn(`重命名失败（${error.code ?? error.message}），改为复制`)
+        cpSync(runtime, output, { recursive: true })
+        return
+      }
+      await sleep(400 * (attempt + 1))
+    }
+  }
+}
+
 async function main() {
   const wanted = targets()
   // 脚本本身 + 运行时源码 + 目标平台一起决定「要不要重装」，
