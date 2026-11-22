@@ -1,5 +1,6 @@
 import { ComposeIcon } from '@/design/icons'
 import type { SessionMeta } from '@/shared/api/sessions'
+import { dragHandlers } from './projectDrag'
 import { ProjectMenu } from './ProjectMenu'
 import { SessionRow, type SessionStatus } from './SessionRow'
 import styles from './ProjectTree.module.css'
@@ -40,6 +41,12 @@ export interface SessionListProps {
   status: SessionStatus
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
   pinnedSessions: string[]
+  /** 项目内正在拖的会话（拖的不是本项目时为 null） */
+  sessionDrag: { from: string; over: string | null } | null
+  onSessionDragStart: (path: string) => void
+  onSessionDragOver: (path: string) => void
+  onSessionDragEnd: () => void
+  onSessionDrop: (visiblePaths: string[], to: string) => void
   onSelectSession: (cwd: string, sessionPath: string) => void
   onTogglePinSession: (sessionPath: string) => void
   onDeleteSession: (sessionPath: string) => void
@@ -56,12 +63,18 @@ export function SessionList({
   status,
   backgroundStatuses,
   pinnedSessions,
+  sessionDrag,
+  onSessionDragStart,
+  onSessionDragOver,
+  onSessionDragEnd,
+  onSessionDrop,
   onSelectSession,
   onTogglePinSession,
   onDeleteSession,
   onToggleMore,
 }: SessionListProps) {
   if (sessions.length === 0) return null
+  const visiblePaths = sessions.map((s) => s.path)
   return (
     <div className={styles.sessionList}>
       {sessions.map((session) => {
@@ -74,6 +87,15 @@ export function SessionList({
             active={active}
             pinned={pinnedSessions.includes(session.path)}
             status={rowStatus}
+            dragging={sessionDrag?.from === session.path}
+            dropTarget={sessionDrag?.over === session.path && sessionDrag.from !== session.path}
+            dragHandlers={dragHandlers(session.path, {
+              draggable: true,
+              onDragStart: () => onSessionDragStart(session.path),
+              onDragOver: () => onSessionDragOver(session.path),
+              onDragEnd: onSessionDragEnd,
+              onDrop: () => onSessionDrop(visiblePaths, session.path),
+            })}
             onSelect={() => onSelectSession(cwd, session.path)}
             onTogglePin={() => onTogglePinSession(session.path)}
             onDelete={() => onDeleteSession(session.path)}

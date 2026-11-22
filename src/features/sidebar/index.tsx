@@ -16,7 +16,7 @@ import { SidebarHeader } from './components/SidebarHeader'
 import { SidebarNav } from './components/SidebarNav'
 import { addProject } from '@/shared/utils/addProject'
 import { usePendingSession, withPendingSessions } from './pendingSession'
-import { applyProjectOrder } from './projectOrder'
+import { applyProjectOrder, byCreatedDesc } from './projectOrder'
 import styles from './Sidebar.module.css'
 
 /** 左侧栏容器：只做组装与事件转接，具体渲染交给四个子组件 */
@@ -31,6 +31,8 @@ export function Sidebar() {
   const pinnedSessions = useAppStore((s) => s.pinnedSessions)
   const projectOrder = useAppStore((s) => s.projectOrder)
   const setProjectOrder = useAppStore((s) => s.setProjectOrder)
+  const sessionOrder = useAppStore((s) => s.sessionOrder)
+  const setSessionOrder = useAppStore((s) => s.setSessionOrder)
   const togglePinnedSession = useAppStore((s) => s.togglePinnedSession)
   const selectProject = useAppStore((s) => s.selectProject)
   const selectSession = useAppStore((s) => s.selectSession)
@@ -47,13 +49,15 @@ export function Sidebar() {
   /*
    * 隐藏的剔除、置顶的提前。
    *
-   * 其余顺序：用户拖过就完全按拖出来的排（不再参考最近活跃，否则下一轮
-   * 对话结束就被重排回去）；没拖过才沿用后端按最近活跃给的顺序。
+   * 顺序完全归用户：拖过就按拖出来的排；没拖过按创建时间倒序（新的在上面）。
+   * 都不参考「最近活跃」——否则每轮对话结束列表就自己重排，用户刚记住的
+   * 位置又变了。置顶是显式操作，只在最后把置顶的整组提到前面，
+   * 置顶区内部仍沿用上面算出来的顺序。
    */
   const visible = applyProjectOrder(
-    withPendingSessions(projects, [...bgSessions, pending]).filter(
-      (p) => !hiddenProjects.includes(p.cwd),
-    ),
+    withPendingSessions(projects, [...bgSessions, pending])
+      .filter((p) => !hiddenProjects.includes(p.cwd))
+      .sort(byCreatedDesc),
     projectOrder,
   ).sort((a, b) => Number(pinned.includes(b.cwd)) - Number(pinned.includes(a.cwd)))
 
@@ -83,12 +87,14 @@ export function Sidebar() {
       status={status}
       backgroundStatuses={bgStatusMap}
       pinnedSessions={pinnedSessions}
+      sessionOrder={sessionOrder}
       onSelectProject={selectProject}
       onSelectSession={selectSession}
       onTogglePinSession={togglePinnedSession}
       onDeleteSession={(path) => void deleteSession(path)}
       onAddProject={() => void addProject()}
       onReorder={(order) => setProjectOrder(order)}
+      onReorderSessions={(cwd, order) => setSessionOrder(cwd, order)}
     />
   )
 

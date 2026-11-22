@@ -25,17 +25,42 @@ export interface ProjectPrefs {
   /**
    * 用户手动拖出来的项目顺序（cwd 列表）。
    *
-   * 有它就不再按「最近活跃」重排：拖过一次之后，列表顺序归用户所有。
+   * 有它就不再按创建时间排：拖过一次之后，列表顺序归用户所有。
    * 新出现的项目（拖完才添加的）追加在末尾，而不是插到最前面把它顶掉。
    */
   order: string[]
+  /**
+   * 用户手动拖出来的会话顺序，按所属项目分组：`{ [项目 cwd]: 会话文件路径[] }`。
+   *
+   * 与 order 分开存是因为会话天生属于某个项目，平铺成一份列表既分不清
+   * 归属，也会在同一个会话出现在两个项目里时打架。
+   */
+  sessionOrder: Record<string, string[]>
 }
 
-const EMPTY: ProjectPrefs = { pinned: [], hidden: [], pinnedSessions: [], known: [], order: [] }
+const EMPTY: ProjectPrefs = {
+  pinned: [],
+  hidden: [],
+  pinnedSessions: [],
+  known: [],
+  order: [],
+  sessionOrder: {},
+}
 
 /** 只留字符串项。存储可能被手改过，不能假定里面的形状 */
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v) => typeof v === 'string') : []
+}
+
+/** 同上，但要的是「项目 cwd → 路径数组」这张表 */
+function pathGroups(value: unknown): Record<string, string[]> {
+  if (typeof value !== 'object' || value === null) return {}
+  const result: Record<string, string[]> = {}
+  for (const [key, list] of Object.entries(value as Record<string, unknown>)) {
+    const paths = strings(list)
+    if (paths.length > 0) result[key] = paths
+  }
+  return result
 }
 
 /**
@@ -66,13 +91,15 @@ export function readProjectPrefs(): ProjectPrefs {
     if (!raw) return EMPTY
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return EMPTY
-    const { pinned, hidden, pinnedSessions, known, order } = parsed as Partial<ProjectPrefs>
+    const { pinned, hidden, pinnedSessions, known, order, sessionOrder } =
+      parsed as Partial<ProjectPrefs>
     return {
       pinned: strings(pinned),
       hidden: strings(hidden),
       pinnedSessions: strings(pinnedSessions),
       known: strings(known),
       order: strings(order),
+      sessionOrder: pathGroups(sessionOrder),
     }
   } catch {
     // 存储损坏或不可用时退回空偏好，不该让侧栏因此打不开

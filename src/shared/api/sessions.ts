@@ -7,7 +7,10 @@ export interface SessionMeta {
   path: string
   title: string
   timestamp: string
+  /** 文件最后修改时间：只反映最后活动，会被新一轮对话不断推新 */
   modifiedMs: number
+  /** 会话创建时间，取自会话头，永不改变。侧栏按它排「添加先后」 */
+  createdMs: number
 }
 
 /** 与 src-tauri/src/sessions.rs 的 ProjectGroup 对应 */

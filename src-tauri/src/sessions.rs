@@ -24,7 +24,11 @@ pub struct SessionMeta {
     pub path: String,
     pub title: String,
     pub timestamp: String,
+    /// 文件最后修改时间。只反映「最后活动」，会被新一轮对话不断推新
     pub modified_ms: u64,
+    /// 会话创建时间，取自会话头的时间戳，永不改变。
+    /// 侧栏要按「添加先后」排，不能用 modified_ms——那会让老会话一跳回顶部
+    pub created_ms: u64,
 }
 
 /// 侧栏的项目分组
@@ -81,15 +85,21 @@ pub fn scan() -> Result<Vec<ProjectGroup>, String> {
                     sessions: Vec::new(),
                     latest_ms: 0,
                 });
-                group.latest_ms = group.latest_ms.max(meta.modified_ms);
                 group.sessions.push(meta);
             }
         }
     }
 
+    /*
+     * 排序只给一个确定的默认值：会话按创建时间倒序、项目按最新一条会话的
+     * 创建时间倒序。前端存了用户拖出来的顺序时会整份覆盖掉它，所以这里
+     * 绝不能用 modified_ms——那是「最后活动」，会让老会话一跳回顶部。
+     */
     let mut result: Vec<ProjectGroup> = groups.into_values().collect();
     for group in &mut result {
-        group.sessions.sort_by_key(|s| Reverse(s.modified_ms));
+        group.sessions.sort_by_key(|s| Reverse(s.created_ms));
+        // 项目按「最新建的那条会话」排，而不是按谁最后被翻出来用过
+        group.latest_ms = group.sessions.first().map_or(0, |s| s.created_ms);
     }
     result.sort_by_key(|g| Reverse(g.latest_ms));
     Ok(result)
@@ -486,6 +496,7 @@ fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
     let mut cwd = None;
     let mut id = String::new();
     let mut timestamp = String::new();
+    let mut created_ms = 0u64;
     let mut first_user_text = None;
 
     let mut reader = BufReader::new(file);
@@ -520,6 +531,7 @@ fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
                     .and_then(|t| t.as_str())
                     .unwrap_or("")
                     .to_string();
+                created_ms = rfc3339_to_millis(&timestamp).unwrap_or(modified_ms);
             }
             Some("message") if first_user_text.is_none() => {
                 first_user_text = extract_user_text(&entry);
@@ -546,8 +558,60 @@ fn parse_session_head(path: &PathBuf) -> Option<(String, SessionMeta)> {
             title: truncate_title(&title),
             timestamp,
             modified_ms,
+            created_ms,
         },
     ))
+}
+
+/// 把会话头里的 RFC3339 时间戳换成毫秒。
+///
+/// 只解析 pi 自己写的形状（`2026-11-22T11:04:34.658Z`）：年-月-日T时:分:秒.毫秒Z。
+/// 为这一个字段引入时间库不值得，格式不认识就返回 None，调用方退回文件时间。
+fn rfc3339_to_millis(text: &str) -> Option<u64> {
+    let bytes = text.as_bytes();
+    if bytes.len() < 20 || bytes[4] != b'-' || bytes[7] != b'-' || bytes[10] != b'T' {
+        return None;
+    }
+    let num = |range: std::ops::Range<usize>| -> Option<i64> {
+        text.get(range)?.parse::<i64>().ok()
+    };
+    let (year, month, day) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    let (hour, minute, second) = (num(11..13)?, num(14..16)?, num(17..19)?);
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+
+    // 毫秒段可有可无：小数点在第 19 位，其后最多三位（`.6` 与 `.658` 分别是 600/658）
+    let millis = if bytes.get(19) == Some(&b'.') {
+        let digits: String = text
+            .get(20..)
+            .unwrap_or("")
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .take(3)
+            .collect();
+        format!("{digits:0<3}").parse::<i64>().unwrap_or(0)
+    } else {
+        0
+    };
+
+    // 从 1970 起按天累计，避开时区与夏令时：会话头一律是 UTC
+    let mut days = 0i64;
+    for y in 1970..year {
+        days += if is_leap(y) { 366 } else { 365 };
+    }
+    const MONTH_DAYS: [i64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for (index, len) in MONTH_DAYS.iter().enumerate().take((month - 1) as usize) {
+        days += len + i64::from(index == 1 && is_leap(year));
+    }
+    days += day - 1;
+
+    let secs = days * 86_400 + hour * 3_600 + minute * 60 + second;
+    u64::try_from(secs * 1_000 + millis).ok()
+}
+
+fn is_leap(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 /// 从文件尾部倒着找最后一次 `session_info` 的命名。
@@ -619,7 +683,9 @@ fn truncate_title(title: &str) -> String {
 mod tests {
     use std::io::Cursor;
 
-    use super::{attach_completed_at, filter_lines_before, parse_snapshot, truncate_title};
+    use super::{
+        attach_completed_at, filter_lines_before, parse_snapshot, rfc3339_to_millis, truncate_title,
+    };
     use std::io::Write;
 
     /// 引导消息接在工具结果之后，父节点是 toolResult；正常提问接在 assistant 之后。
@@ -644,6 +710,20 @@ mod tests {
             .collect();
         // 第一条是常规提问，第二条才是引导
         assert_eq!(steered, vec![false, true]);
+    }
+
+    /// 会话头里的时间戳换成毫秒，用来按「创建先后」排侧栏
+    #[test]
+    fn converts_session_header_timestamp_to_millis() {
+        // 2026-11-22T11:04:34.658Z == 1795345474658ms（用 UTC，不受本地时区影响）
+        assert_eq!(rfc3339_to_millis("2026-11-22T11:04:34.658Z"), Some(1_795_345_474_658));
+        assert_eq!(rfc3339_to_millis("1970-01-01T00:00:00.000Z"), Some(0));
+        // 毫秒段缺失或不足三位都按补零处理，不能算成 0
+        assert_eq!(rfc3339_to_millis("1970-01-01T00:00:01Z"), Some(1_000));
+        assert_eq!(rfc3339_to_millis("1970-01-01T00:00:00.6Z"), Some(600));
+        // 认不出的形状退回 None，调用方会用文件时间兜底
+        assert_eq!(rfc3339_to_millis(""), None);
+        assert_eq!(rfc3339_to_millis("昨天"), None);
     }
 
     #[test]

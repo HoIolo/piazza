@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { moveItem } from '../projectOrder'
 import { PlusIcon } from '@/design/icons'
 import type { ProjectGroup } from '@/shared/api/sessions'
 import type { SessionStatus } from './SessionRow'
 import { ProjectNode } from './ProjectNode'
 import styles from './ProjectTree.module.css'
 import { shortcut } from '@/shared/utils/platform'
+import { useSidebarDrag } from './useSidebarDrag'
 
 export interface ProjectTreeProps {
   projects: ProjectGroup[]
@@ -15,6 +15,8 @@ export interface ProjectTreeProps {
   status: SessionStatus
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
   pinnedSessions: string[]
+  /** 每个项目内用户拖出来的会话顺序：cwd → 会话文件路径 */
+  sessionOrder: Record<string, string[]>
   onSelectProject: (cwd: string) => void
   onSelectSession: (cwd: string, sessionPath: string) => void
   onTogglePinSession: (sessionPath: string) => void
@@ -23,6 +25,8 @@ export interface ProjectTreeProps {
   onAddProject: () => void
   /** 拖拽结束后回报新的项目顺序（cwd 列表） */
   onReorder: (order: string[]) => void
+  /** 拖拽结束后回报某个项目内的会话顺序 */
+  onReorderSessions: (cwd: string, order: string[]) => void
 }
 
 /** 项目 → 会话两级列表。单个项目的展开/折叠由 ProjectNode 自己管 */
@@ -32,31 +36,18 @@ export function ProjectTree({
   status,
   backgroundStatuses,
   pinnedSessions,
+  sessionOrder,
   onSelectProject,
   onSelectSession,
   onTogglePinSession,
   onDeleteSession,
   onAddProject,
   onReorder,
+  onReorderSessions,
 }: ProjectTreeProps) {
   const [open, setOpen] = useState(true)
-  /** 正在拖的项目 cwd 与拖到它上面的目标 cwd */
-  const [drag, setDrag] = useState<{ from: string; over: string | null } | null>(null)
-
-  /*
-   * 拖完把 from 挪到 to 的位置并回报。
-   *
-   * 传的是整份 cwd 顺序而不是「谁插到谁前面」：只记最终顺序，
-   * 将来加了新项目也能算出它该落在哪，不必回放一串相对操作。
-   */
-  const drop = (to: string) => {
-    const from = drag?.from
-    setDrag(null)
-    if (!from || from === to) return
-    const cwds = projects.map((p) => p.cwd)
-    const next = moveItem(cwds, cwds.indexOf(from), cwds.indexOf(to))
-    if (next !== cwds) onReorder(next)
-  }
+  const { projectDrag, setProjectDrag, sessionDrag, setSessionDrag, dropProject, dropSession } =
+    useSidebarDrag({ onReorder, onReorderSessions })
 
   return (
     <div className={styles.tree}>
@@ -89,18 +80,41 @@ export function ProjectTree({
             key={project.cwd}
             project={project}
             draggable
-            dragging={drag?.from === project.cwd}
-            dropTarget={drag !== null && drag.over === project.cwd && drag.from !== project.cwd}
-            onDragStart={() => setDrag({ from: project.cwd, over: null })}
+            dragging={projectDrag?.from === project.cwd}
+            dropTarget={
+              projectDrag !== null &&
+              projectDrag.over === project.cwd &&
+              projectDrag.from !== project.cwd
+            }
+            onDragStart={() => setProjectDrag({ from: project.cwd, over: null })}
             onDragOver={() => {
-              if (drag && drag.over !== project.cwd) setDrag({ ...drag, over: project.cwd })
+              if (projectDrag && projectDrag.over !== project.cwd) {
+                setProjectDrag({ ...projectDrag, over: project.cwd })
+              }
             }}
-            onDragEnd={() => setDrag(null)}
-            onDrop={() => drop(project.cwd)}
+            onDragEnd={() => setProjectDrag(null)}
+            onDrop={() =>
+              dropProject(
+                projects.map((p) => p.cwd),
+                project.cwd,
+              )
+            }
             activeSessionPath={activeSessionPath}
             status={status}
             backgroundStatuses={backgroundStatuses}
             pinnedSessions={pinnedSessions}
+            sessionOrder={sessionOrder[project.cwd] ?? []}
+            sessionDrag={sessionDrag?.cwd === project.cwd ? sessionDrag : null}
+            onSessionDragStart={(path) =>
+              setSessionDrag({ cwd: project.cwd, from: path, over: null })
+            }
+            onSessionDragOver={(path) => {
+              if (sessionDrag?.cwd === project.cwd && sessionDrag.over !== path) {
+                setSessionDrag({ ...sessionDrag, over: path })
+              }
+            }}
+            onSessionDragEnd={() => setSessionDrag(null)}
+            onSessionDrop={(visiblePaths, path) => dropSession(project.cwd, visiblePaths, path)}
             onSelectProject={onSelectProject}
             onSelectSession={onSelectSession}
             onTogglePinSession={onTogglePinSession}

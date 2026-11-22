@@ -1,6 +1,7 @@
 import { CircleHelp, ShieldCheck } from 'lucide-react'
 import { PinIcon } from '@/design/icons'
 import { Spinner } from '@/design/primitives/Spinner'
+import type { dragHandlers } from './projectDrag'
 import type { SessionMeta } from '@/shared/api/sessions'
 import { SessionTitle } from './SessionTitle'
 import { SessionRowMenu } from './SessionRowMenu'
@@ -13,6 +14,12 @@ export interface SessionRowProps {
   active: boolean
   pinned: boolean
   status: SessionStatus
+  /** 正在被拖动 */
+  dragging?: boolean
+  /** 拖动经过它、松手会落在这里 */
+  dropTarget?: boolean
+  /** 拖动事件属性，由 ProjectRowParts 用 dragHandlers 生成 */
+  dragHandlers?: ReturnType<typeof dragHandlers>
   onSelect: () => void
   onTogglePin: () => void
   onDelete: () => void
@@ -44,7 +51,17 @@ function Trailing({ status }: SessionRowProps) {
 
 /** 会话行尾仅显示状态；悬停或键盘聚焦时显示操作，保持标题静止。 */
 export function SessionRow(props: SessionRowProps) {
-  const { session, active, pinned, onSelect, onTogglePin, onDelete } = props
+  const {
+    session,
+    active,
+    pinned,
+    dragging,
+    dropTarget,
+    dragHandlers,
+    onSelect,
+    onTogglePin,
+    onDelete,
+  } = props
 
   return (
     <div
@@ -53,6 +70,9 @@ export function SessionRow(props: SessionRowProps) {
       tabIndex={0}
       data-session-path={session.path}
       data-active={active}
+      data-dragging={dragging}
+      data-drop-target={dropTarget}
+      {...dragHandlers}
       aria-current={active ? 'true' : undefined}
       onClick={onSelect}
       onKeyDown={(e) => {

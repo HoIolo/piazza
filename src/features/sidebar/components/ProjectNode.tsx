@@ -4,6 +4,7 @@ import { FolderIcon, FolderOpenIcon } from '@/design/icons'
 import type { ProjectGroup } from '@/shared/api/sessions'
 import { dragHandlers } from './projectDrag'
 import { ProjectRowActions, SessionList } from './ProjectRowParts'
+import { applySessionOrder } from '../projectOrder'
 import type { SessionStatus } from './SessionRow'
 import styles from './ProjectTree.module.css'
 
@@ -27,6 +28,14 @@ export interface ProjectNodeProps {
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
   /** 置顶的会话路径 */
   pinnedSessions: string[]
+  /** 这个项目内用户拖出来的会话顺序 */
+  sessionOrder: string[]
+  /** 项目内正在拖的会话（只在拖的是本项目时才非空） */
+  sessionDrag: { from: string; over: string | null } | null
+  onSessionDragStart: (path: string) => void
+  onSessionDragOver: (path: string) => void
+  onSessionDragEnd: () => void
+  onSessionDrop: (visiblePaths: string[], to: string) => void
   onSelectProject: (cwd: string) => void
   onSelectSession: (cwd: string, sessionPath: string) => void
   onTogglePinSession: (sessionPath: string) => void
@@ -46,6 +55,12 @@ export function ProjectNode({
   status,
   backgroundStatuses,
   pinnedSessions,
+  sessionOrder,
+  sessionDrag,
+  onSessionDragStart,
+  onSessionDragOver,
+  onSessionDragEnd,
+  onSessionDrop,
   onSelectProject,
   onSelectSession,
   onTogglePinSession,
@@ -60,8 +75,13 @@ export function ProjectNode({
     setVisibleCount(PAGE_SIZE)
   }
 
-  // 置顶的提前，其余保持后端按最近修改排好的顺序（sort 是稳定的）
-  const ordered = [...project.sessions].sort(
+  /*
+   * 顺序：先按用户拖出来的（没拖过则按创建时间倒序），再把置顶的整组提前。
+   *
+   * 置顶放在最后一步而不是塞进排序回调：它是显式操作，只决定「谁在最前」，
+   * 置顶区内部仍沿用拖出来的相对顺序，拖一次不会因为置顶而失效。
+   */
+  const ordered = applySessionOrder(project.sessions, sessionOrder, (s) => s.createdMs).sort(
     (a, b) => Number(pinnedSessions.includes(b.path)) - Number(pinnedSessions.includes(a.path)),
   )
   const sessions = ordered.slice(0, visibleCount)
@@ -72,6 +92,7 @@ export function ProjectNode({
     <div className={styles.project} data-open={open}>
       <div
         className={styles.projectRow}
+        data-project-cwd={project.cwd}
         data-open={open}
         data-dragging={dragging}
         data-drop-target={dropTarget}
@@ -110,6 +131,11 @@ export function ProjectNode({
           status={status}
           backgroundStatuses={backgroundStatuses}
           pinnedSessions={pinnedSessions}
+          sessionDrag={sessionDrag}
+          onSessionDragStart={onSessionDragStart}
+          onSessionDragOver={onSessionDragOver}
+          onSessionDragEnd={onSessionDragEnd}
+          onSessionDrop={onSessionDrop}
           onSelectSession={onSelectSession}
           onTogglePinSession={onTogglePinSession}
           onDeleteSession={onDeleteSession}

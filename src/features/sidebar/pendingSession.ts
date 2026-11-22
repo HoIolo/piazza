@@ -80,6 +80,8 @@ export function withPendingSession(
     title: pending.title,
     timestamp: '',
     modifiedMs: pending.startedMs,
+    // 还没落盘，创建时间就用发出第一句的时刻——正是它「出现」的时间
+    createdMs: pending.startedMs,
   }
 
   // 这个目录下还一条会话都没有，连项目分组也得现造
