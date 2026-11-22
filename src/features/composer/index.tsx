@@ -10,6 +10,7 @@ import { ComposerInput } from './components/ComposerInput'
 import { useSlashMenu } from './hooks/useSlashMenu'
 import { useAttachments } from './hooks/useAttachments'
 import { useComposerSubmit } from './hooks/useComposerSubmit'
+import { usePrimaryAction } from './hooks/usePrimaryAction'
 import { AttachmentTray } from './components/AttachmentTray'
 import { TaskChecklist } from './components/TaskChecklist'
 import { QueuedMessages } from './components/QueuedMessages'
@@ -50,9 +51,6 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const panel = useMentionPanel({ draft, setDraft, textareaRef, rootRef })
   const groups = useMentionItems(cwd, panel.query)
   const ime = useImeGuard()
-  const sendingBlocked = useChatStore(
-    (s) => !s.rpcReady || s.isCompacting || s.pendingDialog !== null,
-  )
   const slash = useSlashMenu(draft, !panel.open, groups.commands, rootRef, setDraft)
   const stopArmed = useChatStore((s) => s.stopArmed)
 
@@ -62,6 +60,14 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const { submit } = useComposerSubmit(panel.close)
   const hasText = draft.trim().length > 0 || attachments.files.length > 0
   const action = primaryAction(isStreaming, hasText, paused)
+  const primary = usePrimaryAction({
+    action,
+    hasText,
+    reading: attachments.reading,
+    submit,
+    abort,
+    resume,
+  })
 
   const restoreText = (file: DraftAttachment) => {
     if (file.text === undefined) return
@@ -142,23 +148,16 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
         />
         <ComposerToolbar
           action={action}
-          disabled={primaryDisabled(action, hasText, sendingBlocked || attachments.reading)}
+          disabled={primary.disabled}
+          pending={primary.pending}
           stopArmed={stopArmed && isStreaming}
-          onPrimary={() => {
-            if (action === 'stop') void abort()
-            else if (action === 'resume') void resume()
-            else void submit()
-          }}
+          onPrimary={primary.run}
           attachOpen={panel.attachOpen}
           onToggleAttach={panel.toggleAttach}
         />
       </div>
     </div>
   )
-}
-
-function primaryDisabled(action: PrimaryAction, hasText: boolean, sendingBlocked: boolean) {
-  return action !== 'stop' && (sendingBlocked || (action !== 'resume' && !hasText))
 }
 
 function isSubmitKey(event: KeyboardEvent<HTMLTextAreaElement>) {

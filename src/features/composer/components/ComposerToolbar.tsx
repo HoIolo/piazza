@@ -1,3 +1,4 @@
+import { Spinner } from '@/design/primitives/Spinner'
 import { AttachButton } from './AttachMenu'
 import { ContextUsageRing } from './ContextUsageRing'
 import { ModelPicker } from '@/shared/components/ModelPicker'
@@ -17,6 +18,8 @@ export type PrimaryAction = 'send' | 'steer' | 'stop' | 'resume'
 export interface ComposerToolbarProps {
   action: PrimaryAction
   disabled: boolean
+  /** 「继续」已点下、或在等 pi 就绪：图标换成转圈 */
+  pending: boolean
   /** 已按过一次 Esc，再按一次才停 */
   stopArmed: boolean
   onPrimary: () => void
@@ -63,8 +66,17 @@ function ResumeIcon() {
   )
 }
 
-function PrimaryIcon({ action, stopArmed }: { action: PrimaryAction; stopArmed: boolean }) {
-  if (action === 'resume') return <ResumeIcon />
+function PrimaryIcon({
+  action,
+  stopArmed,
+  pending,
+}: {
+  action: PrimaryAction
+  stopArmed: boolean
+  pending: boolean
+}) {
+  if (action === 'resume')
+    return pending ? <Spinner size={14} ariaLabel="会话正在启动" /> : <ResumeIcon />
   if (action !== 'stop') return <ArrowUpIcon />
   return stopArmed ? <span className={styles.escHint}>Esc</span> : <StopIcon />
 }
@@ -73,6 +85,7 @@ function PrimaryIcon({ action, stopArmed }: { action: PrimaryAction; stopArmed: 
 export function ComposerToolbar({
   action,
   disabled,
+  pending,
   stopArmed,
   onPrimary,
   attachOpen,
@@ -93,9 +106,9 @@ export function ComposerToolbar({
           disabled={disabled}
           onClick={onPrimary}
           aria-label={labelFor(action)}
-          title={labelFor(action)}
+          title={pending ? '会话正在启动，点击后会自动继续' : labelFor(action)}
         >
-          <PrimaryIcon action={action} stopArmed={stopArmed} />
+          <PrimaryIcon action={action} stopArmed={stopArmed} pending={pending} />
         </button>
       </div>
     </div>
