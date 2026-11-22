@@ -10,7 +10,7 @@ import styles from './WindowControls.module.css'
  * 整个让给了网页，这三个键得自己画。macOS 不用它——那边是系统红绿灯，
  * 由 trafficLightPosition 摆位置。
  */
-export function WindowControls() {
+function Controls() {
   const appWindow = getCurrentWindow()
   const [maximized, setMaximized] = useState(false)
 
@@ -60,4 +60,14 @@ export function WindowControls() {
       </button>
     </div>
   )
+}
+
+/**
+ * 只在 Tauri 里挂载。浏览器（给样式调试用的 vite preview）里没有
+ * `__TAURI_INTERNALS__`，取窗口对象会抛错——那一下会把整棵 React 树卸掉，
+ * 表现成整页空白，比少三个按钮严重得多。
+ */
+export function WindowControls() {
+  if (!('__TAURI_INTERNALS__' in window)) return null
+  return <Controls />
 }

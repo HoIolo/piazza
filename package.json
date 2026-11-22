@@ -11,7 +11,9 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "dev:app": "tauri dev --runner scripts/run-dev.sh",
+    "build:mac": "sh scripts/build-mac.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

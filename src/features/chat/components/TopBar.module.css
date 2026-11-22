@@ -4,8 +4,8 @@
   gap: var(--sp-3);
   flex: none;
   height: var(--titlebar-h);
-  padding: 0 calc(var(--sp-2) + var(--chat-toolbar-reserve, 0px) + var(--window-controls-w)) 0
-    var(--sp-4);
+  /* --chat-toolbar-reserve 在 Windows 上已经包含窗口按钮的宽度，别再叠加一次 */
+  padding: 0 calc(var(--sp-2) + var(--chat-toolbar-reserve, 0px)) 0 var(--sp-4);
   transition: padding-left var(--dur-slow) var(--ease);
 }
 
