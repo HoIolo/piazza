@@ -16,10 +16,11 @@ pub struct ExternalApp {
     pub icon: Option<String>,
 }
 
-/// 候选应用：(展示名, .app 路径)。
+/// 候选应用：(展示名, 可执行文件路径)。
 ///
-/// 只做存在性检查而不去查 LaunchServices——后者要引 objc 绑定，
-/// 而这里只需要知道「装没装」，路径在 macOS 上足够稳定。
+/// 只做存在性检查而不去查系统注册表/LaunchServices——后者要引平台绑定，
+/// 而这里只需要知道「装没装」，这些路径在各平台上足够稳定。
+#[cfg(target_os = "macos")]
 const CANDIDATES: [(&str, &str); 8] = [
     ("VS Code", "/Applications/Visual Studio Code.app"),
     ("Cursor", "/Applications/Cursor.app"),
@@ -31,25 +32,62 @@ const CANDIDATES: [(&str, &str); 8] = [
     ("Terminal", "/System/Applications/Utilities/Terminal.app"),
 ];
 
-/// 列出本机已安装的可用应用。访达始终可用，排在最前。
+/// Windows 上编辑器的安装位置分散在 Program Files 与 LOCALAPPDATA 下，
+/// 这里只列最主流的几个；注册表里那些就不扫了，够用即可。
+#[cfg(target_os = "windows")]
+const CANDIDATES: [(&str, &str); 5] = [
+    (
+        "VS Code",
+        r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe",
+    ),
+    ("Cursor", r"%LOCALAPPDATA%\Programs\cursor\Cursor.exe"),
+    (
+        "Sublime Text",
+        r"%PROGRAMFILES%\Sublime Text\sublime_text.exe",
+    ),
+    ("Zed", r"%LOCALAPPDATA%\Programs\Zed\Zed.exe"),
+    (
+        "Windows Terminal",
+        r"%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe",
+    ),
+];
+
+/// 把候选里的 %VAR% 展开成真实路径；macOS 上原样返回
+fn expand(path: &str) -> String {
+    if !cfg!(windows) {
+        return path.to_string();
+    }
+    let mut out = path.to_string();
+    for (name, value) in std::env::vars() {
+        // 环境变量名本身就是大写，替换时按 %NAME% 精确匹配即可
+        out = out.replace(&format!("%{name}%"), &value);
+    }
+    out
+}
+
+/// 列出本机已安装的可用应用。系统文件管理器始终可用，排在最前。
 pub fn list_apps() -> Vec<ExternalApp> {
-    const FINDER: &str = "/System/Library/CoreServices/Finder.app";
+    #[cfg(target_os = "macos")]
+    let (explorer_name, explorer_icon) = ("访达", icon_data_uri("/System/Library/CoreServices/Finder.app"));
+    #[cfg(target_os = "windows")]
+    let (explorer_name, explorer_icon) = ("资源管理器", None);
 
     let mut apps = vec![ExternalApp {
-        name: "访达".into(),
-        // 留空表示交给系统默认处理，但图标仍取访达本体的
+        name: explorer_name.into(),
+        // 留空表示交给系统默认处理
         path: String::new(),
-        icon: icon_data_uri(FINDER),
+        icon: explorer_icon,
     }];
 
     apps.extend(
         CANDIDATES
             .iter()
+            .map(|(name, path)| ((*name).to_string(), expand(path)))
             .filter(|(_, path)| Path::new(path).exists())
             .map(|(name, path)| ExternalApp {
-                name: (*name).to_string(),
-                path: (*path).to_string(),
-                icon: icon_data_uri(path),
+                name,
+                icon: icon_data_uri(&path),
+                path,
             }),
     );
 
@@ -57,6 +95,7 @@ pub fn list_apps() -> Vec<ExternalApp> {
 }
 
 /// 从 .app 里读出 CFBundleIconFile 指向的 icns 路径
+#[cfg(target_os = "macos")]
 fn icns_path(app_path: &str) -> Option<PathBuf> {
     let plist = Path::new(app_path).join("Contents/Info.plist");
     let output = Command::new("/usr/bin/plutil")
@@ -85,6 +124,7 @@ fn icns_path(app_path: &str) -> Option<PathBuf> {
 ///
 /// 用 sips 而不是引图形库：只是为了把 icns 缩成一张小图，
 /// 为此拉一个解码库进来不划算。取不到就返回 None，前端自有占位。
+#[cfg(target_os = "macos")]
 fn icon_data_uri(app_path: &str) -> Option<String> {
     let icns = icns_path(app_path)?;
     let tmp = std::env::temp_dir().join(format!(
@@ -113,7 +153,17 @@ fn icon_data_uri(app_path: &str) -> Option<String> {
     ))
 }
 
-/// 用指定应用打开路径。`app_path` 为空时交给系统默认处理（即访达）。
+/// Windows 没有 open -a，也没有统一的 .app 概念：直接执行 exe，
+/// 空路径就交给 explorer。
+#[cfg(target_os = "windows")]
+fn icon_data_uri(_app_path: &str) -> Option<String> {
+    // 从 exe 里抠图标要调 Win32 的 ExtractIconEx，为一行占位图标不值当；
+    // 前端已有兜底图标，这里直接返回 None
+    None
+}
+
+/// 用指定应用打开路径。`app_path` 为空时交给系统默认处理（访达 / 资源管理器）。
+#[cfg(target_os = "macos")]
 pub fn open_with(app_path: &str, target: &str) -> Result<(), String> {
     let mut cmd = Command::new("/usr/bin/open");
     if !app_path.is_empty() {
@@ -122,6 +172,25 @@ pub fn open_with(app_path: &str, target: &str) -> Result<(), String> {
     cmd.arg(target);
 
     let output = cmd.output().map_err(|e| format!("调用 open 失败：{e}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+}
+
+#[cfg(target_os = "windows")]
+pub fn open_with(app_path: &str, target: &str) -> Result<(), String> {
+    let mut cmd = if app_path.is_empty() {
+        // explorer 对参数里的 / 不买账，目录统一换成反斜杠
+        let mut c = Command::new("explorer");
+        c.arg(target.replace('/', "\\"));
+        c
+    } else {
+        let mut c = Command::new(app_path);
+        c.arg(target);
+        c
+    };
+    let output = cmd.output().map_err(|e| format!("调用应用失败：{e}"))?;
     if output.status.success() {
         return Ok(());
     }

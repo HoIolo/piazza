@@ -43,15 +43,37 @@ pub struct TerminalState {
 /// 用户的登录 shell。取 $SHELL 是因为要的是「他平时那个 shell」，
 /// 而不是某个写死的默认值。
 fn user_shell() -> String {
+    if cfg!(windows) {
+        // Windows 没有「登录 shell」这一说：有 PowerShell 就用它，否则退回 COMSPEC
+        let ps = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe";
+        if std::path::Path::new(ps).exists() {
+            return ps.to_string();
+        }
+        return std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+    }
     std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+}
+
+/// shell 的启动参数。POSIX 下要 `-l`，用户的 profile 才会加载——
+/// 提示符里的 git 分支、别名都靠它。Windows 上 PowerShell 用 `-NoLogo` 去掉横幅，
+/// cmd.exe 不接受任何参数。
+fn shell_args(shell: &str) -> &'static [&'static str] {
+    if cfg!(windows) {
+        let lower = shell.to_ascii_lowercase();
+        if lower.ends_with("powershell.exe") || lower.ends_with("pwsh.exe") {
+            return &["-NoLogo"];
+        }
+        return &[];
+    }
+    &["-l"]
 }
 
 /// 组装启动 shell 的命令。抽出来是为了让测试用与运行时完全相同的配置。
 fn build_command(shell: &str, cwd: Option<String>) -> CommandBuilder {
     let mut cmd = CommandBuilder::new(shell);
-    // 以登录 shell 启动，用户的 profile 才会加载——
-    // 提示符里的 git 分支、别名这些都靠它，否则终端会「不像自己的」
-    cmd.arg("-l");
+    for arg in shell_args(shell) {
+        cmd.arg(arg);
+    }
     if let Some(dir) = cwd.filter(|d| std::path::Path::new(d).is_dir()) {
         cmd.cwd(dir);
     }
