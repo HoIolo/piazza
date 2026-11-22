@@ -6,9 +6,15 @@
   padding: 0 var(--sp-2);
 }
 
-/* Windows/Linux：左上角放品牌名；macOS 那边是交通灯，不渲染 */
+/*
+ * Windows/Linux：左上角放品牌名；macOS 那边是交通灯，不渲染。
+ *
+ * 左边缘要和下方「新对话」「扩展包」及项目名的文字左对齐：
+ * 头部内边距与项目树一致都是 --sp-2，再让出 --sidebar-label-inset 的图标列，
+ * 字标才落在 40px 的文字列上，而不是压在图标的左侧。
+ */
 .wordmark {
-  padding-left: 4px;
+  padding-left: var(--sidebar-label-inset);
   font-size: var(--fs-nav);
   font-weight: var(--fw-medium);
   letter-spacing: 0.01em;

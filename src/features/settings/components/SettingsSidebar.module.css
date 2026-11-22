@@ -8,12 +8,16 @@
   overflow-y: auto;
 }
 
+/*
+ * 字标与下方「返回应用」的文字左对齐：侧栏自身内边距 --sp-2 加上
+ * --sidebar-label-inset，正好落在那一行文字的 40px 起点上。
+ */
 .dragZone {
   display: flex;
   align-items: center;
   height: var(--titlebar-h);
   flex: none;
-  padding: 0 calc(var(--sp-2) + 4px);
+  padding: 0 var(--sp-2) 0 var(--sidebar-label-inset);
 }
 
 .wordmark {
