@@ -30,9 +30,16 @@ Piazza 的安装包内置 Pi SDK 和 Node.js，装完即可启动，无需另装
 
 ```bash
 npm install
-npm run tauri dev      # 启动开发模式
-npm run tauri build    # 打包当前平台
+npm run dev:app        # 启动开发模式（macOS 上会自动签名，见下）
+npm run build:mac      # macOS：universal dmg + 更新包
+npm run tauri build    # 其他平台 / 不需要签名的构建
 ```
+
+**签名**：macOS 上 ad-hoc 签名会让 TCC 把每次构建当成新 app，
+于是「允许访问桌面文件夹」会反复弹。`dev:app` 与 `build:mac` 会自动从钥匙串
+挑一个可用证书（Developer ID Application 优先，其次 Apple Development）签名，
+授权一次即长期有效。CI 上的发布包目前是 ad-hoc 签名——要消除更新后的重新授权，
+需要把证书导出成 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` Secret。
 
 首次构建会下载并校验固定版本的 Node.js，再按锁文件安装 Pi SDK。这段准备逻辑在
 `scripts/prepare-pi-runtime.mjs`（跨平台：macOS 用 tar.xz，Windows 用 zip；universal 构建会用 lipo
