@@ -6,18 +6,40 @@ use std::process::Command;
 /// 与 pi 一样不能依赖 PATH——GUI 应用不继承 shell 环境。好在 git 的位置
 /// 比 node 稳定得多：macOS 自带的 /usr/bin/git 由 Xcode CLT 提供，
 /// 空环境下也能直接执行，homebrew 版本作为补充。
+#[cfg(not(windows))]
 const GIT_CANDIDATES: [&str; 3] = ["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"];
 
+#[cfg(not(windows))]
 fn git_bin() -> Option<&'static str> {
-    GIT_CANDIDATES
+    GIT_CANDIDATES.into_iter().find(|p| Path::new(p).is_file())
+}
+
+/// Windows 上 git 来自 Git for Windows，装在 Program Files 或经 winget/scoop 进 PATH。
+/// 裸名字交给 CreateProcess 自己按 PATH 找，所以最后一个是 `git`。
+#[cfg(windows)]
+fn git_bin() -> Option<&'static str> {
+    const CANDIDATES: [&str; 3] = [
+        r"C:\Program Files\Git\cmd\git.exe",
+        r"C:\Program Files (x86)\Git\cmd\git.exe",
+        "git",
+    ];
+    CANDIDATES
         .into_iter()
-        .find(|p| Path::new(p).is_file())
+        .find(|p| !p.contains('\\') || Path::new(p).is_file())
+}
+
+/// 所有 git 调用都从这里出去：Windows 上必须带 CREATE_NO_WINDOW，
+/// 否则每读一次分支状态都会闪一个黑框
+fn git_command(git: &str) -> Command {
+    let mut command = Command::new(git);
+    crate::win_console::hide_console_std(&mut command);
+    command
 }
 
 /// 列出本地分支名，当前分支排在最前。
 pub fn list_branches(cwd: &str) -> Result<Vec<String>, String> {
     let git = git_bin().ok_or("未找到 git 可执行文件")?;
-    let output = Command::new(git)
+    let output = git_command(git)
         .args(["branch", "--format=%(refname:short)"])
         .current_dir(cwd)
         .output()
@@ -56,7 +78,7 @@ pub fn checkout_branch(cwd: &str, branch: &str, create: bool) -> Result<(), Stri
     }
     args.push(branch);
 
-    let output = Command::new(git)
+    let output = git_command(git)
         .args(&args)
         .current_dir(cwd)
         .output()
@@ -71,7 +93,7 @@ pub fn checkout_branch(cwd: &str, branch: &str, create: bool) -> Result<(), Stri
 /// 工作区改动统计，用于右侧面板的「变更」一行。
 pub fn diff_stat(cwd: &str) -> Option<(u32, u32)> {
     let git = git_bin()?;
-    let output = Command::new(git)
+    let output = git_command(git)
         .args(["diff", "--numstat", "HEAD"])
         .current_dir(cwd)
         .output()
@@ -103,7 +125,7 @@ pub fn diff(cwd: &str, path: Option<&str>) -> Result<String, String> {
     const MAX_BYTES: usize = 2 * 1024 * 1024;
 
     let git = git_bin().ok_or_else(|| "未找到 git".to_string())?;
-    let mut command = Command::new(git);
+    let mut command = git_command(git);
     command.args(["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "HEAD"]);
     if let Some(path) = path {
         command.args(["--", path]);
@@ -114,13 +136,13 @@ pub fn diff(cwd: &str, path: Option<&str>) -> Result<String, String> {
     }
 
     if let Some(path) = path.filter(|_| output.stdout.is_empty()) {
-        let untracked = Command::new(git)
+        let untracked = git_command(git)
             .args(["--literal-pathspecs", "ls-files", "--others", "--exclude-standard", "--", path])
             .current_dir(cwd)
             .output()
             .map_err(|e| format!("执行 git 失败：{e}"))?;
         if untracked.status.success() && !untracked.stdout.is_empty() && Path::new(cwd).join(path).is_file() {
-            output = Command::new(git)
+            output = git_command(git)
                 .args(["diff", "--no-index", "--no-color", "--no-ext-diff", "--", "/dev/null", path])
                 .current_dir(cwd)
                 .output()
@@ -160,7 +182,7 @@ pub struct Worktree {
 /// `worktree <path>` / `HEAD <sha>` / `branch refs/heads/<name>`。
 pub fn list_worktrees(cwd: &str) -> Result<Vec<Worktree>, String> {
     let git = git_bin().ok_or("未找到 git 可执行文件")?;
-    let output = Command::new(git)
+    let output = git_command(git)
         .args(["worktree", "list", "--porcelain"])
         .current_dir(cwd)
         .output()
@@ -218,7 +240,7 @@ pub fn add_worktree(cwd: &str, branch: &str) -> Result<String, String> {
     }
 
     let target_str = target.to_string_lossy().into_owned();
-    let output = Command::new(git)
+    let output = git_command(git)
         .args(["worktree", "add", "-b", branch, &target_str])
         .current_dir(cwd)
         .output()

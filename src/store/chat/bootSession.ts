@@ -1,5 +1,6 @@
 import { rpcClient, type ExitInfo } from '@/rpc/client'
-import type { MessagesData, SessionState } from '@/rpc/types'
+import type { AvailableModels, MessagesData, SessionState } from '@/rpc/types'
+import { isPlaceholderModel } from './modelFallback'
 import type { ChatError } from './types'
 
 interface SwitchResult {
@@ -125,12 +126,35 @@ export async function bootSession({
   await startup
   if (!current()) return null
 
-  const [state, messagesData] = await Promise.all([
+  const [rawState, messagesData] = await Promise.all([
     rpcClient.send<SessionState>({ type: 'get_state' }, slotId),
     sessionPath
       ? rpcClient.send<MessagesData>({ type: 'get_messages' }, slotId)
       : Promise.resolve<MessagesData | null>(null),
   ])
   if (!current()) return null
+  const state = await adoptModelIfMissing(rawState, slotId)
+  if (!current()) return null
   return { state, messages: messagesData ? (messagesData.messages ?? []) : null }
+}
+
+/**
+ * 没配到模型时 pi 报的是 unknown 占位，不是 null。这时主动挑一个可用模型设上——
+ * 用户刚加完模型回到会话，输入框底下不该还空着等他再去点一次。
+ */
+async function adoptModelIfMissing(state: SessionState, slotId: string): Promise<SessionState> {
+  if (!isPlaceholderModel(state.model)) return state
+  try {
+    const { models = [] } = await rpcClient.send<AvailableModels>(
+      { type: 'get_available_models' },
+      slotId,
+    )
+    const pick = models[0]
+    if (!pick) return state
+    await rpcClient.send({ type: 'set_model', provider: pick.provider, modelId: pick.id }, slotId)
+    return await rpcClient.send<SessionState>({ type: 'get_state' }, slotId)
+  } catch {
+    // 兜底失败就保持原样，界面会显示「未选择模型」，用户还能自己点
+    return state
+  }
 }

@@ -11,6 +11,7 @@ mod import;
 mod rpc;
 mod sessions;
 mod terminal;
+mod win_console;
 
 use commands::AppState;
 

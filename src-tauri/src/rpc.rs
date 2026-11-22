@@ -211,6 +211,8 @@ impl RpcState {
         let agent_dir = crate::data_dir::agent_dir()?;
         let cwd = spawn_cwd(&opts.cwd)?;
         let mut command = Command::new(node);
+        // Windows 上不给这个标志，切会话时就会弹出一个黑框窗口
+        crate::win_console::hide_console_tokio(&mut command);
         command
             .arg(worker)
             .args(&extra)

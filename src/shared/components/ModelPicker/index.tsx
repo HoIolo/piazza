@@ -10,9 +10,16 @@ import { useModelOptions } from './useModelOptions'
 import { ModelControls } from './ModelControls'
 import styles from './ModelPicker.module.css'
 
-/** 模型显示名。没配 name 的自定义模型退回 id */
+/**
+ * 模型显示名。没配 name 的自定义模型退回 id；
+ * pi 在没解析出模型时给的是全 unknown 的占位对象，要当成「未选择」。
+ */
 function modelLabel(model: Model | null | undefined): string {
-  return model?.name ?? model?.id ?? '未选择模型'
+  const name = model?.name?.trim()
+  if (name) return name
+  const id = model?.id?.trim()
+  if (id && id !== 'unknown') return id
+  return '未选择模型'
 }
 
 /** 模型列表。选中对勾在右，provider 作副文案——同名模型靠它区分来源 */
