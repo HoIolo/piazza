@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { readAppSettings, writeAppSettings } from '@/shared/api/config'
+import { useAppStore } from '@/store/app.store'
 
 export type TrustLevel = 'ask' | 'always' | 'never'
 
@@ -45,15 +46,30 @@ export function useProjectTrust() {
     }
   }, [])
 
-  const change = useCallback((next: TrustLevel) => {
-    setLevel(next)
-    setSaving(true)
-    // 读回最新再写，避免覆盖设置窗口里同时做的其它修改
-    readAppSettings()
-      .then((settings) => writeAppSettings({ ...settings, defaultProjectTrust: next }))
-      .catch(() => undefined)
-      .finally(() => setSaving(false))
-  }, [])
+  const change = useCallback(
+    (next: TrustLevel) => {
+      const previous = level
+      setLevel(next)
+      setSaving(true)
+      // 读回最新再写，避免覆盖设置窗口里同时做的其它修改
+      readAppSettings()
+        .then((settings) => writeAppSettings({ ...settings, defaultProjectTrust: next }))
+        .then(() => {
+          /*
+           * 必须重启 pi 才生效。
+           *
+           * 档位是 pi 启动时读的，进程活着就不会再读 settings.json——实证过：
+           * 改成 always 再切会话，项目扩展依旧不加载。所以这里主动重连一次，
+           * 让新进程带着新档位起来。切档位本来就意味着「换一套加载策略」，
+           * 重启一次是可以接受的代价；不重启则设置形同虚设。
+           */
+          if (next !== previous) useAppStore.getState().reconnectSession()
+        })
+        .catch(() => undefined)
+        .finally(() => setSaving(false))
+    },
+    [level],
+  )
 
   return { level, change, saving }
 }

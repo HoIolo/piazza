@@ -206,6 +206,17 @@ impl RpcState {
         if opts.ephemeral.unwrap_or(false) {
             extra.push("--no-session".into());
         }
+        /*
+         * 把当前的信任档位显式传下去。
+         *
+         * pi 只在启动时读一次 settings.json，用户中途在界面上改档位，已经在跑的
+         * 进程不会重读——实证过：改成 always 再切会话，项目扩展依旧不加载。
+         * 启动新进程时把最新档位带上，比指望它自己重读可靠。
+         */
+        if let Some(level) = crate::config::project_trust_level() {
+            extra.push("--project-trust".into());
+            extra.push(level);
+        }
 
         /*
          * 把 pi 的 agent 目录指到应用自己的位置：凭据、设置、技能、扩展与会话

@@ -41,6 +41,21 @@ pub fn write_json(path: &PathBuf, value: &serde_json::Value) -> Result<(), Strin
     std::fs::rename(&tmp, path).map_err(|e| format!("提交配置失败：{e}"))
 }
 
+/// 读 settings.json 里的项目信任档位。
+///
+/// 只认 pi 支持的三个值，其余（没设、写错）一律当作没指定，让 pi 用它自己的
+/// 默认值。返回 Option 而不是默认值，是为了让「用户没表态」与「用户选了 ask」
+/// 在调用处能区分开。
+pub fn project_trust_level() -> Option<String> {
+    level_of(&read_json(&settings_path().ok()?).ok()?)
+}
+
+/// 从设置对象里取出档位。抽成纯函数，测试不必碰真实文件系统。
+fn level_of(settings: &serde_json::Value) -> Option<String> {
+    let value = settings.get("defaultProjectTrust")?.as_str()?;
+    matches!(value, "ask" | "always" | "never").then(|| value.to_string())
+}
+
 /// 合并顶层键，保留原文件中我们不认识的字段。
 ///
 /// GUI 只理解 models.json / settings.json 的一部分结构，用户手写的其他
@@ -63,8 +78,24 @@ pub fn merge_top_level(
 
 #[cfg(test)]
 mod tests {
-    use super::{merge_top_level, read_json, write_json};
+    use super::{level_of, merge_top_level, read_json, write_json};
     use serde_json::json;
+
+    /// 信任档位只认 pi 支持的三值；写错或没写都当作没指定，让 pi 用自己的默认
+    #[test]
+    fn reads_project_trust_only_for_known_levels() {
+        let cases = [
+            (json!({ "defaultProjectTrust": "always" }), Some("always")),
+            (json!({ "defaultProjectTrust": "never" }), Some("never")),
+            (json!({ "defaultProjectTrust": "ask" }), Some("ask")),
+            (json!({ "defaultProjectTrust": "whatever" }), None),
+            (json!({ "defaultProjectTrust": 1 }), None),
+            (json!({}), None),
+        ];
+        for (settings, expected) in cases {
+            assert_eq!(level_of(&settings), expected.map(str::to_string));
+        }
+    }
 
     #[test]
     fn keeps_unknown_top_level_keys() {
