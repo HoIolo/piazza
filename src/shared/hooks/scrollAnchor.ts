@@ -13,29 +13,43 @@ const SLACK = 1
 export interface Anchor {
   /** 视口顶部第一条可见轮次的 data-scroll-key */
   key: string | null
+  /** 直接缓存对应节点，节点未卸载时 O(1) 定位，避免每次遍历全部子节点 */
+  node: HTMLElement | null
   /** 该轮次顶部相对视口顶部的偏移 */
   offset: number
 }
 
-export const EMPTY_ANCHOR: Anchor = { key: null, offset: 0 }
+export const EMPTY_ANCHOR: Anchor = { key: null, node: null, offset: 0 }
 
-function rowsOf(content: Element): HTMLElement[] {
-  return Array.from(content.children) as HTMLElement[]
+function findByKey(content: Element, key: string): HTMLElement | null {
+  const { children } = content
+  for (let i = 0; i < children.length; i += 1) {
+    const child = children[i] as HTMLElement
+    if (child.dataset.scrollKey === key) return child
+  }
+  return null
 }
 
 /** 记录当前视口顶部那一条 */
 export function captureAnchor(scroller: HTMLElement, content: Element): Anchor {
   const top = scroller.getBoundingClientRect().top
-  const row = rowsOf(content).find((el) => el.getBoundingClientRect().bottom > top)
-  if (!row) return EMPTY_ANCHOR
-  return { key: row.dataset.scrollKey ?? null, offset: row.getBoundingClientRect().top - top }
+  const { children } = content
+  for (let i = 0; i < children.length; i += 1) {
+    const row = children[i] as HTMLElement
+    const rect = row.getBoundingClientRect()
+    if (rect.bottom > top) {
+      return { key: row.dataset.scrollKey ?? null, node: row, offset: rect.top - top }
+    }
+  }
+  return EMPTY_ANCHOR
 }
 
 /** 按锚点把位移补回去；锚点那一条已不存在时什么也不做 */
 export function restoreAnchor(scroller: HTMLElement, content: Element, anchor: Anchor): void {
   if (anchor.key === null) return
-  const row = rowsOf(content).find((el) => el.dataset.scrollKey === anchor.key)
+  const row = anchor.node?.isConnected ? anchor.node : findByKey(content, anchor.key)
   if (!row) return
+  anchor.node = row
   const delta =
     row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - anchor.offset
   if (Math.abs(delta) >= SLACK) scroller.scrollTop += delta

@@ -63,21 +63,22 @@ export function MessageList() {
   )
   const userOrdinals = useMemo(() => computeUserOrdinals(exchanges), [exchanges])
 
+  const busy = isStreaming || isCompacting
+  const stick = useStickToBottom(containerRef, busy)
+
   const { start, loadOlder, ensureVisible } = useExchangeWindow(
     containerRef,
     sessionKey,
     sessionPath,
     exchanges.length,
+    stick,
   )
-
-  // 内容长高就贴底；分档与锚点补偿对齐 Codex 的 conversation viewport
-  const lastScrollKey = exchanges.length > 0 ? `${sessionKey}:${exchanges.length - 1}` : null
-  const { awayFromBottom, jumpToBottom } = useStickToBottom(containerRef, sessionKey, lastScrollKey)
 
   const activeIndex = useActiveExchange(containerRef, groupRefs, exchanges.length - start)
 
   const jumpTo = useCallback(
     (index: number) => {
+      if (index < exchanges.length - 1) stick.detach()
       if (index < start) {
         pendingJumpRef.current = index
         ensureVisible(index)
@@ -85,7 +86,7 @@ export function MessageList() {
       }
       groupRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     },
-    [ensureVisible, start],
+    [ensureVisible, exchanges.length, start, stick],
   )
 
   useEffect(() => {
@@ -137,8 +138,8 @@ export function MessageList() {
           })}
         </div>
       </div>
-      <ScrollThumb containerRef={containerRef} />
-      <JumpToBottom show={awayFromBottom} onClick={jumpToBottom} />
+      <ScrollThumb containerRef={containerRef} onDragScroll={stick.syncThumbScroll} />
+      <JumpToBottom show={stick.awayFromBottom} onClick={stick.jumpToBottom} />
     </div>
   )
 }

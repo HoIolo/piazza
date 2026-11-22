@@ -11,11 +11,20 @@ interface WindowState {
   count: number
 }
 
+interface ScrollBridge {
+  snapToBottom: () => void
+  restorePosition: (scrollTop: number) => void
+  notifyPrepend: () => void
+  isFollowing: () => boolean
+}
+
 function useRestoreScroll(
   containerRef: RefObject<HTMLDivElement | null>,
   sessionKey: string,
   sessionPath: string | null,
   total: number,
+  snapToBottom: () => void,
+  restorePosition: (scrollTop: number) => void,
 ) {
   const prevMetaRef = useRef<{ key: string; total: number }>({ key: '', total: 0 })
 
@@ -28,13 +37,12 @@ function useRestoreScroll(
     prevMetaRef.current = { key: sessionKey, total }
     if (switched) {
       const saved = getSessionScroll(sessionPath)
-      const restoreMid = Boolean(saved && !saved.atBottom)
-      if (restoreMid) el.dataset.restoringScroll = 'true'
-      el.scrollTop = restoreMid && saved ? saved.scrollTop : el.scrollHeight
+      if (saved && !saved.atBottom) restorePosition(saved.scrollTop)
+      else snapToBottom()
     } else if (grew) {
-      el.scrollTop = el.scrollHeight
+      snapToBottom()
     }
-  }, [containerRef, sessionKey, sessionPath, total])
+  }, [containerRef, sessionKey, sessionPath, total, snapToBottom, restorePosition])
 }
 
 function useScrollPersistence(
@@ -42,18 +50,20 @@ function useScrollPersistence(
   sessionPath: string | null,
   start: number,
   loadOlder: () => void,
+  isFollowing: () => boolean,
 ) {
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const onScroll = () => {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_SLACK
+      const atBottom =
+        isFollowing() || el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_SLACK
       saveSessionScroll(sessionPath, el.scrollTop, atBottom)
       if (start > 0 && el.scrollTop < TOP_LOAD_THRESHOLD) loadOlder()
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [containerRef, loadOlder, sessionPath, start])
+  }, [containerRef, isFollowing, loadOlder, sessionPath, start])
 }
 
 /**
@@ -66,6 +76,7 @@ export function useExchangeWindow(
   sessionKey: string,
   sessionPath: string | null,
   total: number,
+  scroll: ScrollBridge,
 ) {
   const [win, setWin] = useState<WindowState>({ key: sessionKey, count: INITIAL_WINDOW })
   const visibleCount = win.key === sessionKey ? win.count : INITIAL_WINDOW
@@ -90,16 +101,19 @@ export function useExchangeWindow(
     [sessionKey, start, total],
   )
 
+  const { snapToBottom, restorePosition, notifyPrepend, isFollowing } = scroll
+
   useLayoutEffect(() => {
     const anchor = anchorRef.current
     const el = containerRef.current
     if (!anchor || !el) return
     anchorRef.current = null
     el.scrollTop = anchor.prevTop + (el.scrollHeight - anchor.prevHeight)
-  }, [containerRef, start])
+    notifyPrepend()
+  }, [containerRef, start, notifyPrepend])
 
-  useRestoreScroll(containerRef, sessionKey, sessionPath, total)
-  useScrollPersistence(containerRef, sessionPath, start, loadOlder)
+  useRestoreScroll(containerRef, sessionKey, sessionPath, total, snapToBottom, restorePosition)
+  useScrollPersistence(containerRef, sessionPath, start, loadOlder, isFollowing)
 
   return { start, loadOlder, ensureVisible }
 }
