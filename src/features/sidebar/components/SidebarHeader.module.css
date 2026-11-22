@@ -2,13 +2,37 @@
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: flex-end;
   height: var(--titlebar-h);
   padding: 0 var(--sp-2);
 }
 
+/* Windows/Linux：左上角放品牌字标；macOS 那边是交通灯，不渲染 */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-left: 2px;
+  color: var(--text-secondary);
+}
+
+.mark {
+  flex: none;
+  opacity: 0.75;
+}
+
+.wordmark {
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.01em;
+  color: var(--sidebar-text);
+  white-space: nowrap;
+}
+
+/* 按钮始终贴右，不依赖容器的 justify-content */
 .actions {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-left: auto;
 }

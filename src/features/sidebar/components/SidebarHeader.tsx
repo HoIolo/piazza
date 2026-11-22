@@ -1,7 +1,8 @@
 import { PanelLeftIcon, SearchIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
+import { BrandMark } from '@/shared/components/BrandMark'
+import { isMac, shortcut } from '@/shared/utils/platform'
 import styles from './SidebarHeader.module.css'
-import { shortcut } from '@/shared/utils/platform'
 
 export interface SidebarHeaderProps {
   onSearch: () => void
@@ -11,13 +12,19 @@ export interface SidebarHeaderProps {
 /**
  * 侧栏顶部，与主区顶栏同高，合起来就是一整条窗口标题栏。
  *
- * 整条是窗口拖拽区；左边空着给 macOS 交通灯（位置见 tauri.conf.json 的
- * trafficLightPosition），按钮靠右。Codex 这里没有品牌字标——应用名已经在
- * 系统菜单栏和程序坞里，标题栏再写一遍只是占地方。
+ * 整条是窗口拖拽区。macOS 左边空着给交通灯（位置见 tauri.macos.conf.json 的
+ * trafficLightPosition），按钮靠右；Windows 右上角是自绘的窗口按钮，
+ * 左上角空着没有道理，正好放品牌字标——和系统里其他应用把标题写在左上一致。
  */
 export function SidebarHeader({ onSearch, onToggleSidebar }: SidebarHeaderProps) {
   return (
     <header className={styles.header} data-tauri-drag-region="deep">
+      {!isMac() && (
+        <div className={styles.brand}>
+          <BrandMark size={17} className={styles.mark} />
+          <span className={styles.wordmark}>Piazza</span>
+        </div>
+      )}
       <div className={styles.actions}>
         <IconButton ariaLabel="搜索" title={`搜索（${shortcut('K')}）`} onClick={onSearch}>
           <SearchIcon />
