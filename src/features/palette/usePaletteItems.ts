@@ -30,7 +30,8 @@ export function usePaletteItems(builtins: PaletteItem[], enabled: boolean): Pale
             id: `pi:${command.name}`,
             label: `/${command.name}`,
             hint: command.description,
-            run: () => void runRpc(() => rpcClient.send({ type: 'prompt', message: `/${command.name}` })),
+            run: () =>
+              void runRpc(() => rpcClient.send({ type: 'prompt', message: `/${command.name}` })),
           })),
         )
       })
@@ -51,7 +52,6 @@ export function filterItems(items: PaletteItem[], query: string): PaletteItem[] 
   if (!keyword) return items
   return items.filter(
     (item) =>
-      item.label.toLowerCase().includes(keyword) ||
-      item.hint?.toLowerCase().includes(keyword),
+      item.label.toLowerCase().includes(keyword) || item.hint?.toLowerCase().includes(keyword),
   )
 }

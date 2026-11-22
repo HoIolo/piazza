@@ -32,7 +32,13 @@ export function McpServerRow({ name, entry, onToggle, onEdit, onDelete }: McpSer
       </div>
       <div className={styles.itemActions}>
         <Toggle checked={entry.enabled !== false} onChange={onToggle} />
-        <button type="button" className={styles.iconBtn} title="编辑" aria-label="编辑" onClick={onEdit}>
+        <button
+          type="button"
+          className={styles.iconBtn}
+          title="编辑"
+          aria-label="编辑"
+          onClick={onEdit}
+        >
           <Pencil size={14} />
         </button>
         <button

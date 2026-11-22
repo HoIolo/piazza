@@ -131,10 +131,21 @@ export function useChatActions() {
     [],
   )
   const editUserMessage = useCallback(
-    (userIndex: number | undefined, rawText: string, nextMessage: string, images: ImageContent[] = []) =>
-      editAndResend(userIndex, rawText, nextMessage, images),
+    (
+      userIndex: number | undefined,
+      rawText: string,
+      nextMessage: string,
+      images: ImageContent[] = [],
+    ) => editAndResend(userIndex, rawText, nextMessage, images),
     [],
   )
   const forkFromTurn = useCallback((userIndex?: number) => forkAfterTurn(userIndex), [])
-  return { sendPrompt, editUserMessage, forkFromTurn, abort: stopNow, resume: resumeTurn, isStreaming }
+  return {
+    sendPrompt,
+    editUserMessage,
+    forkFromTurn,
+    abort: stopNow,
+    resume: resumeTurn,
+    isStreaming,
+  }
 }

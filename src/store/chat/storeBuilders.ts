@@ -54,4 +54,3 @@ export function echoMessage(
   set((state) => ({ messages: [...state.messages, buildLocalEcho(text, images, localId)] }))
   return localId
 }
-

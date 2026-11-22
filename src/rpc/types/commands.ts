@@ -4,7 +4,13 @@ import type { AgentMessage, ImageContent, Model, ThinkingLevel } from './message
 export type StreamingBehavior = 'steer' | 'followUp'
 
 export type RpcCommand =
-  | { id?: string; type: 'prompt'; message: string; images?: ImageContent[]; streamingBehavior?: StreamingBehavior }
+  | {
+      id?: string
+      type: 'prompt'
+      message: string
+      images?: ImageContent[]
+      streamingBehavior?: StreamingBehavior
+    }
   | { id?: string; type: 'steer'; message: string; images?: ImageContent[] }
   | { id?: string; type: 'follow_up'; message: string; images?: ImageContent[] }
   | { id?: string; type: 'abort' }

@@ -6,10 +6,7 @@
 export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export type ApiType =
-  | 'openai-completions'
-  | 'openai-responses'
-  | 'anthropic-messages'
-  | 'google-generative-ai'
+  'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai'
 
 export interface ModelCost {
   input: number
@@ -115,11 +112,7 @@ export interface BashExecutionMessage {
   timestamp: number
 }
 
-export type AgentMessage =
-  | UserMessage
-  | AssistantMessage
-  | ToolResultMessage
-  | BashExecutionMessage
+export type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | BashExecutionMessage
 
 export interface ToolResult {
   content: Array<TextContent | ImageContent>

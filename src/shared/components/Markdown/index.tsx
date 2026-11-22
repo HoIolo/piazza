@@ -40,11 +40,7 @@ const components: Components = {
   // 行内与围栏共用这一个渲染：围栏里的由 CodeBlock 的样式把行内那套外观撤掉
   code({ className, children, ...props }) {
     const target = extractClickableCodeTarget(className, children)
-    const cls = [
-      styles.inlineCode,
-      className,
-      target ? styles.clickableCode : '',
-    ]
+    const cls = [styles.inlineCode, className, target ? styles.clickableCode : '']
       .filter(Boolean)
       .join(' ')
     return (

@@ -35,12 +35,22 @@ function WorktreeOption({ close }: { close: () => void }) {
   }
 
   if (!creating) {
-    return <MenuItem icon={<GitFork size={16} />} onClick={() => setCreating(true)}>新建工作树</MenuItem>
+    return (
+      <MenuItem icon={<GitFork size={16} />} onClick={() => setCreating(true)}>
+        新建工作树
+      </MenuItem>
+    )
   }
 
   return (
     <div className={styles.create}>
-      <form className={styles.form} onSubmit={(e) => { e.preventDefault(); void create() }}>
+      <form
+        className={styles.form}
+        onSubmit={(e) => {
+          e.preventDefault()
+          void create()
+        }}
+      >
         <input
           aria-label="新工作树分支名"
           placeholder="新分支名"
@@ -48,12 +58,20 @@ function WorktreeOption({ close }: { close: () => void }) {
           autoFocus
           disabled={busy}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && ime.isComposing(e)) e.preventDefault() }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && ime.isComposing(e)) e.preventDefault()
+          }}
           {...ime.bind}
         />
-        <button type="submit" disabled={busy || !name.trim()}>{busy ? '正在创建…' : '创建'}</button>
+        <button type="submit" disabled={busy || !name.trim()}>
+          {busy ? '正在创建…' : '创建'}
+        </button>
       </form>
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

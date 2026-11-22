@@ -13,17 +13,29 @@ export interface Placement {
 }
 
 /** 按触发器位置算出浮层该放哪。首选方向放不下且另一侧更宽裕时翻面 */
-function placeBeside(anchor: DOMRect, panel: HTMLElement, preferred: 'left' | 'right', maxCap: number): Placement {
+function placeBeside(
+  anchor: DOMRect,
+  panel: HTMLElement,
+  preferred: 'left' | 'right',
+  maxCap: number,
+): Placement {
   const leftRoom = anchor.left - GAP - EDGE
   const rightRoom = window.innerWidth - anchor.right - GAP - EDGE
   const fits = (preferred === 'left' ? leftRoom : rightRoom) >= panel.offsetWidth
   const side = fits ? preferred : rightRoom >= leftRoom ? 'right' : 'left'
   const maxHeight = Math.min(maxCap, window.innerHeight - EDGE * 2)
-  const top = Math.max(EDGE, Math.min(anchor.top, window.innerHeight - Math.min(panel.scrollHeight, maxHeight) - EDGE))
+  const top = Math.max(
+    EDGE,
+    Math.min(anchor.top, window.innerHeight - Math.min(panel.scrollHeight, maxHeight) - EDGE),
+  )
   const left = side === 'right' ? anchor.right + GAP : anchor.left - GAP - panel.offsetWidth
   return {
     side,
-    style: { top, left: Math.max(EDGE, Math.min(left, window.innerWidth - panel.offsetWidth - EDGE)), maxHeight },
+    style: {
+      top,
+      left: Math.max(EDGE, Math.min(left, window.innerWidth - panel.offsetWidth - EDGE)),
+      maxHeight,
+    },
   }
 }
 
@@ -65,9 +77,10 @@ export function usePopoverPlacement(
       const panel = panelRef.current
       if (!root || !panel) return
       const anchor = root.getBoundingClientRect()
-      const placement = side === 'left' || side === 'right'
-        ? placeBeside(anchor, panel, side, maxHeight)
-        : place(anchor, panel.scrollHeight, side, align, maxHeight)
+      const placement =
+        side === 'left' || side === 'right'
+          ? placeBeside(anchor, panel, side, maxHeight)
+          : place(anchor, panel.scrollHeight, side, align, maxHeight)
       setPlacement(placement)
     }
     update()

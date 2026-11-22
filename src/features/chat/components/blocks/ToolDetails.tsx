@@ -7,7 +7,8 @@ import styles from './ToolCallBlock.module.css'
 export function ToolDetails({ execution }: { execution: ToolExecution }) {
   const [copied, setCopied] = useState(false)
   const output = resultToText(execution)
-  const isCommand = toolKind(execution.toolName) === 'command' && typeof execution.args.command === 'string'
+  const isCommand =
+    toolKind(execution.toolName) === 'command' && typeof execution.args.command === 'string'
   const commandText = isCommand
     ? String(execution.args.command)
     : JSON.stringify(execution.args, null, 2)

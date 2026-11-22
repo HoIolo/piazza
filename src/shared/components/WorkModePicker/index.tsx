@@ -86,7 +86,6 @@ export function WorkModePicker({ side, localLabel = '本地' }: WorkModePickerPr
               {tree.isMain ? '本地' : basename(tree.path)}
             </MenuItem>
           ))}
-
         </div>
       )}
     </Popover>

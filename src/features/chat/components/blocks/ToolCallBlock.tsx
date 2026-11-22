@@ -67,11 +67,7 @@ export function ToolCallBlock({ execution }: ToolCallBlockProps) {
         }}
         aria-expanded={expanded}
       >
-        <CodexIcon
-          name={toolIcon(execution.toolName)}
-          size={16}
-          className={styles.icon}
-        />
+        <CodexIcon name={toolIcon(execution.toolName)} size={16} className={styles.icon} />
         <span className={styles.text}>
           <ShimmerText active={running}>{renderLabel(source, execution, running)}</ShimmerText>
         </span>

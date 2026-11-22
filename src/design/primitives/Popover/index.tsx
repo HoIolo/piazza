@@ -9,7 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { DEFAULT_MAX_HEIGHT, usePopoverDismiss, usePopoverPlacement, type PopoverSide } from './place'
+import {
+  DEFAULT_MAX_HEIGHT,
+  usePopoverDismiss,
+  usePopoverPlacement,
+  type PopoverSide,
+} from './place'
 import styles from './Popover.module.css'
 
 export interface PopoverProps {

@@ -81,7 +81,10 @@ function signatureOf(message: AgentMessage | undefined): string {
 }
 
 /** 快速判断磁盘/缓存预览与 pi 回传的消息列表是否一致，一致则跳过多余重绘 */
-export function messagesEquivalent(a: readonly AgentMessage[], b: readonly AgentMessage[]): boolean {
+export function messagesEquivalent(
+  a: readonly AgentMessage[],
+  b: readonly AgentMessage[],
+): boolean {
   if (a === b) return true
   const left = a.filter((m) => (m as { role?: string }).role !== 'system')
   const right = b.filter((m) => (m as { role?: string }).role !== 'system')

@@ -36,7 +36,9 @@ export function splitPromptAttachments(prompt: string) {
 /** 把编辑后的纯文本重新拼回带附件前缀的 prompt 字符串。 */
 export function formatPromptAttachments(text: string, attachments: PromptAttachment[]): string {
   const parts = attachments.map((item) =>
-    item.path ? `文件：${JSON.stringify(item.path)}` : `[${item.name}]\n${item.content}\n[/${item.name}]`,
+    item.path
+      ? `文件：${JSON.stringify(item.path)}`
+      : `[${item.name}]\n${item.content}\n[/${item.name}]`,
   )
   const trimmed = text.trim()
   if (trimmed) parts.push(trimmed)

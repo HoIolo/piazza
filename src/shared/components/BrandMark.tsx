@@ -35,12 +35,7 @@ export function BrandMark({ size = 56, className }: BrandMarkProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d="M34 45 L41 45"
-        stroke="currentColor"
-        strokeWidth="2.7"
-        strokeLinecap="round"
-      />
+      <path d="M34 45 L41 45" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" />
     </svg>
   )
 }

@@ -44,18 +44,11 @@ export interface UiNotifyRequest extends UiRequestBase {
 }
 
 export type ExtensionUiRequest =
-  | UiSelectRequest
-  | UiConfirmRequest
-  | UiInputRequest
-  | UiEditorRequest
-  | UiNotifyRequest
+  UiSelectRequest | UiConfirmRequest | UiInputRequest | UiEditorRequest | UiNotifyRequest
 
 /** 需要回应的对话请求 */
 export type ExtensionUiDialog =
-  | UiSelectRequest
-  | UiConfirmRequest
-  | UiInputRequest
-  | UiEditorRequest
+  UiSelectRequest | UiConfirmRequest | UiInputRequest | UiEditorRequest
 
 export function isDialogRequest(req: ExtensionUiRequest): req is ExtensionUiDialog {
   return (

@@ -10,7 +10,12 @@ export function WorkspaceControls() {
   const togglePanel = useAppStore((s) => s.toggleRightPanel)
 
   return (
-    <div className={styles.windowTools} role="group" aria-label="窗口工具" data-tauri-drag-region="deep">
+    <div
+      className={styles.windowTools}
+      role="group"
+      aria-label="窗口工具"
+      data-tauri-drag-region="deep"
+    >
       <IconButton
         ariaLabel="切换终端"
         title="底部终端（⌘T）"

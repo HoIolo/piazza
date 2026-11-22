@@ -82,7 +82,9 @@ export function ProviderAccounts({ method }: { method: AuthMethod }) {
           {accounts.error}
         </p>
       )}
-      {flow && <AccountAuthorization flow={flow} onCancel={accounts.cancel} onAnswer={accounts.answer} />}
+      {flow && (
+        <AccountAuthorization flow={flow} onCancel={accounts.cancel} onAnswer={accounts.answer} />
+      )}
       <TextField
         value={query}
         onChange={setQuery}

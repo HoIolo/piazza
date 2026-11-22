@@ -1,11 +1,5 @@
 export type SyntaxTokenType =
-  | 'comment'
-  | 'keyword'
-  | 'literal'
-  | 'string'
-  | 'variable'
-  | 'attribute'
-  | 'name'
+  'comment' | 'keyword' | 'literal' | 'string' | 'variable' | 'attribute' | 'name'
 
 export interface RuleSpec {
   type: SyntaxTokenType
@@ -78,9 +72,7 @@ export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
       'break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var',
     ),
     literals: words('true false nil iota'),
-    extraRules: [
-      { type: 'name', pattern: '\\b[A-Z][A-Za-z0-9_]*\\b|\\b[a-z_][\\w]*(?=\\s*\\()' },
-    ],
+    extraRules: [{ type: 'name', pattern: '\\b[A-Z][A-Za-z0-9_]*\\b|\\b[a-z_][\\w]*(?=\\s*\\()' }],
   },
   bash: {
     comments: ['(?<=^|[\\s;])#[^\\n]*'],

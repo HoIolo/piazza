@@ -15,7 +15,9 @@ export function SkillRow({ skill, onEdit, onDelete }: SkillRowProps) {
       <div className={styles.itemMain}>
         <div className={styles.itemHead}>
           <span className={styles.itemName}>{skill.name}</span>
-          <span className={`${styles.badge} ${skill.scope === 'project' ? styles.badgeAccent : ''}`}>
+          <span
+            className={`${styles.badge} ${skill.scope === 'project' ? styles.badgeAccent : ''}`}
+          >
             {skill.scope === 'global' ? '全局' : '项目'}
           </span>
           {skill.isSymlink && <span className={styles.badge}>软链接</span>}
@@ -24,7 +26,13 @@ export function SkillRow({ skill, onEdit, onDelete }: SkillRowProps) {
         <span className={styles.itemPath}>{skill.filePath}</span>
       </div>
       <div className={styles.itemActions}>
-        <button type="button" className={styles.iconBtn} title="编辑 SKILL.md" aria-label="编辑" onClick={onEdit}>
+        <button
+          type="button"
+          className={styles.iconBtn}
+          title="编辑 SKILL.md"
+          aria-label="编辑"
+          onClick={onEdit}
+        >
           <Pencil size={14} />
         </button>
         <button

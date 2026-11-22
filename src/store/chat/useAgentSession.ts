@@ -100,7 +100,13 @@ function resolveSlotForSwitch(
   return prevSlot
 }
 
-function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: string, forceCold: boolean, reconnect: boolean) {
+function runSessionSwitch(
+  cwd: string,
+  sessionPath: string | null,
+  viewKey: string,
+  forceCold: boolean,
+  reconnect: boolean,
+) {
   const previous = useChatStore.getState().session
   const slotId = resolveSlotForSwitch(cwd, sessionPath, viewKey, forceCold)
   if (!slotId) return () => undefined
@@ -111,7 +117,9 @@ function runSessionSwitch(cwd: string, sessionPath: string | null, viewKey: stri
   const hitCache = reconnect || prepareSwitchView(sessionPath, viewKey)
   const skeletonTimer = startSkeletonGuard(viewKey, hitCache, isCancelled)
   if (!hitCache) {
-    void tryHydrateDisk(sessionPath, viewKey, isCancelled).finally(() => clearTimeout(skeletonTimer))
+    void tryHydrateDisk(sessionPath, viewKey, isCancelled).finally(() =>
+      clearTimeout(skeletonTimer),
+    )
   }
   const watchdog = startWatchdog(isCancelled, (err) => {
     const s = useChatStore.getState()
@@ -153,11 +161,11 @@ export function useAgentSession(): void {
     const store = useChatStore.getState()
     const reconnect = reconnectNonce !== lastReconnectRef.current
     const targetPath = reconnect
-      ? useAppStore.getState().liveSessionPath ?? sessionPath
-      : sessionPath ?? (store.rpcReady ? null : useAppStore.getState().liveSessionPath)
+      ? (useAppStore.getState().liveSessionPath ?? sessionPath)
+      : (sessionPath ?? (store.rpcReady ? null : useAppStore.getState().liveSessionPath))
     const forceCold = reconnect || Boolean(store.error?.fatal)
     lastReconnectRef.current = reconnectNonce
-    const viewKey = reconnect ? store.viewKey : targetPath ?? `new:${sessionNonce}`
+    const viewKey = reconnect ? store.viewKey : (targetPath ?? `new:${sessionNonce}`)
     return runSessionSwitch(cwd, targetPath, viewKey, forceCold, reconnect)
   }, [cwd, sessionPath, sessionNonce, reconnectNonce])
 }
