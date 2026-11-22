@@ -26,11 +26,13 @@
   height: var(--sidebar-row-h);
   margin-bottom: var(--sp-1);
   /*
-   * 和项目名、会话标题、左上角字标同一条竖线：树内边距 --sp-2 + 图标列
-   * --sidebar-label-inset = 40px。原先只留 --sp-2，标题比正文靠左 24px，
-   * 在侧栏里单独凸出来一块。
+   * 「项目」没有图标，所以对齐的是上方那些图标的左缘（树内边距 --sp-2 +
+   * 这里 --sp-2 = 16px），与左上角字标同一条竖线。
+   *
+   * 不能推到 40px：那是「有图标的行」里文字的位置，没有图标的标题占着它，
+   * 看上去就像整块缩进错了。项目名、会话标题仍在 40px，不受影响。
    */
-  padding: 0 var(--sp-2) 0 var(--sidebar-label-inset);
+  padding: 0 var(--sp-2);
   font-size: var(--fs-nav);
   /* Codex nav-section-title: text-base font-medium text-tertiary */
   font-weight: var(--fw-medium);
