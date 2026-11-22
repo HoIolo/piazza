@@ -5,6 +5,18 @@
   gap: 5px;
   padding: 0 var(--sp-2) var(--sp-2);
   user-select: none;
+  /* TrustPicker 据此在窄宽度下只留图标；侧边聊天的工具栏也声明同名容器 */
+  container-type: inline-size;
+  container-name: composer-bar;
+}
+
+/*
+ * Popover 的根节点默认 min-width: auto，等于内容宽度，于是模型名不肯缩短、
+ * 把发送键顶出可视区。放开收缩，文字自己用 ellipsis 截断。
+ */
+.toolbar > *,
+.right > * {
+  min-width: 0;
 }
 
 .right {

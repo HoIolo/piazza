@@ -273,22 +273,37 @@
   -webkit-user-drag: none;
 }
 
-/* 缩略图：沿用消息里的圆角小图，点击放大 */
+/*
+ * 缩略图：固定 80×80 方块 + object-cover。
+ *
+ * 取自 Codex 用户图片附件的真实结构（多处一致）：
+ *   <div className="size-20 rounded-lg border border-strong">
+ *     <img className="h-full w-full rounded-md object-cover" />
+ *   </div>
+ * size-20 = 80px、rounded-lg = --radius-lg 10px、rounded-md = --radius-md 8px。
+ *
+ * 关键点是固定边长而不是「按原图比例限制最大边」：竖长截图按比例缩放会撑成
+ * 一条很高的图，把消息挤走；固定方块下无论原图什么比例占位都一样。
+ * 完整内容点开查看器看，输入框上方的待发送预览用的也是这个尺寸。
+ */
 .thumbnail {
   display: inline-flex;
-  max-width: 100%;
-  border-radius: var(--r-card);
+  flex: none;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--border-strong);
   overflow: hidden;
   cursor: zoom-in;
   vertical-align: middle;
-  border: 1px solid var(--border);
 }
 
 .thumbnail img {
   display: block;
-  max-width: 100%;
-  max-height: 320px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r-item);
 }
 
 .gallery {
@@ -296,10 +311,6 @@
   flex-wrap: wrap;
   gap: var(--sp-2);
   margin: var(--sp-2) 0;
-}
-
-.gallery .thumbnail {
-  max-width: 240px;
 }
 
 /* 加载中的占位：图片要等 onload 才知道自然尺寸，空着会先闪一下 */

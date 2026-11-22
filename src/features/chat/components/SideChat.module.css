@@ -64,8 +64,11 @@
 .controls {
   flex: none;
   min-width: 0;
-  max-height: 60%;
-  overflow-y: auto;
+  /*
+   * 不能写 overflow-y: auto —— 输入框靠 --shadow-input 画出「1px 环 + 柔光」，
+   * 这个容器一旦滚动就会把外阴影裁掉，看起来就像少了上边框。
+   * 控件区本来就只放错误提示、状态、对话框和输入框，内容不会长到需要滚。
+   */
   padding: 0 var(--sp-3) var(--sp-3);
 }
 
@@ -75,19 +78,11 @@
   color: var(--text-secondary);
 }
 
-.error,
-.status {
+.error {
   margin-bottom: var(--sp-2);
   overflow-wrap: anywhere;
   font-size: var(--fs-desc);
-}
-
-.error {
   color: var(--text-error);
-}
-
-.status {
-  color: var(--text-secondary);
 }
 
 .retry {
@@ -101,12 +96,19 @@
  * 输入卡片：与主输入区同一套（圆角、毛玻璃底、内阴影）。
  * 上面是 textarea，下面一行是控件条——Codex 的 composer 就是这个分层。
  */
+/*
+ * 与主输入区同一套度量（features/composer 的 .box / .input / .toolbar）：
+ * 表面无内边距，输入行靠自身 margin 定位，工具栏自带左右与底部内边距。
+ * 之前这里用「外层 padding + flex gap」拼，整体比主输入区矮 10px、
+ * 文字起点也差 2px，并排看就明显不是一个东西。
+ *
+ * features 之间不能互相 import，所以这组数值是复制的；
+ * 改主输入区时这里要一起改。
+ */
 .composer {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
   min-width: 0;
-  padding: var(--sp-2);
   border-radius: var(--r-input);
   corner-shape: var(--corner-shape);
   background: var(--bg-input);
@@ -119,7 +121,8 @@
   min-width: 0;
   min-height: 40px;
   max-height: 160px;
-  padding: var(--sp-2) var(--sp-1) 0;
+  margin: 14px 0 var(--sp-2);
+  padding: 0 var(--sp-4);
   font-size: var(--fs-body);
   line-height: 20px;
   color: var(--text-primary);
@@ -142,7 +145,16 @@
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
+  padding: 0 var(--sp-2) var(--sp-2);
   overflow: hidden;
+  /* 与主输入区同名，TrustPicker 的窄宽度规则对两处都生效 */
+  container-type: inline-size;
+  container-name: composer-bar;
+}
+
+/* 同上：放开子项的最小宽度，模型名才能缩、发送键才不会被挤出面板 */
+.composerBar > * {
+  min-width: 0;
 }
 
 .spacer {
@@ -154,8 +166,9 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  /* 与主输入区的附件按钮同尺寸，两边工具栏于是同高 */
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
@@ -178,8 +191,9 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  /* 主输入区的发送键是 32px；这里若留 28px，整个输入区就矮 4px */
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--composer-primary);
   color: var(--composer-primary-text);

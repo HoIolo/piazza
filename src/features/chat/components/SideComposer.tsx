@@ -77,7 +77,11 @@ export function SideComposer({
       <textarea
         rows={1}
         aria-label="侧边聊天消息"
-        placeholder="和 Codex 一起工作"
+        /*
+         * 「聊点别的」点明这是与主对话并行的另一条线，不是接着主对话说。
+         * 用产品名 Piazza 而非底层引擎 pi，与窗口标题、侧栏保持一致。
+         */
+        placeholder="和 Piazza 聊点别的"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {

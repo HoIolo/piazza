@@ -95,8 +95,8 @@ export function SystemSection({ settings }: SectionProps) {
 
   return (
     <>
-      <Card title="pi 运行时">
-        <Row title="运行时来源" description="Piazza 内置 Pi SDK 和 Node.js" />
+      <Card title="运行时">
+        <Row title="运行时来源" description="Piazza 内置 Pi SDK 与 Node.js，无需另装" />
       </Card>
 
       <Card title="网络代理">

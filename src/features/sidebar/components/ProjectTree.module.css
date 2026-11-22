@@ -230,11 +230,16 @@
   align-items: center;
   align-self: flex-start;
   height: 28px;
-  /* 与上面会话文字同一竖线（列表已有 32px 缩进，这里再补 8px） */
-  margin: var(--sp-1) 0 0 var(--sp-2);
+  /*
+   * 会话行容器已经在 .sessionList 里缩进 32px，行内再留 8px 把文字推到 40px。
+   * 这个按钮不能自己再做缩进，否则「展开显示」会比上面的标题多出 8px。
+   */
+  margin: var(--sp-1) 0 0;
   padding: 0 var(--sp-2);
   border-radius: var(--r-row);
-  font-size: 12px;
+  /* Codex 的 Show more 用 text-base（electron 下 14px），和会话标题同号同字重 */
+  font-size: var(--fs-session);
+  font-weight: var(--fw-normal);
   color: var(--sidebar-muted);
   cursor: pointer;
   text-align: left;
@@ -251,9 +256,9 @@
   gap: var(--sidebar-row-gap);
   margin-top: var(--sidebar-row-gap);
   /*
-   * 整段会话列表相对项目行缩进 32px，行内再留 8px。
-   * Codex 就是这么分的：会话行容器从 40px 起、文字落在 48px，
-   * 正好与项目名文字（40px + 图标 16px + 间距 8px）对齐成一条竖线。
+   * 会话标题必须和项目名落在同一条竖线上。
+   * 项目名 = 树内边距 8 + 行内边距 8 + 图标 16 + 间距 8 = 40；
+   * 会话标题 = 树内边距 8 + 这里 + 行内边距 8，所以要减去行内边距。
    */
-  padding-inline-start: var(--sidebar-label-inset);
+  padding-inline-start: calc(var(--sidebar-label-inset) - var(--sp-2));
 }

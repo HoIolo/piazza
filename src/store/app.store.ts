@@ -82,7 +82,9 @@ export const useAppStore = create<AppState>((set) => ({
   ...createProjectPrefsActions(set),
   theme: 'light',
   sidebarOpen: true,
-  envPanelOpen: true,
+  // 默认收起：环境面板是「用户想看时才叫出来」的辅助信息，
+  // 不该因为窗口够宽就自己占掉右侧一栏
+  envPanelOpen: false,
   paletteOpen: false,
   gitNonce: 0,
   settingsOpen: false,

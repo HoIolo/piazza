@@ -123,7 +123,16 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
           groups={groups}
           slash={slash}
           ime={ime}
-          placeholder={showContextBar ? '随心输入' : '和 pi 一起工作'}
+          /*
+           * 空态是「开个新任务」，对话中是「接着说」——两者语境不同，文案分开。
+           * 空态对应 Codex 的 Ask Codex to do anything：开放式邀请，比命令式的
+           * 「输入…」更像在商量；对话中用「说点什么」而不是直译的「一起工作」，
+           * 后者在中文里太像工作报告。
+           *
+           * 用产品名 Piazza 而不是底层引擎 pi：用户在窗口标题、侧栏底部看到的
+           * 都是 Piazza，placeholder 突然冒出 pi 会像是另一个东西。
+           */
+          placeholder={showContextBar ? '想让 Piazza 做什么？' : '和 Piazza 说点什么'}
           onPaste={attachments.paste}
           onKeyDown={handleKeyDown}
           onPickFromDisk={(directory) => {

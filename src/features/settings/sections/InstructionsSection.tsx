@@ -112,7 +112,7 @@ export function InstructionsSection() {
             className={styles.editor}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="在此编写全局系统规范，例如：回复语言偏好、代码风格约定、提交规范等。pi 会在每个项目启动会话时自动加载。"
+            placeholder="在此编写全局系统规范，例如：回复语言偏好、代码风格约定、提交规范等。Piazza 会在每个项目启动会话时自动加载。"
             spellCheck={false}
           />
         </div>

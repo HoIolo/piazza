@@ -2,6 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+  flex: none;
   height: 28px;
   padding: 0 var(--sp-2);
   border-radius: var(--r-item);
@@ -10,6 +11,22 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease);
+}
+
+/*
+ * 窄宽度只留图标。
+ * 工具栏（主输入区和侧边聊天）都声明了 composer-bar 容器，
+ * 面板被拖窄时「始终信任」这四个字会把模型名和发送键挤出去，
+ * 而图标本身已经能表达「有个信任档位」，完整档位在弹层和 title 里可见。
+ */
+@container composer-bar (max-width: 380px) {
+  .text {
+    display: none;
+  }
+
+  .trigger {
+    padding: 0 calc(var(--sp-1) + 1px);
+  }
 }
 
 /* 「始终信任」会自动执行项目下的扩展代码，用橙色提示风险 */

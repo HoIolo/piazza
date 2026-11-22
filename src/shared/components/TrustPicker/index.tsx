@@ -32,9 +32,12 @@ export function TrustPicker() {
           onClick={toggle}
           aria-haspopup="menu"
           aria-expanded={open}
+          /* 窄宽度下文字会被容器查询隐藏，aria-label 保证读屏仍能读出当前档位 */
+          aria-label={`项目信任：${current.label}`}
+          title={`项目信任：${current.label}`}
         >
           <Icon size={15} />
-          {current.label}
+          <span className={styles.text}>{current.label}</span>
         </button>
       )}
     >

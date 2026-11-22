@@ -74,6 +74,8 @@
 
   /* ---------- 圆角 ---------- */
   --r-item: 8px;
+  /* Codex 文件树行：--trees-border-radius = calc(6px * var(--trees-density)) */
+  --r-tree: 6px;
   --r-row: 10px;
   --r-surface: 12px;
   --surface-gap: 8px;
@@ -92,6 +94,7 @@
   /* Codex Electron 侧栏：30px 行高（--height-token-nav-row）、1px 行距、32px 子项缩进 */
   --sidebar-row-h: 30px;
   --sidebar-row-gap: 1px;
+  /* 会话标签相对项目行图标左侧再缩进的距离；与 Codex --sidebar-row-label-inset 同义 */
   --sidebar-label-inset: 32px;
   /* Codex --color-text: light-dark(#1a1c1f,#dfdfdf) */
   --sidebar-text: #1a1c1f;
@@ -158,7 +161,8 @@
   --activity-line-height: 22px;
   --activity-icon-gap: 6px;
   --message-font: var(--font-sans);
-  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
   /* ---------- 动效 ---------- */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);

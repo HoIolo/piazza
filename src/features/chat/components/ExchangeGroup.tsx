@@ -20,6 +20,11 @@ export interface ExchangeGroupProps {
   paused?: boolean
   /** 任意轮次运行中，禁止对历史用户消息发起编辑分叉 */
   disabled?: boolean
+  /**
+   * 是否允许「从此分支」。侧边聊天复用本组件，但它的 userIndex 不在主会话的
+   * 序号体系里，分叉会打到主会话上，所以那边必须关掉。
+   */
+  forkable?: boolean
   /** 进行中的实时耗时，用于「处理中 Ns」 */
   elapsedMs?: number | null
   /**
@@ -70,6 +75,14 @@ function deriveView(
   }
 }
 
+/**
+ * 只有允许分叉时才把 onFork 传下去——AssistantMessage 用它决定按钮是否可点。
+ * 放在组件外是为了不给 ExchangeGroup 增加分支（那个函数已经贴着复杂度上限）。
+ */
+function forkProps(forkable: boolean, run: () => void) {
+  return forkable ? { onFork: run } : {}
+}
+
 function computeChanges(
   active: boolean,
   intermediate: Exchange['intermediate'],
@@ -93,6 +106,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   compacting,
   paused,
   disabled = false,
+  forkable = true,
   elapsedMs,
   finishedMs,
   scrollKey,
@@ -149,7 +163,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
           streaming={active}
           changes={changes}
           hideFooter={active}
-          onFork={() => void forkFromTurn(userIndex)}
+          {...forkProps(forkable, () => void forkFromTurn(userIndex))}
         />
       )}
     </section>

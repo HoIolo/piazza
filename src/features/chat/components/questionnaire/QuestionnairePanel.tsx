@@ -23,7 +23,8 @@ export interface QuestionnairePanelProps {
 export function QuestionnairePanel({ questions, onSubmit, onDismiss }: QuestionnairePanelProps) {
   const [index, setIndex] = useState(0)
   const [drafts, setDrafts] = useState<Draft[]>(() => questions.map(() => EMPTY_DRAFT))
-  const [cursor, setCursor] = useState(0)
+  // -1：不预选任何一行。面板刚打开时第一项不该看起来像已选中
+  const [cursor, setCursor] = useState(-1)
   const customRef = useRef<HTMLTextAreaElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -55,7 +56,8 @@ export function QuestionnairePanel({ questions, onSubmit, onDismiss }: Questionn
     const clamped = Math.min(Math.max(next, 0), total - 1)
     if (clamped === index) return
     setIndex(clamped)
-    setCursor(0)
+    // 翻页后同样不预选：每题的默认状态都应该是「还没答」
+    setCursor(-1)
   }
 
   const advance = (list: Draft[] = drafts) => {
