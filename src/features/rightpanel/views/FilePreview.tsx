@@ -127,7 +127,7 @@ function PreviewContent({ result, path }: { result: FileContent | undefined; pat
   if ('image' in result) {
     return (
       <div className={styles.imagePreview}>
-        <ImagePreview src={result.image} alt={path} />
+        <ImagePreview className={styles.previewImage} src={result.image} alt={path} />
       </div>
     )
   }

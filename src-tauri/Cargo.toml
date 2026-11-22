@@ -16,7 +16,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # macos-private-api：透明窗口要用到，侧栏的毛玻璃靠它透出系统材质
-tauri = { version = "2", features = ["macos-private-api"] }
+# unstable：右侧「浏览器」面板要 add_child 建原生子 webview（iframe 会被 frame-ancestors 拦死）
+tauri = { version = "2", features = ["macos-private-api", "unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

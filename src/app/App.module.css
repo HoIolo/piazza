@@ -53,9 +53,19 @@
   --chat-toolbar-reserve: var(--window-tools-width);
 }
 
-/* 设置覆盖时主界面略微缩退，读起来像「压在下面一层」 */
+/*
+ * 设置覆盖时主界面淡出，读起来像「压在下面一层」。
+ *
+ * 这里刻意不用 transform: scale()——虽然缩放更有层次感，但它会给 .shell
+ * 造一个合成层。窗口是 transparent + 毛玻璃（见 tauri.conf.json），
+ * 这种组合下 WebKit 对合成层的复位有已知的时序问题：设置关掉后 transform
+ * 已经移除，网页内容的呈现位置却可能停在缩放后的偏移上，表现为顶栏整体
+ * 上移、而原生红绿灯不动（NSView 不参与网页合成）。进出设置或重启窗口
+ * 会强制重建图层，所以看起来「过一会儿自己好了」。
+ *
+ * 只用 opacity 做同样的淡出，不产生合成层，也就没有复位问题。
+ */
 .shell[data-dimmed='true'] {
-  transform: scale(0.98);
   opacity: 0;
   pointer-events: none;
 }

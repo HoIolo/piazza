@@ -34,14 +34,27 @@
   padding: 0 calc(var(--window-tools-width) + var(--sp-2)) 0 2px;
 }
 
+/*
+ * 注意不能写 flex: 1。
+ * flex: 0 1 auto —— 宽度先按内容算：标签少时右侧留白，「+」紧跟在最后一个标签后面；
+ * 标签多到放不下时按 flex-shrink 收缩并横向滚动，「+」自然被挤到最右，
+ * 和右侧那组按钮排在一起。
+ */
 .tabStrip {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+/* 隐藏滚动条后仍要能横向滚：滚轮在标签条上时转成水平滚动 */
+.tabStrip::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {

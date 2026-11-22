@@ -11,6 +11,7 @@ import { useAppStore } from '@/store/app.store'
 import { useAgentSession } from '@/store/chat'
 import { useBootstrap } from './useBootstrap'
 import { useGlobalShortcuts } from './useGlobalShortcuts'
+import { useSessionPanelMemory } from './useSessionPanelMemory'
 import { WorkspaceControls } from './WorkspaceControls'
 import styles from './App.module.css'
 
@@ -19,6 +20,7 @@ export function App() {
   useBootstrap()
   useAgentSession()
   useGlobalShortcuts()
+  useSessionPanelMemory()
 
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen)
   const settingsOpen = useAppStore((s) => s.settingsOpen)

@@ -47,17 +47,31 @@
   color: var(--text-error);
 }
 
+/*
+ * 原生子 webview 的占位。
+ * 它就是量尺子用的：位置和尺寸原样交给 Rust 侧的 set_position/set_size。
+ * 有内容时保持透明——真正的像素来自那个原生视图，这里铺白底会在
+ * 视图还没定位好的一瞬间闪一块白。
+ */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .frame {
   width: 100%;
   flex: 1;
   min-height: 0;
   border: 0;
-  background: white;
+  background: transparent;
 }
 
 .empty {
+  position: absolute;
+  inset: 0;
   display: grid;
-  flex: 1;
   place-content: center;
   justify-items: center;
   gap: var(--sp-2);

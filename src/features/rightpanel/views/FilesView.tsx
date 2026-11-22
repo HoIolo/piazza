@@ -75,10 +75,19 @@ function FileRow({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
   const Icon = directory ? Folder : FileText
   return (
     <button type="button" className={styles.item} title={path} onClick={onOpen}>
-      <Icon size={15} className={styles.icon} />
+      {/*
+        只保留一个 16px 图标栏，和 Codex 的 [data-item-section='icon'] 一致：
+        该栏固定 width: --trees-icon-width，放的是箭头或文件图标之一。
+        目录用箭头（Codex 的 file-tree-icon-chevron 就渲染在这一栏里），
+        文件用类型图标，于是两类行的文字起点都落在同一处。
+      */}
+      {directory ? (
+        <ChevronRight size={16} className={styles.icon} aria-hidden />
+      ) : (
+        <Icon size={16} className={styles.icon} />
+      )}
       <span className={styles.name}>{name}</span>
       {dir && <span className={styles.dir}>{dir}</span>}
-      {directory && <ChevronRight size={14} className={styles.next} />}
     </button>
   )
 }
@@ -109,7 +118,7 @@ function WorkspaceFiles({ cwd }: { cwd: string }) {
   return (
     <div className={styles.wrap}>
       <div className={styles.searchRow}>
-        <Search size={14} className={styles.searchIcon} />
+        <Search size={14} className={styles.searchIcon} aria-hidden />
         <input
           className={styles.search}
           aria-label="搜索项目文件"

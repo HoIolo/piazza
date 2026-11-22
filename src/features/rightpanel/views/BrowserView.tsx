@@ -1,11 +1,44 @@
+import { useRef } from 'react'
 import { ArrowLeft, ArrowRight, ArrowUpRight, Globe, RotateCw } from 'lucide-react'
 import { IconButton } from '@/design/primitives/IconButton'
+import { useAppStore } from '@/store/app.store'
+import { invoke } from '@tauri-apps/api/core'
 import { useBrowserNavigation } from './useBrowserNavigation'
+import { useNativeBrowserFrame } from './useNativeBrowserFrame'
 import styles from './BrowserView.module.css'
 
+/**
+ * 这里的空白区域就是原生子 webview 的显示位。
+ *
+ * 不用 `<iframe>`：几乎所有的站点都会发 `Content-Security-Policy: frame-ancestors`
+ * 或 `X-Frame-Options`，禁止被别的来源嵌入，iframe 里只会是一片白。
+ * 改由 `useNativeBrowserFrame` 把这块矩形交给 Rust 侧创建的 WKWebView。
+ */
 export function BrowserView() {
   const b = useBrowserNavigation()
-  const frameKey = b.current ? `${b.current.kind}:${b.current.value}-${b.revision}` : 'empty'
+  const frameRef = useRef<HTMLDivElement>(null)
+  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen)
+  const settingsOpen = useAppStore((s) => s.settingsOpen)
+  const paletteOpen = useAppStore((s) => s.paletteOpen)
+
+  // 本地 .html 也要走原生视图：转成 data URL，和原来 srcDoc 的语义一致
+  const url =
+    b.current === undefined
+      ? null
+      : b.current.kind === 'url'
+        ? b.current.value
+        : b.htmlDoc === null
+          ? null
+          : `data:text/html;charset=utf-8,${encodeURIComponent(b.htmlDoc)}`
+
+  // 整窗浮层（设置、命令面板）会盖住这块区域，原生视图在上面会挡住它们
+  const covered = settingsOpen || paletteOpen
+  useNativeBrowserFrame(frameRef, url, rightPanelOpen && !covered)
+
+  const reload = () => {
+    b.reload()
+    void invoke('browser_reload').catch(() => undefined)
+  }
 
   return (
     <div className={styles.browser}>
@@ -13,15 +46,10 @@ export function BrowserView() {
         <IconButton size="sm" ariaLabel="后退" disabled={!b.canGoBack} onClick={() => b.step(-1)}>
           <ArrowLeft size={14} />
         </IconButton>
-        <IconButton
-          size="sm"
-          ariaLabel="前进"
-          disabled={!b.canGoForward}
-          onClick={() => b.step(1)}
-        >
+        <IconButton size="sm" ariaLabel="前进" disabled={!b.canGoForward} onClick={() => b.step(1)}>
           <ArrowRight size={14} />
         </IconButton>
-        <IconButton size="sm" ariaLabel="重新加载网页" disabled={!b.current} onClick={b.reload}>
+        <IconButton size="sm" ariaLabel="重新加载网页" disabled={!b.current} onClick={reload}>
           <RotateCw size={13} />
         </IconButton>
         <input
@@ -49,23 +77,17 @@ export function BrowserView() {
           {b.error}
         </p>
       )}
-      {b.current ? (
-        <iframe
-          className={styles.frame}
-          key={frameKey}
-          title="网页预览"
-          src={b.current.kind === 'url' ? b.current.value : undefined}
-          srcDoc={b.current.kind === 'html' ? (b.htmlDoc ?? '') : undefined}
-          sandbox="allow-scripts allow-forms"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className={styles.empty}>
-          <Globe size={22} className={styles.emptyIcon} />
-          <h3>网页预览</h3>
-          <p>点击对话中的 .html 文件，或输入本地开发地址实时预览。</p>
-        </div>
-      )}
+      {/* 原生视图盖在这块占位之上；有内容时占位保持透明，别露出底色 */}
+      <div className={styles.stage} data-live={Boolean(url)}>
+        <div ref={frameRef} className={styles.frame} />
+        {!url && (
+          <div className={styles.empty}>
+            <Globe size={22} className={styles.emptyIcon} />
+            <h3>网页预览</h3>
+            <p>点击对话中的 .html 文件，或输入本地开发地址实时预览。</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

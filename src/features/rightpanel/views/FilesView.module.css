@@ -5,27 +5,48 @@
   min-height: 0;
 }
 
+/*
+ * 搜索区按 Codex 文件树对齐（[data-file-tree-search-container]）：
+ * padding-inline 16px、下方留 6px，输入框本身是一个描边圆角盒子，
+ * 而不是占满整行的通栏 + 分隔线。
+ */
+/*
+ * 搜索区按 Codex 文件树对齐（[data-file-tree-search-container]）：
+ * padding-inline 16px、下方留 6px；放大镜叠在输入框内部、
+ * 由输入的左内边距让位，这样输入框本身仍从 16px 起，与行左缘对齐。
+ */
 .searchRow {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
   flex: none;
-  min-height: 40px;
-  padding: 6px var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--sp-1) var(--sp-4) 0;
+  margin-bottom: 6px;
 }
 
 .searchIcon {
-  flex: none;
+  position: absolute;
+  left: calc(var(--sp-4) + var(--sp-2));
   color: var(--text-tertiary);
+  pointer-events: none;
 }
 
 .search {
   flex: 1;
   min-width: 0;
-  font-size: var(--fs-nav);
+  height: 30px;
+  padding: 0 var(--sp-2) 0 calc(var(--sp-2) + 14px + var(--sp-1));
+  font-size: var(--fs-desc);
   color: var(--text-primary);
-  background: transparent;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-tree);
+  outline: none;
+}
+
+.search:focus-visible {
+  border-color: var(--text-tertiary);
+  outline-offset: -1px;
 }
 
 .search::placeholder {
@@ -39,22 +60,34 @@
   text-align: center;
 }
 
+/*
+ * 行几何全部取自 Codex 文件树的真实 CSS：
+ *   height / line-height 30px（--trees-row-height）
+ *   padding-x 8px（--trees-item-padding-x）
+ *   margin-x 2px（--trees-item-margin-x）
+ *   gap 6px（--trees-item-row-gap）
+ *   radius 6px（--trees-border-radius）
+ *   font-size 13px、常规字重 400
+ */
 .list {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: var(--sp-2);
+  padding: 0 var(--sp-4);
   overflow-y: auto;
 }
 
 .item {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  min-height: 30px;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  height: 30px;
   padding: 0 var(--sp-2);
-  border-radius: 8px;
+  margin: 0 2px;
+  font-size: var(--fs-desc);
+  border-radius: var(--r-tree);
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-fast) var(--ease);
@@ -64,20 +97,34 @@
   background: var(--bg-hover);
 }
 
+/* Codex 行文字是次要色，不是正文色：文件树整体退到背景里 */
+.item,
+.name {
+  color: var(--text-secondary);
+}
+
 .icon {
   flex: none;
-  align-self: center;
+  width: 16px;
   color: var(--text-tertiary);
 }
 
 .name {
-  flex: none;
-  font-size: var(--fs-desc);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 目录退到次要位置，且从左侧裁切——尾部的层级比开头更能定位文件 */
+/*
+ * 搜索结果里的目录后缀。Codex 的装饰栏是
+ * [data-item-section='decoration'] { flex: 1 1 0; justify-content: flex-end;
+ * text-align: end; color: var(--trees-fg-muted) }——靠右、次要色。
+ * 仍用 direction: rtl 从左侧裁切，让尾部层级优先可见。
+ */
 .dir {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   font-size: var(--fs-desc);
   color: var(--text-tertiary);
@@ -85,16 +132,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   direction: rtl;
-  text-align: left;
+  text-align: end;
 }
 
 .directory {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-  min-height: 34px;
-  padding: var(--sp-1) var(--sp-3);
+  flex: none;
+  height: 30px;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-desc);
+  font-weight: var(--fw-medium);
   color: var(--text-secondary);
 }
 
@@ -110,12 +159,6 @@
 .previewPath {
   flex: 1;
   font-size: var(--fs-desc);
-}
-
-.next {
-  flex: none;
-  margin-left: auto;
-  color: var(--text-tertiary);
 }
 
 .preview {
@@ -157,7 +200,32 @@
 }
 
 .imagePreview {
+  flex: 1;
+  min-height: 0;
   padding: var(--sp-4);
   display: flex;
   justify-content: center;
+  overflow: auto;
+}
+
+/*
+ * 右栏看图要看清内容，不能沿用消息里 80×80 的附件缩略图规格：
+ * 撑满可用宽度、限制在可用高度内、按原比例完整显示。
+ */
+.previewImage.previewImage {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border: none;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+.previewImage.previewImage img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  object-fit: contain;
 }

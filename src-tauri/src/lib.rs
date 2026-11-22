@@ -1,5 +1,6 @@
 mod agent_resources;
 mod attachments;
+mod browser;
 mod commands;
 mod config;
 mod data_dir;
@@ -19,8 +20,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
+        .manage(browser::BrowserState::default())
         .invoke_handler(tauri::generate_handler![
             attachments::read_attachment,
+            browser::browser_show,
+            browser::browser_bounds,
+            browser::browser_hide,
+            browser::browser_reload,
             attachments::store_attachment,
             commands::rpc_start,
             commands::rpc_send,

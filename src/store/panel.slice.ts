@@ -1,3 +1,6 @@
+import { sessionPanelActions } from './panelSession'
+import { makeTab, openTabState } from './panelTabs'
+
 /** 右侧面板里能开成标签页的视图 */
 export type RightPanelView = 'review' | 'files' | 'browser' | 'sidechat' | 'terminal'
 
@@ -33,6 +36,10 @@ export interface PanelState {
   panelTabs: PanelTab[]
   /** 当前标签页 id，null 表示停在「新标签页」 */
   activeTabId: string | null
+  /** 标签里是否已有内容（目前只有侧边聊天会写），决定关标签时要不要先确认 */
+  panelTabContent: Record<string, boolean>
+  /** 各会话各自的面板状态，键为 liveSessionPath（新会话用空串） */
+  panelBySession: Record<string, PanelSnapshot>
   reviewTarget: { cwd: string; path: string; diff: string; nonce: number } | null
   browserTarget: BrowserTarget | null
   filePreviewTarget: FilePreviewTarget | null
@@ -54,6 +61,19 @@ export interface PanelActions {
   /** 回到「新标签页」，已开的标签保留 */
   showNewPanelTab: () => void
   closePanelTab: (id: string) => void
+  /** 由视图自己上报：这个标签里现在有没有会被关掉的内容 */
+  setPanelTabContent: (id: string, has: boolean) => void
+  /** 离开某个会话前把面板状态存起来 */
+  savePanelForSession: (key: string) => void
+  /** 切到某个会话时把它的面板状态恢复回来 */
+  restorePanelForSession: (key: string) => void
+}
+
+/** 面板在某个会话里的样子 */
+export interface PanelSnapshot {
+  rightPanelOpen: boolean
+  panelTabs: PanelTab[]
+  activeTabId: string | null
 }
 
 type Setter = (updater: (state: PanelState) => Partial<PanelState>) => void
@@ -62,55 +82,25 @@ export const panelInitialState: PanelState = {
   rightPanelOpen: false,
   panelTabs: [],
   activeTabId: null,
+  panelTabContent: {},
+  panelBySession: {},
   reviewTarget: null,
   browserTarget: null,
   filePreviewTarget: null,
 }
 
 let targetSeq = 0
-let tabSeq = 0
-
-/** 单例视图：同一个视图已有标签就复用，避免开出两个「文件」 */
-const SINGLETON: ReadonlySet<RightPanelView> = new Set(['review', 'files', 'browser', 'terminal'])
-
-function makeTab(view: RightPanelView, existing: PanelTab[]): PanelTab {
-  const index = existing.filter((t) => t.view === view).length + 1
-  return { id: `${view}:${(tabSeq += 1)}`, view, index }
-}
-
-function openTabState(s: PanelState, view: RightPanelView): Partial<PanelState> {
-  const found = SINGLETON.has(view) ? s.panelTabs.find((t) => t.view === view) : undefined
-  if (found) return { rightPanelOpen: true, activeTabId: found.id }
-  const tab = makeTab(view, s.panelTabs)
-  return {
-    rightPanelOpen: true,
-    activeTabId: tab.id,
-    panelTabs: [...s.panelTabs, tab],
-  }
-}
 
 /** 标签的开关与切换。单独抽出来，createPanelActions 才不超行数上限 */
-function tabActions(
-  set: Setter,
-): Pick<
-  PanelActions,
-  | 'toggleRightPanel'
-  | 'openRightPanelView'
-  | 'openAnotherPanelTab'
-  | 'selectPanelTab'
-  | 'showNewPanelTab'
-  | 'closePanelTab'
-> {
+function tabActions(set: Setter) {
   return {
     toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-
-    openRightPanelView: (view, preserveReviewTarget) =>
+    openRightPanelView: (view: RightPanelView, preserveReviewTarget?: boolean) =>
       set((s) => ({
         ...openTabState(s, view),
         ...(view === 'review' && !preserveReviewTarget && { reviewTarget: null }),
       })),
-
-    openAnotherPanelTab: (view) => {
+    openAnotherPanelTab: (view: RightPanelView) => {
       // 序号必须按当前已开的同类标签算，传空数组会永远得到 1
       let created = ''
       set((s) => {
@@ -124,27 +114,27 @@ function tabActions(
       })
       return created
     },
-
-    selectPanelTab: (id) => set(() => ({ activeTabId: id })),
-
-    showNewPanelTab: () => set(() => ({ activeTabId: null })),
-
-    closePanelTab: (id) =>
+    selectPanelTab: (id: string) => set(() => ({ activeTabId: id })),
+    closePanelTab: (id: string) =>
       set((s) => {
         const index = s.panelTabs.findIndex((t) => t.id === id)
         const panelTabs = s.panelTabs.filter((t) => t.id !== id)
+        // 一并清掉内容标记，否则关掉又重开的标签会继承上一次的「有内容」
+        const panelTabContent = { ...s.panelTabContent }
+        delete panelTabContent[id]
         /*
          * 关掉最后一个标签就连面板一起收起。
          * 留着面板停在「新标签页」是空转——那块地方什么也没有，
          * 还得再按一次 ⌘\ 才能回到对话，多一步且没有信息量。
          */
         if (panelTabs.length === 0) {
-          return { panelTabs: [], activeTabId: null, rightPanelOpen: false }
+          return { panelTabs: [], panelTabContent, activeTabId: null, rightPanelOpen: false }
         }
-        if (s.activeTabId !== id) return { panelTabs }
+        if (s.activeTabId !== id) return { panelTabs, panelTabContent }
         // 关掉的是当前页：焦点落到右邻，没有就左邻
         return {
           panelTabs,
+          panelTabContent,
           activeTabId: panelTabs[index]?.id ?? panelTabs[index - 1]?.id ?? null,
         }
       }),
@@ -154,6 +144,15 @@ function tabActions(
 export function createPanelActions(set: Setter): PanelActions {
   return {
     ...tabActions(set),
+    ...sessionPanelActions(set),
+    showNewPanelTab: () => set(() => ({ activeTabId: null })),
+    // 视图上报标签内容，只影响关标签时要不要确认
+    setPanelTabContent: (id, has) =>
+      set((s) =>
+        s.panelTabContent[id] === has
+          ? {}
+          : { panelTabContent: { ...s.panelTabContent, [id]: has } },
+      ),
 
     openFileDiff: (cwd, path, diff) =>
       set((s) => ({
