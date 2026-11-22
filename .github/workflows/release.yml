@@ -52,6 +52,13 @@ jobs:
           # 更新包的签名私钥：没有它 createUpdaterArtifacts 会直接报错
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS 代码签名：p12 的 base64 + 密码 + 身份名。
+          # 签名不是为了过 Gatekeeper（那需要 Developer ID + 公证），
+          # 而是让 TCC 认得「这是同一个 app」——否则每次更新后
+          # 「允许访问桌面文件夹」都会重新问一遍。
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: 'Piazza ${{ github.event.inputs.tag || github.ref_name }}'
@@ -84,4 +91,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
-          RELEASE_NOTES: 'Piazza ${{ github.event.inputs.tag || github.ref_name }}'
+          # 留空：latest.json 会直接取 Release 正文当作更新说明

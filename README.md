@@ -19,11 +19,11 @@ Piazza 的安装包内置 Pi SDK 和 Node.js，装完即可启动，无需另装
 
 ## 构建环境
 
-| 依赖 | 说明 |
-|---|---|
-| Node.js ≥ 22 | 前端构建 |
-| Rust stable | Tauri 后端 |
-| Xcode CLT | macOS 构建工具链 |
+| 依赖                        | 说明               |
+| --------------------------- | ------------------ |
+| Node.js ≥ 22                | 前端构建           |
+| Rust stable                 | Tauri 后端         |
+| Xcode CLT                   | macOS 构建工具链   |
 | MSVC Build Tools + WebView2 | Windows 构建工具链 |
 
 ## 开发
@@ -38,8 +38,9 @@ npm run tauri build    # 其他平台 / 不需要签名的构建
 **签名**：macOS 上 ad-hoc 签名会让 TCC 把每次构建当成新 app，
 于是「允许访问桌面文件夹」会反复弹。`dev:app` 与 `build:mac` 会自动从钥匙串
 挑一个可用证书（Developer ID Application 优先，其次 Apple Development）签名，
-授权一次即长期有效。CI 上的发布包目前是 ad-hoc 签名——要消除更新后的重新授权，
-需要把证书导出成 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` Secret。
+授权一次即长期有效。CI 出的发布包用同一张 Apple Distribution 证书签名
+（经 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY`
+三个 Secret 注入），所以本地构建与下载版对系统来说也是同一个 app。
 
 首次构建会下载并校验固定版本的 Node.js，再按锁文件安装 Pi SDK。这段准备逻辑在
 `scripts/prepare-pi-runtime.mjs`（跨平台：macOS 用 tar.xz，Windows 用 zip；universal 构建会用 lipo
@@ -68,17 +69,17 @@ React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  
 
 ### Rust 侧（`src-tauri/src/`）
 
-| 文件 | 职责 |
-|---|---|
-| `rpc.rs` | 子进程管理、JSONL 严格分帧、事件转发 |
-| `config.rs` | `models.json` / `settings.json` 的原子读写 |
+| 文件          | 职责                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `rpc.rs`      | 子进程管理、JSONL 严格分帧、事件转发                                                         |
+| `config.rs`   | `models.json` / `settings.json` 的原子读写                                                   |
 | `data_dir.rs` | 应用数据根与 agent 目录（`~/.piazza/agent`），worker 通过 `PI_CODING_AGENT_DIR` 拿到同一个值 |
-| `import.rs` | 首次启动把 `~/.pi/agent` 的配置与会话复制进应用目录 |
-| `sessions.rs` | 扫描 `<agent>/sessions` 并按真实 cwd 分组 |
-| `git.rs` | 分支读取/列举/切换、worktree 管理、工作区增删统计 |
-| `files.rs` | 项目内文件搜索，供输入框的 @ 提及使用 |
-| `external.rs` | 探测已安装的编辑器，用 `open -a` 打开项目 |
-| `browser.rs` | 右侧面板的原生子 webview（iframe 会被 frame-ancestors 拦死） |
+| `import.rs`   | 首次启动把 `~/.pi/agent` 的配置与会话复制进应用目录                                          |
+| `sessions.rs` | 扫描 `<agent>/sessions` 并按真实 cwd 分组                                                    |
+| `git.rs`      | 分支读取/列举/切换、worktree 管理、工作区增删统计                                            |
+| `files.rs`    | 项目内文件搜索，供输入框的 @ 提及使用                                                        |
+| `external.rs` | 探测已安装的编辑器，用 `open -a` 打开项目                                                    |
+| `browser.rs`  | 右侧面板的原生子 webview（iframe 会被 frame-ancestors 拦死）                                 |
 
 **五个容易踩的坑，已在代码中处理：**
 
@@ -96,16 +97,16 @@ React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  
 
 Codex 的部分入口在 pi 里没有对应物，这些位置**不保留占位按钮**——点了没反应比没有这个入口更让人困惑：
 
-| Codex 的入口 | pi 的情况 | 处置 |
-|---|---|---|
-| 拉取请求、已安排任务 | 无 | 移除 |
-| 通知铃铛 | 无通知机制 | 移除 |
-| 新工作树、关联 Codex web、发送至云端 | 只在本地跑 | 「本地」换成 git worktree 切换/新建 |
-| 三档操作审批 | 无沙箱、无操作级审批 | 换成真实存在的「项目信任」（`defaultProjectTrust`） |
-| 向用户提问（`request_user_input`） | 无同名工具，但有扩展 UI 协议 | 用 `select`/`confirm`/`input`/`editor` 呈现同样的问答卡片 |
-| 目标、计划模式、录制技能、宠物 | 无 | 移除 |
-| 浏览器、电脑操控 | 无 | 移除 |
-| 插件 | 有 packages | 指向设置的「扩展包」分区 |
+| Codex 的入口                         | pi 的情况                    | 处置                                                      |
+| ------------------------------------ | ---------------------------- | --------------------------------------------------------- |
+| 拉取请求、已安排任务                 | 无                           | 移除                                                      |
+| 通知铃铛                             | 无通知机制                   | 移除                                                      |
+| 新工作树、关联 Codex web、发送至云端 | 只在本地跑                   | 「本地」换成 git worktree 切换/新建                       |
+| 三档操作审批                         | 无沙箱、无操作级审批         | 换成真实存在的「项目信任」（`defaultProjectTrust`）       |
+| 向用户提问（`request_user_input`）   | 无同名工具，但有扩展 UI 协议 | 用 `select`/`confirm`/`input`/`editor` 呈现同样的问答卡片 |
+| 目标、计划模式、录制技能、宠物       | 无                           | 移除                                                      |
+| 浏览器、电脑操控                     | 无                           | 移除                                                      |
+| 插件                                 | 有 packages                  | 指向设置的「扩展包」分区                                  |
 
 ### 会话目录名不可反解
 

@@ -60,9 +60,12 @@ for (const asset of assets) {
 
 if (Object.keys(platforms).length === 0) throw new Error('没有找到任何更新包签名')
 
+// 发布说明优先用 Release 正文——tauri-action 已经把这次构建的说明写进去了，
+// 用户点开更新弹窗看到的就是这一份
+const body = JSON.parse(gh('release', 'view', tag, '--repo', repo, '--json', 'body')).body
 const latest = {
   version,
-  notes: process.env.RELEASE_NOTES || `Piazza ${version}`,
+  notes: (process.env.RELEASE_NOTES || body || `Piazza ${version}`).trim(),
   pub_date: new Date().toISOString(),
   platforms,
 }
