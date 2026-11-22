@@ -1,5 +1,6 @@
 import { PanelBottomIcon, PanelRightIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
+import { shortcut } from '@/shared/utils/platform'
 import { useAppStore } from '@/store/app.store'
 import styles from './App.module.css'
 
@@ -18,7 +19,7 @@ export function WorkspaceControls() {
     >
       <IconButton
         ariaLabel="切换终端"
-        title="底部终端（⌘T）"
+        title={`底部终端（${shortcut('T')}）`}
         active={terminalOpen}
         onClick={toggleTerminal}
       >
@@ -26,7 +27,7 @@ export function WorkspaceControls() {
       </IconButton>
       <IconButton
         ariaLabel="切换右侧面板"
-        title="切换右侧面板（⌘\\）"
+        title={`切换右侧面板（${shortcut('\\')}）`}
         active={panelOpen}
         onClick={togglePanel}
       >

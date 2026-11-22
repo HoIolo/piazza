@@ -1,0 +1,49 @@
+/*
+ * 右上角的三个窗口按钮，只在 Windows 出现。
+ *
+ * 尺寸照系统习惯：46×32 是 Windows 标题栏的默认按钮尺寸，
+ * 但我们标题栏是 46px 高，所以拉满高度更好按，横向仍按 46 均分。
+ */
+.host {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* 压在设置层之上：设置页也占满整窗，按钮不能被盖住 */
+  z-index: 60;
+  display: flex;
+  height: var(--titlebar-h);
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.button:hover {
+  background: var(--bg-sidebar-hover);
+}
+
+.button:active {
+  background: var(--bg-sidebar-selected);
+}
+
+/* 关闭键悬停用系统红，这是 Windows 用户认得的唯一信号 */
+.close:hover {
+  background: var(--window-close-hover);
+  color: var(--window-close-fg);
+}
+
+.close:active {
+  background: var(--window-close-hover);
+  opacity: 0.85;
+}

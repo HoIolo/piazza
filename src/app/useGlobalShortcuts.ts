@@ -1,11 +1,17 @@
 import { useEffect } from 'react'
 import { addProject } from '@/shared/utils/addProject'
+import { isMac } from '@/shared/utils/platform'
 import { useAppStore } from '@/store/app.store'
 import { requestStop } from '@/store/chat'
 
 type AppStore = ReturnType<typeof useAppStore.getState>
 
-/** ⌘ 组合键到动作的映射，与设置页「键盘快捷键」分区展示的列表保持一致 */
+/** 主修饰键：macOS 是 ⌘，Windows/Linux 是 Ctrl */
+function isMod(e: KeyboardEvent): boolean {
+  return isMac() ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
+}
+
+/** 主修饰键组合到动作的映射，与设置页「键盘快捷键」分区展示的列表保持一致 */
 const META_ACTIONS: Record<string, (store: AppStore) => void> = {
   k: (store) => store.setPaletteOpen(!store.paletteOpen),
   ',': (store) => store.openSettings(),
@@ -62,7 +68,7 @@ export function useGlobalShortcuts(): void {
         return
       }
 
-      if (!e.metaKey || e.altKey || e.ctrlKey) return
+      if (!isMod(e) || e.altKey || e.shiftKey) return
 
       const action = META_ACTIONS[e.key.toLowerCase()]
       if (!action) return

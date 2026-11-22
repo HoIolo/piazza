@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.piazza.app",
   "build": {
-    "beforeDevCommand": "bash scripts/prepare-pi-runtime.sh && npm run dev",
+    "beforeDevCommand": "node scripts/prepare-pi-runtime.mjs && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bash scripts/prepare-pi-runtime.sh && npm run build",
+    "beforeBuildCommand": "node scripts/prepare-pi-runtime.mjs && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -20,30 +20,16 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
         "theme": "Light",
-        "trafficLightPosition": {
-          "x": 16,
-          "y": 21
-        },
-        "transparent": true,
-        "windowEffects": {
-          "effects": [
-            "menu"
-          ],
-          "state": "followsWindowActiveState"
-        }
+        "center": true
       }
     ],
     "security": {
       "csp": null
-    },
-    "macOSPrivateApi": true
+    }
   },
   "bundle": {
     "active": true,
-    "targets": "app",
     "resources": [
       "resources/task-plan.ts",
       "resources/ask-user-question.ts",
@@ -59,6 +45,18 @@
     "category": "DeveloperTool",
     "copyright": "",
     "shortDescription": "基于 pi 的编码助手",
-    "longDescription": "基于 pi coding agent 的桌面 GUI"
+    "longDescription": "基于 pi coding agent 的桌面 GUI",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/HoIolo/piazza/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4MTE3NzREMjgzMDM2REYKUldUZk5qQW9UWGNSV096RUlxZndaVGorVHFQVWgrQWN1cXRoREJwajZ6SmVwTnJEd29aZWh1dmgK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

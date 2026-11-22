@@ -151,6 +151,13 @@
   --shadow-surface: 0 0 0 0.5px var(--border-sidebar), 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.12);
 
+  /* ---------- 平台 ---------- */
+  /* 自绘窗口按钮占的宽度。macOS 用系统红绿灯，不占网页的宽度 */
+  --window-controls-w: 0px;
+  /* Windows 关闭按钮的悬停色，取自系统标题栏，不属于设计体系 */
+  --window-close-hover: #c42b1c;
+  --window-close-fg: #ffffff;
+
   /* ---------- 字体（Codex --font-sans-default / --font-mono） ---------- */
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Segoe UI', sans-serif;
@@ -263,4 +270,19 @@
 
   --skeleton-base: #212121;
   --skeleton-shine: #303030;
+}
+
+/*
+ * Windows：没有系统标题栏，右上角是自己画的最小化/最大化/关闭。
+ * 字体顺序也要换——Segoe UI 在 mac 上不存在，同理 -apple-system 在 Windows 上不存在，
+ * 混在一条栈里虽然能兜住，但中文会掉到默认字体，粗细和字距都跟 mac 不一致。
+ */
+html[data-os='windows'] {
+  --window-controls-w: 138px;
+  --font-sans:
+    'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont,
+    sans-serif;
+
+  /* 没有 windowEffects 的毛玻璃，窗口底色就老老实实铺实色 */
+  --bg-sidebar-vibrancy: var(--bg-sidebar);
 }

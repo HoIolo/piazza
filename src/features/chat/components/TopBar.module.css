@@ -4,13 +4,19 @@
   gap: var(--sp-3);
   flex: none;
   height: var(--titlebar-h);
-  padding: 0 calc(var(--sp-2) + var(--chat-toolbar-reserve, 0px)) 0 var(--sp-4);
+  padding: 0 calc(var(--sp-2) + var(--chat-toolbar-reserve, 0px) + var(--window-controls-w)) 0
+    var(--sp-4);
   transition: padding-left var(--dur-slow) var(--ease);
 }
 
 /* 侧栏收起后窗口左上角就是这条顶栏，得把交通灯占的那一段让出来 */
 .bar[data-sidebar-open='false'] {
   padding-left: 84px;
+}
+
+/* Windows 没有红绿灯，左上角从第一个像素起就能放内容 */
+[data-os='windows'] .bar[data-sidebar-open='false'] {
+  padding-left: var(--sp-4);
 }
 
 .left {

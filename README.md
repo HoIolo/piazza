@@ -2,9 +2,20 @@
 
 基于 [pi coding agent](https://github.com/earendil-works/pi) 的桌面 GUI，界面复刻 OpenAI Codex 桌面版，并把 pi 的自定义模型配置变成可视化编辑。
 
-Piazza 的 macOS 安装包包含 Pi SDK 和 Node.js。安装后可直接启动。
+Piazza 的安装包内置 Pi SDK 和 Node.js，装完即可启动，无需另装运行时。支持 macOS（universal，Intel + Apple Silicon）与 Windows x64。
 
 配置目录与 pi CLI 隔离：凭据、设置、技能、扩展、MCP 与会话都在 `~/.piazza/agent`（可用 `PIAZZA_DATA_DIR` 覆盖）。首次启动会提示把 `~/.pi/agent` 里的已有配置搬过来——只复制，不动 CLI 那份。会话仍是 pi 的原生 JSONL，只换目录、不换格式。
+
+## 安装
+
+从 [Releases](https://github.com/HoIolo/piazza/releases) 下载对应平台的安装包。
+
+- **macOS**：`Piazza_x.y.z_universal.dmg`。目前没有做 Apple 公证，首次打开需在 Finder 里右键 →「打开」，或执行
+  `xattr -dr com.apple.quarantine /Applications/Piazza.app`。
+- **Windows**：`Piazza_x.y.z_x64-setup.exe`。没有代码签名，SmartScreen 会提示，点「更多信息 → 仍要运行」即可。
+
+应用会在启动后静默检查更新，发现新版本才弹窗（设置 → 关于 可关闭，也可以在那里手动检查）。
+更新包由 Tauri updater 校验签名后安装，装完重启生效。
 
 ## 构建环境
 
@@ -13,22 +24,30 @@ Piazza 的 macOS 安装包包含 Pi SDK 和 Node.js。安装后可直接启动�
 | Node.js ≥ 22 | 前端构建 |
 | Rust stable | Tauri 后端 |
 | Xcode CLT | macOS 构建工具链 |
+| MSVC Build Tools + WebView2 | Windows 构建工具链 |
 
 ## 开发
 
 ```bash
 npm install
 npm run tauri dev      # 启动开发模式
-npm run tauri build    # 打包 .app
+npm run tauri build    # 打包当前平台
 ```
 
-首次构建会下载校验固定版本的 Node.js，并按锁文件安装 Pi SDK。运行时版本保存在 `scripts/prepare-pi-runtime.sh` 和 `pi-runtime/package.json`。
+首次构建会下载并校验固定版本的 Node.js，再按锁文件安装 Pi SDK。这段准备逻辑在
+`scripts/prepare-pi-runtime.mjs`（跨平台：macOS 用 tar.xz，Windows 用 zip；universal 构建会用 lipo
+把两个官方 node 二进制拼成 universal），版本号写在脚本顶部和 `pi-runtime/package.json` 里。
+
+发布走 GitHub Actions：推一个 `v*` tag，`.github/workflows/release.yml` 会在 macOS（universal）与
+Windows 上并行构建，最后由 `scripts/build-latest-json.mjs` 汇总成唯一一份 `latest.json` 供自动更新读取。
+更新包签名需要两个仓库 Secret：`TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
 
 质量门槛
 
 ```bash
 npm run typecheck                      # tsc --noEmit
 npm run lint                           # ESLint，零警告
+npx prettier --check "src/**/*.{ts,tsx,css}"
 cd src-tauri && cargo clippy -- -D warnings
 ```
 
@@ -52,6 +71,7 @@ React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  
 | `git.rs` | 分支读取/列举/切换、worktree 管理、工作区增删统计 |
 | `files.rs` | 项目内文件搜索，供输入框的 @ 提及使用 |
 | `external.rs` | 探测已安装的编辑器，用 `open -a` 打开项目 |
+| `browser.rs` | 右侧面板的原生子 webview（iframe 会被 frame-ancestors 拦死） |
 
 **五个容易踩的坑，已在代码中处理：**
 

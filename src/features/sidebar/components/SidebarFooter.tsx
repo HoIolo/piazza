@@ -1,8 +1,10 @@
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { BookOpen, CircleHelp, Settings } from 'lucide-react'
+import { BookOpen, CircleHelp, RefreshCw, Settings } from 'lucide-react'
 import { IconButton } from '@/design/primitives/IconButton'
 import { MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Popover } from '@/design/primitives/Popover'
+import { shortcut } from '@/shared/utils/platform'
+import { useAppStore } from '@/store/app.store'
 import styles from './SidebarFooter.module.css'
 
 const APP_NAME = 'Piazza'
@@ -14,6 +16,8 @@ export interface SidebarFooterProps {
 
 /** 侧栏底部的应用菜单入口 */
 export function SidebarFooter({ onOpenSettings }: SidebarFooterProps) {
+  const checkForUpdates = useAppStore((s) => s.check)
+
   return (
     <footer className={styles.footer}>
       <Popover
@@ -39,13 +43,22 @@ export function SidebarFooter({ onOpenSettings }: SidebarFooterProps) {
             <MenuSeparator />
             <MenuItem
               icon={<Settings size={16} />}
-              hint="⌘,"
+              hint={shortcut(',')}
               onClick={() => {
                 onOpenSettings()
                 close()
               }}
             >
               设置
+            </MenuItem>
+            <MenuItem
+              icon={<RefreshCw size={16} />}
+              onClick={() => {
+                void checkForUpdates()
+                close()
+              }}
+            >
+              检查更新
             </MenuItem>
             <MenuItem
               icon={<BookOpen size={16} />}

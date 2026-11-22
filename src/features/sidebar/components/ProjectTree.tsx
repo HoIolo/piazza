@@ -6,6 +6,7 @@ import type { ProjectGroup } from '@/shared/api/sessions'
 import type { SessionStatus } from './SessionRow'
 import { ProjectNode } from './ProjectNode'
 import styles from './ProjectTree.module.css'
+import { shortcut } from '@/shared/utils/platform'
 
 export interface ProjectTreeProps {
   projects: ProjectGroup[]
@@ -77,7 +78,7 @@ export function ProjectTree({
           className={styles.groupAction}
           onClick={onAddProject}
           aria-label="添加项目"
-          title="添加项目（⌘O）"
+          title={`添加项目（${shortcut('O')}）`}
         >
           <PlusIcon size={16} />
         </button>

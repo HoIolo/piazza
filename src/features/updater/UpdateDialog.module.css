@@ -1,0 +1,63 @@
+.version {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+/*
+ * 发布说明直接来自 GitHub Release 正文，是 Markdown——按原文渲染的话
+ * 满屏都是 ## 和 -，所以走消息同款渲染器。限高滚动，别把弹窗撑出屏幕。
+ */
+.notes {
+  margin: 0 0 var(--sp-3);
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: var(--fs-nav);
+  color: var(--text-secondary);
+  overscroll-behavior: contain;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-nav);
+  color: var(--text-secondary);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-nav);
+  color: var(--text-error);
+  word-break: break-word;
+}
+
+.progress {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  margin: var(--sp-2) 0 var(--sp-2);
+  border-radius: 999px;
+  background: var(--bg-bubble);
+}
+
+.bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue-switch);
+  transition: width var(--dur-base) var(--ease);
+}
+
+/* 总长未知：来回扫一条，别让进度条看起来卡在 0 */
+.bar[data-indeterminate='true'] {
+  width: 40%;
+  animation: sweep 1.2s var(--ease) infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}

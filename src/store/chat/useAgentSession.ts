@@ -2,21 +2,10 @@ import { useEffect, useRef } from 'react'
 import { rpcClient } from '@/rpc/client'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
-import { useProjectsStore } from '@/store/projects.store'
-import {
-  bootSession,
-  describeExit,
-  getSlotCwd,
-  markRpcProcessExited,
-  startWatchdog,
-} from './bootSession'
-import {
-  applyBackgroundEvent,
-  detachForeground,
-  handleBackgroundExit,
-  reattachBackground,
-} from './sessionPool'
+import { bootSession, getSlotCwd, markRpcProcessExited, startWatchdog } from './bootSession'
+import { detachForeground, reattachBackground } from './sessionPool'
 import { hasPendingWork } from './types'
+import { useAgentEvents } from './useAgentEvents'
 import { useChatStore } from './store'
 import {
   commitLoadedSession,
@@ -25,43 +14,6 @@ import {
   startSkeletonGuard,
   tryHydrateDisk,
 } from './switchHelpers'
-
-function useAgentEvents(): void {
-  const applyEvent = useChatStore((s) => s.applyEvent)
-  useEffect(() => {
-    const offEvent = rpcClient.onEvent((event, slotId) => {
-      if (slotId !== rpcClient.getActiveSlot()) {
-        applyBackgroundEvent(slotId, event)
-        return
-      }
-      const store = useChatStore.getState()
-      if (!store.rpcReady || !store.session) return
-      store.applyEvent(event)
-      if (event.type === 'message_end' && event.message.role === 'user') {
-        void useProjectsStore.getState().refresh()
-      }
-      if (event.type === 'agent_settled' || event.type === 'session_info_changed') {
-        snapshotCurrentSession()
-        void useProjectsStore.getState().refresh()
-      }
-    })
-    const offExit = rpcClient.onExit((info, slotId) => {
-      markRpcProcessExited(slotId)
-      if (slotId !== rpcClient.getActiveSlot()) {
-        handleBackgroundExit(slotId)
-        return
-      }
-      const store = useChatStore.getState()
-      useChatStore.setState({ titlePending: false })
-      store.setRpcReady(false)
-      store.setError(describeExit(info))
-    })
-    return () => {
-      offEvent()
-      offExit()
-    }
-  }, [applyEvent])
-}
 
 /** 切走时保留流式会话到后台；若目标会话已在后台运行则直接接回前台，返回 null 表示无需重启。 */
 function resolveSlotForSwitch(

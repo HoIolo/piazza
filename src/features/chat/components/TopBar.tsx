@@ -6,6 +6,7 @@ import { EnvMenu } from './EnvMenu'
 import { OpenLocationButton } from './OpenLocationButton'
 import { SessionMenu } from './SessionMenu'
 import styles from './TopBar.module.css'
+import { shortcut } from '@/shared/utils/platform'
 
 export interface TopBarProps {
   /** 会话标题，空状态下为 null */
@@ -49,7 +50,11 @@ export function TopBar({
   return (
     <header className={styles.bar} data-sidebar-open={sidebarOpen} data-tauri-drag-region="deep">
       {!sidebarOpen && (
-        <IconButton ariaLabel="展开侧栏" title="展开侧栏（⌘B）" onClick={onToggleSidebar}>
+        <IconButton
+          ariaLabel="展开侧栏"
+          title={`展开侧栏（${shortcut('B')}）`}
+          onClick={onToggleSidebar}
+        >
           <PanelLeftIcon />
         </IconButton>
       )}

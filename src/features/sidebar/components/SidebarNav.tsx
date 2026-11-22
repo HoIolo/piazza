@@ -1,4 +1,5 @@
 import { ComposeIcon, PackageIcon } from '@/design/icons'
+import { shortcut } from '@/shared/utils/platform'
 import styles from './SidebarNav.module.css'
 
 export interface SidebarNavProps {
@@ -15,7 +16,7 @@ export interface SidebarNavProps {
  */
 export function SidebarNav({ onNewChat, onOpenPackages }: SidebarNavProps) {
   const items = [
-    { icon: ComposeIcon, label: '新对话', hint: '⌘N', onClick: onNewChat },
+    { icon: ComposeIcon, label: '新对话', hint: shortcut('N'), onClick: onNewChat },
     { icon: PackageIcon, label: '扩展包', hint: null, onClick: onOpenPackages },
   ]
 

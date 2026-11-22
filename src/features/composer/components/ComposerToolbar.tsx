@@ -2,6 +2,7 @@ import { AttachButton } from './AttachMenu'
 import { ContextUsageRing } from './ContextUsageRing'
 import { ModelPicker } from '@/shared/components/ModelPicker'
 import { TrustPicker } from '@/shared/components/TrustPicker'
+import { shortcut } from '@/shared/utils/platform'
 import styles from './ComposerToolbar.module.css'
 
 /**
@@ -24,11 +25,10 @@ export interface ComposerToolbarProps {
   onToggleAttach: () => void
 }
 
-const LABELS: Record<PrimaryAction, string> = {
-  send: '发送',
-  steer: '引导（⌘↵ 改为排队）',
-  stop: '暂停',
-  resume: '继续',
+/** 运行中的主按钮是「引导」，按住 ⌘ 再回车才改成排队，文案里得说清楚 */
+function labelFor(action: PrimaryAction): string {
+  if (action === 'steer') return `引导（${shortcut('↵')} 改为排队）`
+  return { send: '发送', stop: '暂停', resume: '继续' }[action]
 }
 
 /** 向上箭头，线段取自 Codex 发送图标：一竖两斜，线宽 1.33 */
@@ -92,8 +92,8 @@ export function ComposerToolbar({
           data-action={action}
           disabled={disabled}
           onClick={onPrimary}
-          aria-label={LABELS[action]}
-          title={LABELS[action]}
+          aria-label={labelFor(action)}
+          title={labelFor(action)}
         >
           <PrimaryIcon action={action} stopArmed={stopArmed} />
         </button>

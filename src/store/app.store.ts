@@ -24,6 +24,12 @@ import {
   type TerminalActions,
   type TerminalState,
 } from './terminal.slice'
+import {
+  createUpdaterActions,
+  updaterInitialState,
+  type UpdaterActions,
+  type UpdaterState,
+} from './updater.slice'
 
 export type Theme = 'light' | 'dark'
 
@@ -38,7 +44,9 @@ interface AppState
     PanelState,
     PanelActions,
     ProjectPrefsState,
-    ProjectPrefsActions {
+    ProjectPrefsActions,
+    UpdaterState,
+    UpdaterActions {
   theme: Theme
   /** 左侧栏是否展开 */
   sidebarOpen: boolean
@@ -71,7 +79,7 @@ interface AppState
   closeSettings: () => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   ...terminalInitialState,
   ...createTerminalActions(set),
   ...sessionInitialState,
@@ -80,6 +88,8 @@ export const useAppStore = create<AppState>((set) => ({
   ...createPanelActions(set),
   ...projectPrefsInitialState,
   ...createProjectPrefsActions(set),
+  ...updaterInitialState,
+  ...createUpdaterActions(set, get),
   theme: 'light',
   sidebarOpen: true,
   // 默认收起：环境面板是「用户想看时才叫出来」的辅助信息，

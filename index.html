@@ -7,6 +7,16 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // 平台必须在任何模块求值之前就位：entries.ts 这类模块级常量
+      // 会在 import 阶段就把快捷键文案算出来，晚一步就固化成 ⌘
+      var ua = navigator.userAgent
+      document.documentElement.dataset.os = ua.includes('Windows')
+        ? 'windows'
+        : ua.includes('Mac')
+          ? 'macos'
+          : 'linux'
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

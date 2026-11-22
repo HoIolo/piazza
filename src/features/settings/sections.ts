@@ -2,6 +2,7 @@ import {
   Blocks,
   BookOpen,
   FileText,
+  Info,
   Keyboard,
   Layers,
   Monitor,
@@ -11,7 +12,15 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 export type SectionId =
-  'appearance' | 'models' | 'instructions' | 'skills' | 'mcp' | 'packages' | 'shortcuts' | 'system'
+  | 'appearance'
+  | 'models'
+  | 'instructions'
+  | 'skills'
+  | 'mcp'
+  | 'packages'
+  | 'shortcuts'
+  | 'system'
+  | 'about'
 
 export interface SectionItem {
   id: SectionId
@@ -113,6 +122,13 @@ export const SECTION_GROUPS: SectionGroup[] = [
           '重试',
           '图片',
         ],
+      },
+      {
+        id: 'about',
+        label: '关于',
+        subtitle: '版本号与自动更新',
+        icon: Info,
+        keywords: ['版本', '更新', '升级', 'about', 'version', 'update'],
       },
     ],
   },

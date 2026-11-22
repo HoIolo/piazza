@@ -1,0 +1,87 @@
+name: Release
+
+# 打 tag 即出包：v0.1.0 → 版本号取自 tag，产物直接进同名 Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（需已存在或由本次创建，形如 v0.1.0）'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # 一边失败不影响另一边，产物能留就留
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            # universal：一份 dmg 同时覆盖 Intel 与 Apple Silicon
+            args: '--target universal-apple-darwin'
+            targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+          - platform: windows-latest
+            args: ''
+            targets: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 更新包的签名私钥：没有它 createUpdaterArtifacts 会直接报错
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: 'Piazza ${{ github.event.inputs.tag || github.ref_name }}'
+          releaseBody: |
+            桌面版安装包。macOS 为 universal（Intel + Apple Silicon），Windows 为 x64 安装程序。
+
+            - macOS：暂未做公证，首次打开需右键「打开」，或执行
+              `xattr -dr com.apple.quarantine /Applications/Piazza.app`
+            - Windows：未做代码签名，SmartScreen 会提示「更多信息 → 仍要运行」
+
+            应用内会自动检查更新（设置 → 关于 可关）。
+          releaseDraft: false
+          prerelease: false
+          # 两个 job 各写一份会互相覆盖，统一交给下面的 publish job 生成
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}
+
+  # 等两个平台都传完，再生成唯一的一份 latest.json
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node scripts/build-latest-json.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          RELEASE_NOTES: 'Piazza ${{ github.event.inputs.tag || github.ref_name }}'

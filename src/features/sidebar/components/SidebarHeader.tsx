@@ -1,6 +1,7 @@
 import { PanelLeftIcon, SearchIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
 import styles from './SidebarHeader.module.css'
+import { shortcut } from '@/shared/utils/platform'
 
 export interface SidebarHeaderProps {
   onSearch: () => void
@@ -18,10 +19,14 @@ export function SidebarHeader({ onSearch, onToggleSidebar }: SidebarHeaderProps)
   return (
     <header className={styles.header} data-tauri-drag-region="deep">
       <div className={styles.actions}>
-        <IconButton ariaLabel="搜索" title="搜索（⌘K）" onClick={onSearch}>
+        <IconButton ariaLabel="搜索" title={`搜索（${shortcut('K')}）`} onClick={onSearch}>
           <SearchIcon />
         </IconButton>
-        <IconButton ariaLabel="收起侧栏" title="收起侧栏（⌘B）" onClick={onToggleSidebar}>
+        <IconButton
+          ariaLabel="收起侧栏"
+          title={`收起侧栏（${shortcut('B')}）`}
+          onClick={onToggleSidebar}
+        >
           <PanelLeftIcon />
         </IconButton>
       </div>

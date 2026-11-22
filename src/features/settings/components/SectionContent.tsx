@@ -1,5 +1,6 @@
 import type { SectionId } from '../sections'
 import type { AppSettingsHandle } from '../hooks/useAppSettings'
+import { AboutSection } from '../sections/AboutSection'
 import { AppearanceSection } from '../sections/AppearanceSection'
 import { InstructionsSection } from '../sections/InstructionsSection'
 import { McpSection } from '../sections/McpSection'
@@ -33,5 +34,7 @@ export function SectionContent({ id, settings }: SectionContentProps) {
       return <ShortcutsSection />
     case 'system':
       return <SystemSection settings={settings} />
+    case 'about':
+      return <AboutSection />
   }
 }

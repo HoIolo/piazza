@@ -177,7 +177,8 @@ function boxBlur(src, radius) {
 
   for (let x = 0; x < CANVAS; x++) {
     let sum = 0
-    for (let y = -radius; y <= radius; y++) sum += tmp[Math.min(CANVAS - 1, Math.max(0, y)) * CANVAS + x]
+    for (let y = -radius; y <= radius; y++)
+      sum += tmp[Math.min(CANVAS - 1, Math.max(0, y)) * CANVAS + x]
     for (let y = 0; y < CANVAS; y++) {
       out[y * CANVAS + x] = sum / span
       sum -= tmp[Math.max(0, y - radius) * CANVAS + x]

@@ -14,11 +14,19 @@ mod terminal;
 
 use commands::AppState;
 
+/// 运行平台。前端据此决定标题栏形态、快捷键文案与毛玻璃降级，比解析 UA 可靠。
+#[tauri::command]
+fn app_platform() -> &'static str {
+    std::env::consts::OS
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .manage(browser::BrowserState::default())
         .invoke_handler(tauri::generate_handler![
@@ -68,6 +76,7 @@ pub fn run() {
             commands::delete_agent_skill,
             commands::list_local_extensions,
             commands::delete_local_extension,
+            app_platform,
             commands::read_mcp_config,
             commands::write_mcp_config,
         ])

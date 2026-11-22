@@ -49,6 +49,20 @@
   height: var(--titlebar-h);
 }
 
+/*
+ * Windows 右上角还有自绘的最小化/最大化/关闭，它们占掉 --window-controls-w。
+ * --window-tools-width 是「右侧工具栏 + 窗口按钮」的总宽度，
+ * 顶栏与右侧面板都按它留白，一处改完全局生效。
+ */
+[data-os='windows'] .shell {
+  --window-tools-width: calc(64px + var(--window-controls-w));
+}
+
+[data-os='windows'] .windowTools {
+  width: 64px;
+  inset: 0 calc(var(--sp-2) + var(--window-controls-w)) auto auto;
+}
+
 .shell[data-workspace-open='false'] .center {
   --chat-toolbar-reserve: var(--window-tools-width);
 }

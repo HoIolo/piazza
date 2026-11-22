@@ -20,6 +20,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["macos-private-api", "unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+# 自动更新：updater 负责检查/下载/安装，process 负责装完重启自己
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 # preserve_order：JSON 对象保留原始键顺序。默认的 BTreeMap 会按字母序重排，
 # 一次保存就把用户手写配置的字段顺序全打乱，diff 里全是无关变更。

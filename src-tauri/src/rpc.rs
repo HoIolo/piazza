@@ -156,7 +156,8 @@ impl RpcState {
             .resolve("resources/pi-runtime", BaseDirectory::Resource)
             .map_err(|e| format!("无法定位内置 Pi 运行时：{e}"))?;
         let bin = runtime.join("bin");
-        let node = bin.join("node");
+        // Windows 的 node 可执行文件带扩展名，路径拼错就变成「缺少内置运行时」
+        let node = bin.join(if cfg!(windows) { "node.exe" } else { "node" });
         let worker = runtime.join("worker.mjs");
         if !node.is_file() || !worker.is_file() {
             return Err("Piazza 安装包缺少内置 Pi 运行时".into());
