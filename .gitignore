@@ -5,6 +5,11 @@ src-tauri/target/
 # tauri-build 每次构建都会重新生成
 src-tauri/gen/schemas/
 
+# 根目录不留随手截的图（图标在 src-tauri/icons）
+/*.png
+/*.jpg
+/*.jpeg
+
 # 探针运行时落下的临时产物
 .playwright-mcp/
 e2e/.shots/
