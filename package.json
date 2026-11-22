@@ -1,7 +1,7 @@
 {
   "name": "piazza",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "基于 pi coding agent 的 Codex 风格桌面 GUI",
   "scripts": {
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "dev:app": "tauri dev --runner scripts/run-dev.sh",
+    "dev:app": "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER=\"$PWD/scripts/run-dev.sh\" CARGO_TARGET_X86_64_APPLE_DARWIN_RUNNER=\"$PWD/scripts/run-dev.sh\" tauri dev",
     "build:mac": "sh scripts/build-mac.sh"
   },
   "dependencies": {

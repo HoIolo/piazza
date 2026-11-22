@@ -1,6 +1,6 @@
 [package]
 name = "piazza"
-version = "0.1.1"
+version = "0.1.2"
 description = "基于 pi coding agent 的 Codex 风格桌面 GUI"
 authors = ["Piazza"]
 edition = "2021"
