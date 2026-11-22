@@ -19,8 +19,12 @@ export interface AccountFlow {
 /** 进程启动失败时给出可操作的说法，而不是干巴巴的退出码 */
 function describeAccountsExit(code: number | null, stderr: string): string {
   const tail = stderr.trim()
-  if (tail) return `pi 账号进程退出：${tail.split('\n').slice(-3).join(' ')}`
-  if (code === null) return 'pi 账号进程被系统终止（内置运行时可能未通过签名校验）'
+  if (tail) {
+    const lines = tail.split(/\r?\n/)
+    const reason = lines.find((line) => /^\w*Error:/.test(line)) ?? lines[0]
+    return `pi 账号进程退出：${reason}`
+  }
+  if (code === null) return 'pi 账号进程被系统终止'
   return `pi 账号进程异常退出（退出码 ${code}）`
 }
 
@@ -75,6 +79,7 @@ function useAccountConnection() {
   useEffect(() => {
     const id = crypto.randomUUID()
     slot.current = id
+    stderrTail.current = ''
     const unsubscribe = subscribeAccount(id, slot, stderrTail, { setFlow, setError })
     const started = accountsRpc.start({ cwd: '' }, id)
     void started
@@ -83,7 +88,7 @@ function useAccountConnection() {
         if (slot.current === id) setProviders(rows)
       })
       .catch((reason) => {
-        if (slot.current === id) setError(errorMessage(reason))
+        if (slot.current === id) setError((existing) => existing || errorMessage(reason))
       })
 
     return () => {

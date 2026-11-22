@@ -1,4 +1,5 @@
 import { ArrowLeft, Search } from 'lucide-react'
+import { isMac } from '@/shared/utils/platform'
 import { SECTION_GROUPS, type SectionId } from '../sections'
 import styles from './SettingsSidebar.module.css'
 
@@ -30,7 +31,9 @@ export function SettingsSidebar({
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.dragZone} data-tauri-drag-region />
+      <header className={styles.dragZone} data-tauri-drag-region="deep">
+        {!isMac() && <span className={styles.wordmark}>Piazza</span>}
+      </header>
 
       <button type="button" className={styles.back} onClick={onBack}>
         <ArrowLeft size={16} />

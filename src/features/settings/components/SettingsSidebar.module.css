@@ -9,8 +9,18 @@
 }
 
 .dragZone {
+  display: flex;
+  align-items: center;
   height: var(--titlebar-h);
   flex: none;
+  padding: 0 calc(var(--sp-2) + 4px);
+}
+
+.wordmark {
+  font-size: var(--fs-nav);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.01em;
+  color: var(--sidebar-text);
 }
 
 .back {

@@ -1,31 +1,52 @@
+import { useState } from 'react'
 import { FolderOpen, Trash2 } from 'lucide-react'
 import { Card } from '@/design/primitives/Card'
-import type { ExtensionEntry } from '@/shared/api/agentResources'
+import { Dialog } from '@/design/primitives/Dialog'
+import { deleteLocalExtension, type ExtensionEntry } from '@/shared/api/agentResources'
 import { openPathWith } from '@/shared/api/pi'
+import { errorMessage } from '@/shared/utils/error'
+import { currentPlatform } from '@/shared/utils/platform'
 import styles from './CapabilityList.module.css'
 
 function formatSize(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
-/**
- * 本地扩展脚本。
- *
- * 删除走系统确认框并移进废纸篓：这些是用户自己写的代码，
- * 手滑一次就得重写，值得打断一下。
- */
 export function LocalExtensionsCard({
   extensions,
-  extDir,
-  onDelete,
+  agentDir,
+  onDeleted,
 }: {
   extensions: ExtensionEntry[]
-  extDir: string
-  onDelete: (ext: ExtensionEntry) => void
+  agentDir: string
+  onDeleted: (path: string) => void
 }) {
+  const [target, setTarget] = useState<ExtensionEntry | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<{ path: string; message: string } | null>(null)
+  const windows = currentPlatform() === 'windows'
+  const separator = windows ? '\\' : '/'
+  const extDir = agentDir ? `${agentDir}${separator}extensions` : ''
+  const trashLabel = windows ? 'Piazza 废纸篓' : '废纸篓'
+
+  const confirmDelete = async () => {
+    if (!target || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteLocalExtension(target.path)
+      onDeleted(target.path)
+    } catch (reason: unknown) {
+      setError({ path: target.path, message: errorMessage(reason) })
+    } finally {
+      setBusy(false)
+      setTarget(null)
+    }
+  }
+
   return (
     <Card title={`本地扩展脚本 (${extDir || 'extensions'})`}>
-      <div className={styles.list}>
+      <div className={styles.list} inert={target !== null}>
         {extensions.length === 0 ? (
           <p className={styles.empty}>{extDir || 'extensions'} 下暂无本地扩展脚本</p>
         ) : (
@@ -39,13 +60,18 @@ export function LocalExtensionsCard({
                   </span>
                 </div>
                 <span className={styles.itemPath}>{ext.path}</span>
+                {error?.path === ext.path && (
+                  <p className={styles.itemError} role="alert">
+                    {error.message}
+                  </p>
+                )}
               </div>
               <div className={styles.itemActions}>
                 <button
                   type="button"
                   className={styles.iconBtn}
-                  title="在访达中打开"
-                  aria-label="在访达中打开"
+                  title="打开所在文件夹"
+                  aria-label="打开所在文件夹"
                   onClick={() => void openPathWith('', extDir || ext.path)}
                 >
                   <FolderOpen size={14} />
@@ -53,9 +79,9 @@ export function LocalExtensionsCard({
                 <button
                   type="button"
                   className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                  title="移入废纸篓"
+                  title={`移入${trashLabel}`}
                   aria-label={`删除扩展 ${ext.name}`}
-                  onClick={() => onDelete(ext)}
+                  onClick={() => setTarget(ext)}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -64,6 +90,24 @@ export function LocalExtensionsCard({
           ))
         )}
       </div>
+      {target && (
+        <Dialog
+          title="删除扩展？"
+          confirmLabel="移入废纸篓"
+          busy={busy}
+          onClose={() => {
+            if (!busy) setTarget(null)
+          }}
+          onConfirm={() => void confirmDelete()}
+        >
+          <p>
+            「{target.name}」会被移入{trashLabel}，之后 Pi 不再加载它。
+          </p>
+          {windows && agentDir && (
+            <p className={styles.pathMeta}>{`${agentDir}${separator}.Trash`}</p>
+          )}
+        </Dialog>
+      )}
     </Card>
   )
 }

@@ -133,6 +133,12 @@
   text-overflow: ellipsis;
 }
 
+.itemError {
+  color: var(--text-error);
+  font-size: var(--fs-desc);
+  overflow-wrap: anywhere;
+}
+
 .itemActions {
   display: flex;
   align-items: center;

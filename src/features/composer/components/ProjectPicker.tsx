@@ -35,6 +35,7 @@ export function ProjectPicker({ projectName }: { projectName: string }) {
           onClick={toggle}
           aria-haspopup="menu"
           aria-expanded={isOpen}
+          title={projectName}
         >
           <Folder size={15} className={styles.icon} />
           <span>{projectName}</span>

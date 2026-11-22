@@ -31,7 +31,11 @@ export function EmptyState({ projectName, onPickSuggestion }: EmptyStateProps) {
     <div className={styles.wrapper}>
       <WelcomeMascot />
       <h1 className={styles.title}>
-        要在 <span className={styles.project}>{projectName}</span> 内开发什么？
+        要在{' '}
+        <span className={styles.project} title={projectName}>
+          {projectName}
+        </span>{' '}
+        内开发什么？
       </h1>
       <div className={styles.cards}>
         {SUGGESTIONS.map(({ icon: Icon, label, accent, prompt }) => (

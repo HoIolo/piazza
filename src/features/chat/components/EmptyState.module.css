@@ -75,6 +75,7 @@
 }
 
 .title {
+  max-width: min(100%, var(--content-inner-w));
   margin-bottom: var(--sp-8);
   font-size: var(--fs-hero);
   font-weight: var(--fw-normal);
@@ -84,6 +85,12 @@
 }
 
 .project {
+  display: inline-block;
+  max-width: min(65%, 20rem);
+  overflow: hidden;
+  vertical-align: top;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;

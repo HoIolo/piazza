@@ -67,7 +67,10 @@ export function App() {
       {settingsMounted && (
         <div className={styles.settingsLayer} data-open={settingsOpen}>
           {/* key 随请求的分区变化，让「扩展包」这类直达入口每次都落到指定分区 */}
-          <SettingsView key={settingsSection ?? 'default'} initialSection={settingsSection} />
+          <SettingsView
+            key={settingsSection?.request ?? 'default'}
+            initialSection={settingsSection?.id}
+          />
         </div>
       )}
     </div>

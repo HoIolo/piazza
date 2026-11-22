@@ -63,8 +63,8 @@ interface AppState
    * 保留 DOM 才能播关闭动画，而未打开过时完全不挂载，就不会白读一次配置。
    */
   settingsMounted: boolean
-  /** 打开设置时指定的分区 id；null 表示用默认分区 */
-  settingsSection: string | null
+  /** 直达入口每次都重新定位分区，即使上一次也是从同一入口打开 */
+  settingsSection: { id: string; request: number } | null
   /** 按模型（provider/modelId）记住的上下文窗口档位（200k / 500k / 1M） */
   modelContextWindows: Record<string, number>
 
@@ -132,7 +132,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshGit: () => set((s) => ({ gitNonce: s.gitNonce + 1 })),
 
   openSettings: (section) =>
-    set({ settingsOpen: true, settingsMounted: true, settingsSection: section ?? null }),
+    set((s) => ({
+      settingsOpen: true,
+      settingsMounted: true,
+      settingsSection: section
+        ? { id: section, request: (s.settingsSection?.request ?? 0) + 1 }
+        : null,
+    })),
 
   closeSettings: () => set({ settingsOpen: false }),
 }))

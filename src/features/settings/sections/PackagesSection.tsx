@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ask } from '@tauri-apps/plugin-dialog'
 import { Plus, Trash2 } from 'lucide-react'
 import { Card } from '@/design/primitives/Card'
 import { Pill } from '@/design/primitives/Pill'
 import { TextField } from '@/design/primitives/TextField'
-import {
-  deleteLocalExtension,
-  getAgentDir,
-  listLocalExtensions,
-  type ExtensionEntry,
-} from '@/shared/api/agentResources'
-import { errorMessage } from '@/shared/utils/error'
+import { getAgentDir, listLocalExtensions, type ExtensionEntry } from '@/shared/api/agentResources'
 import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 import type { SectionProps } from './AppearanceSection'
 import { LocalExtensionsCard } from './LocalExtensionsCard'
@@ -29,7 +22,6 @@ export function PackagesSection({ settings }: SectionProps) {
   const [extensions, setExtensions] = useState<ExtensionEntry[]>([])
   const [agentDir, setAgentDir] = useState('')
   const [nonce, setNonce] = useState(0)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     void listLocalExtensions()
@@ -47,33 +39,8 @@ export function PackagesSection({ settings }: SectionProps) {
     setDraftPkg('')
   }
 
-  const deleteExtension = async (ext: ExtensionEntry) => {
-    const ok = await ask(`「${ext.name}」会被移入废纸篓，之后 pi 不再加载它。`, {
-      title: '删除扩展？',
-      kind: 'warning',
-      okLabel: '删除',
-      cancelLabel: '取消',
-    })
-    if (!ok) return
-    try {
-      await deleteLocalExtension(ext.path)
-      // 扩展是启动时加载的，删完得重启 pi 才会真正从工具列表里消失
-      refreshRuntimeAfterSave()
-      setError(null)
-      setNonce((n) => n + 1)
-    } catch (e: unknown) {
-      setError(errorMessage(e))
-    }
-  }
-
   return (
     <>
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
-
       <Card title="已安装的扩展包 (packages)">
         <div className={styles.list}>
           {packages.length === 0 ? (
@@ -123,8 +90,12 @@ export function PackagesSection({ settings }: SectionProps) {
 
       <LocalExtensionsCard
         extensions={extensions}
-        extDir={agentDir ? `${agentDir}/extensions` : ''}
-        onDelete={(ext) => void deleteExtension(ext)}
+        agentDir={agentDir}
+        onDeleted={(path) => {
+          setExtensions((items) => items.filter((item) => item.path !== path))
+          setNonce((n) => n + 1)
+          refreshRuntimeAfterSave()
+        }}
       />
     </>
   )

@@ -51,7 +51,8 @@ function targets() {
     if (triple.includes('windows')) return [`win-${arch}`]
     throw new Error(`不支持的目标平台：${triple}`)
   }
-  const host = `${process.platform}-${process.arch}`
+  const platform = process.platform === 'win32' ? 'win' : process.platform
+  const host = `${platform}-${process.arch}`
   if (!['darwin-arm64', 'darwin-x64', 'win-x64', 'win-arm64'].includes(host)) {
     throw new Error(`不支持的本机平台：${host}`)
   }

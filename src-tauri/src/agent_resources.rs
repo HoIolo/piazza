@@ -216,24 +216,53 @@ pub fn list_local_extensions() -> Result<Vec<ExtensionEntry>, String> {
 ///
 /// 与删除技能同一套约束：路径必须落在 `<agent>/extensions` 下，
 /// 免得这个命令变成「把任意文件丢进废纸篓」的通道。
-/// 符号链接只删链接本身，不动它指向的东西。
+/// 移动目录项本身，符号链接的目标保持原样。
 pub fn delete_local_extension(path: &str) -> Result<(), String> {
-    let root = crate::data_dir::agent_dir()?.join("extensions");
+    let agent = crate::data_dir::agent_dir()?;
+    let root = agent.join("extensions");
     let root = root.canonicalize().map_err(|e| format!("扩展目录不存在：{e}"))?;
-    let target = PathBuf::from(path);
-    let meta = std::fs::symlink_metadata(&target).map_err(|e| format!("找不到扩展：{e}"))?;
-    let resolved = target.canonicalize().unwrap_or_else(|_| target.clone());
-
-    if !resolved.starts_with(&root) {
+    let target = Path::new(path);
+    let name = target.file_name().ok_or("无效的扩展名")?;
+    let parent = target.parent().ok_or("无效的扩展路径")?;
+    let parent = parent.canonicalize().map_err(|e| format!("找不到扩展：{e}"))?;
+    if !parent.starts_with(&root) {
         return Err("只能删除 agent 目录下 extensions 里的扩展".into());
     }
+    move_extension_to_trash(&parent.join(name), name, &agent)
+}
+
+#[cfg(windows)]
+fn move_extension_to_trash(target: &Path, name: &std::ffi::OsStr, agent: &Path) -> Result<(), String> {
+    // Windows 没有 ~/.Trash。同名扩展的每次删除各自占用一个恢复目录。
+    let trash = agent.join(".Trash");
+    std::fs::create_dir_all(&trash).map_err(|e| format!("创建 Piazza 废纸篓失败：{e}"))?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_nanos();
+    let archived = trash.join(format!("{stamp}-{}", std::process::id()));
+    std::fs::create_dir(&archived).map_err(|e| format!("创建扩展恢复目录失败：{e}"))?;
+    if let Err(error) = std::fs::rename(target, archived.join(name)) {
+        let _ = std::fs::remove_dir(&archived);
+        return Err(format!("移入 Piazza 废纸篓失败：{error}"));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn move_extension_to_trash(
+    target: &Path,
+    name: &std::ffi::OsStr,
+    _agent: &Path,
+) -> Result<(), String> {
+    let meta = std::fs::symlink_metadata(target).map_err(|e| format!("找不到扩展：{e}"))?;
     if meta.file_type().is_symlink() {
-        return std::fs::remove_file(&target).map_err(|e| format!("移除扩展链接失败：{e}"));
+        return std::fs::remove_file(target).map_err(|e| format!("移除扩展链接失败：{e}"));
     }
 
     let home = dirs::home_dir().ok_or("无法定位用户主目录")?;
-    let name = target.file_name().ok_or("无效的扩展名")?;
     let trash = home.join(".Trash");
+    std::fs::create_dir_all(&trash).map_err(|e| format!("创建废纸篓失败：{e}"))?;
     let mut dest = trash.join(name);
     if dest.exists() {
         // 废纸篓里已有同名项时补上时间戳，不覆盖先前删掉的那份
@@ -242,7 +271,7 @@ pub fn delete_local_extension(path: &str) -> Result<(), String> {
             .map_or(0, |d| d.as_millis());
         dest = trash.join(format!("{stamp}-{}", name.to_string_lossy()));
     }
-    std::fs::rename(&target, &dest).map_err(|e| format!("移入废纸篓失败：{e}"))
+    std::fs::rename(target, &dest).map_err(|e| format!("移入废纸篓失败：{e}"))
 }
 
 pub fn read_mcp_config() -> Result<serde_json::Value, String> {

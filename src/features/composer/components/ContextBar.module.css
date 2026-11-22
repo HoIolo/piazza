@@ -18,6 +18,10 @@
   max-width: 52%;
 }
 
+.bar > div:nth-child(2) {
+  max-width: min(224px, 55%);
+}
+
 .bar > div:nth-child(3) {
   flex: none;
 }

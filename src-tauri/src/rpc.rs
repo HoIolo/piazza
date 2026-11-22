@@ -155,6 +155,8 @@ impl RpcState {
             .path()
             .resolve("resources/pi-runtime", BaseDirectory::Resource)
             .map_err(|e| format!("无法定位内置 Pi 运行时：{e}"))?;
+        // Node 的入口和模块解析无法处理 Tauri 在 Windows 返回的 \\?\ 盘符路径。
+        let runtime = dunce::simplified(&runtime);
         let bin = runtime.join("bin");
         // Windows 的 node 可执行文件带扩展名，路径拼错就变成「缺少内置运行时」
         let node = bin.join(if cfg!(windows) { "node.exe" } else { "node" });
@@ -196,7 +198,7 @@ impl RpcState {
                     .resolve(format!("resources/{name}"), BaseDirectory::Resource)
                     .map_err(|e| format!("无法定位内置扩展 {name}：{e}"))?;
                 extra.push("--extension".into());
-                extra.push(extension.to_string_lossy().into_owned());
+                extra.push(dunce::simplified(&extension).to_string_lossy().into_owned());
             }
         }
         if opts.ephemeral.unwrap_or(false) {

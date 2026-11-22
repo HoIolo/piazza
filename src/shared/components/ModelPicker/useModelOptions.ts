@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react'
 import { rpcClient } from '@/rpc/client'
-import type { AvailableModels, AvailableThinkingLevels } from '@/rpc/types'
+import type { AvailableModels, AvailableThinkingLevels, SessionState } from '@/rpc/types'
 import { errorMessage } from '@/shared/utils/error'
 import { useChatStore } from '@/store/chat'
+import { isPlaceholderModel } from '@/store/chat/modelFallback'
 
-export function useModelOptions() {
-  const rpcReady = useChatStore((s) => s.rpcReady)
-  const sessionId = useChatStore((s) => s.session?.sessionId)
-  const provider = useChatStore((s) => s.session?.model?.provider)
-  const model = useChatStore((s) => s.session?.model?.id)
-  const key = JSON.stringify([sessionId, provider, model])
-  const [loaded, setLoaded] = useState<{
-    key: string
-    models?: AvailableModels['models']
-    levels?: AvailableThinkingLevels['levels']
-    error?: string
-  }>()
+interface ModelOptions extends AvailableModels, AvailableThinkingLevels {
+  error?: string
+}
+
+const emptyOptions: ModelOptions = { models: [], levels: [] }
+
+export function useModelOptions(rpcReady: boolean, session: SessionState | null) {
+  const sessionLoading = useChatStore((s) => s.sessionLoading)
+  const sessionId = session?.sessionId
+  const model = session?.model
+  const hasModel = !isPlaceholderModel(model)
+  const key = JSON.stringify([sessionId, model?.provider, model?.id])
+  const [loaded, setLoaded] = useState<{ key: string; options: ModelOptions }>()
 
   useEffect(() => {
     if (!rpcReady || !sessionId) return
     let current = true
-    const levels = model
+    const levels = hasModel
       ? rpcClient
           .send<AvailableThinkingLevels>({ type: 'get_available_thinking_levels' })
           .catch(() => ({ levels: [] }))
@@ -30,22 +32,21 @@ export function useModelOptions() {
       levels,
     ]).then(
       ([data, { levels }]) => {
-        if (current) setLoaded({ key, models: data.models, levels })
+        if (current) setLoaded({ key, options: { models: data.models, levels } })
       },
       (reason: unknown) => {
-        if (current) setLoaded({ key, error: errorMessage(reason) })
+        if (current) setLoaded({ key, options: { ...emptyOptions, error: errorMessage(reason) } })
       },
     )
     return () => {
       current = false
     }
-  }, [rpcReady, sessionId, model, key])
+  }, [rpcReady, sessionId, hasModel, key])
 
-  const result = loaded?.key === key ? loaded : undefined
+  if (!rpcReady) return { ...emptyOptions, loading: sessionLoading }
+  const options = loaded?.key === key ? loaded.options : undefined
   return {
-    models: result?.models ?? [],
-    levels: result?.levels ?? [],
-    loading: Boolean(sessionId && !result),
-    error: result?.error,
+    ...(options ?? emptyOptions),
+    loading: sessionLoading || !options,
   }
 }
