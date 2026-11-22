@@ -9,6 +9,7 @@ import { ThinkingBlock } from './ThinkingBlock'
 import { ToolCallBlock } from './ToolCallBlock'
 import { ToolImageResult } from './ToolImageResult'
 import { summarizeArgs, summarizeGroup, toolIcon, toolVerb } from './toolFormat'
+import { isThinkingOnly } from './toolThinking'
 import styles from './ToolGroup.module.css'
 
 export interface ToolGroupProps {
@@ -118,11 +119,13 @@ function ToolActivityGroup({ executions, thinking = null }: ToolGroupProps) {
         }}
         aria-expanded={expanded}
       >
-        <CodexIcon
-          name={toolIcon(executions[executions.length - 1].toolName)}
-          size={16}
-          className={styles.icon}
-        />
+        {!isThinkingOnly(executions, thinking) && (
+          <CodexIcon
+            name={toolIcon(executions[executions.length - 1].toolName)}
+            size={16}
+            className={styles.icon}
+          />
+        )}
         <ToolGroupSummary executions={executions} thinking={thinking} />
         <CodexIcon name="chevron" size={12} className={styles.chevron} />
       </button>
