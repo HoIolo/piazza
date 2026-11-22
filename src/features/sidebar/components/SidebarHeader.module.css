@@ -6,22 +6,9 @@
   padding: 0 var(--sp-2);
 }
 
-/* Windows/Linux：左上角放品牌字标；macOS 那边是交通灯，不渲染 */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding-left: 2px;
-  color: var(--text-secondary);
-}
-
-.mark {
-  flex: none;
-  opacity: 0.75;
-}
-
+/* Windows/Linux：左上角放品牌名；macOS 那边是交通灯，不渲染 */
 .wordmark {
+  padding-left: 4px;
   font-size: var(--fs-nav);
   font-weight: var(--fw-medium);
   letter-spacing: 0.01em;

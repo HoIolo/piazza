@@ -1,6 +1,5 @@
 import { PanelLeftIcon, SearchIcon } from '@/design/icons'
 import { IconButton } from '@/design/primitives/IconButton'
-import { BrandMark } from '@/shared/components/BrandMark'
 import { isMac, shortcut } from '@/shared/utils/platform'
 import styles from './SidebarHeader.module.css'
 
@@ -19,12 +18,7 @@ export interface SidebarHeaderProps {
 export function SidebarHeader({ onSearch, onToggleSidebar }: SidebarHeaderProps) {
   return (
     <header className={styles.header} data-tauri-drag-region="deep">
-      {!isMac() && (
-        <div className={styles.brand}>
-          <BrandMark size={17} className={styles.mark} />
-          <span className={styles.wordmark}>Piazza</span>
-        </div>
-      )}
+      {!isMac() && <span className={styles.wordmark}>Piazza</span>}
       <div className={styles.actions}>
         <IconButton ariaLabel="搜索" title={`搜索（${shortcut('K')}）`} onClick={onSearch}>
           <SearchIcon />
