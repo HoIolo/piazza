@@ -165,8 +165,10 @@ impl RpcState {
             return Err("Piazza 安装包缺少内置 Pi 运行时".into());
         }
         let inherited_path = std::env::var_os("PATH").unwrap_or_default();
-        let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&inherited_path)))
-            .map_err(|e| format!("无法设置内置运行时路径：{e}"))?;
+        let path = std::env::join_paths(
+            std::iter::once(bin).chain(std::env::split_paths(&inherited_path)),
+        )
+        .map_err(|e| format!("无法设置内置运行时路径：{e}"))?;
 
         let mut extra: Vec<String> = Vec::new();
         if self.channel.message == ACCOUNTS.message {
@@ -556,7 +558,10 @@ mod tests {
         buf.extend_from_slice(b"value\"}\n");
         let frames = take_frames(&mut buf);
         assert_eq!(frames.len(), 1);
-        assert_eq!(String::from_utf8(frames[0].clone()).unwrap(), "{\"long\":\"value\"}");
+        assert_eq!(
+            String::from_utf8(frames[0].clone()).unwrap(),
+            "{\"long\":\"value\"}"
+        );
         assert!(buf.is_empty());
     }
 

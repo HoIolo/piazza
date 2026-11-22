@@ -228,6 +228,8 @@ struct RawEntry {
     parent_id: Option<String>,
     kind: String,
     message: Option<serde_json::Value>,
+    /// 条目写入文件的时刻，也就是这条消息**落定**的时间（见 completedAt 注释）
+    entry_time: Option<String>,
     first_kept_id: Option<String>,
     name: Option<String>,
 }
@@ -265,6 +267,10 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
         } else {
             None
         };
+        let entry_time = val
+            .get("timestamp")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
         let message = if kind == "message" {
             val.get_mut("message").map(serde_json::Value::take)
         } else {
@@ -278,6 +284,7 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
             parent_id,
             kind,
             message,
+            entry_time,
             first_kept_id,
             name,
         });
@@ -343,11 +350,13 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
 
     let mut messages = Vec::new();
     for idx in active_indices {
+        let entry_time = entries[idx].entry_time.clone();
         if let Some(mut msg) = entries[idx].message.take() {
             if msg.get("role").and_then(|r| r.as_str()) == Some("system") {
                 continue;
             }
             normalize_snapshot_message(&mut msg);
+            attach_completed_at(&mut msg, entry_time.as_deref());
             messages.push(msg);
         }
     }
@@ -356,6 +365,19 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
         session_name,
         messages,
     }
+}
+
+/// 把「消息落定时刻」作为 completedAt 挂到消息上。
+///
+/// 消息自带的 timestamp 是**开始**时刻（助手消息就是这一轮开始生成的时间），
+/// 拿它减用户消息的时间永远接近 0，重开会话后「耗时」就会显示成 0 秒。
+/// 条目写入文件的时刻才是真正的结束时刻。前端只在一处用到它（算本轮耗时），
+/// 拿不到就退回 timestamp，不会影响别的逻辑。
+fn attach_completed_at(msg: &mut serde_json::Value, entry_time: Option<&str>) {
+    let (Some(obj), Some(time)) = (msg.as_object_mut(), entry_time) else {
+        return;
+    };
+    obj.insert("completedAt".into(), serde_json::Value::String(time.into()));
 }
 
 /// 单条工具输出在前端快照中的最大字符数，避免几 MB 的文件读取结果卡住 IPC 序列化
@@ -546,7 +568,7 @@ fn truncate_title(title: &str) -> String {
 mod tests {
     use std::io::Cursor;
 
-    use super::{filter_lines_before, parse_snapshot, truncate_title};
+    use super::{attach_completed_at, filter_lines_before, parse_snapshot, truncate_title};
     use std::io::Write;
 
     #[test]
@@ -679,5 +701,38 @@ mod tests {
         let snap1 = parse_snapshot(Cursor::new(before_u1.as_bytes()));
         assert!(snap1.messages.is_empty());
         assert!(before_u1.contains(r#""id":"mc1""#));
+    }
+
+    /// 「耗时」曾经一直是 0 秒：消息自带的 timestamp 是开始时刻，减用户消息还是 0
+    #[test]
+    fn stamps_completed_at_from_entry_time() {
+        let mut msg = serde_json::json!({"role": "assistant", "timestamp": 1_000});
+        attach_completed_at(&mut msg, Some("2026-01-01T00:00:10Z"));
+        assert_eq!(msg["completedAt"], "2026-01-01T00:00:10Z");
+        // 开始时刻不能被覆盖，别的逻辑还靠它排序
+        assert_eq!(msg["timestamp"], 1_000);
+    }
+
+    #[test]
+    fn skips_completed_at_without_entry_time() {
+        let mut msg = serde_json::json!({"role": "user"});
+        attach_completed_at(&mut msg, None);
+        assert!(msg.get("completedAt").is_none());
+    }
+
+    /// 快照里每条消息都要带上落定时刻，否则「耗时」只能拿开始时刻算，永远是 0
+    #[test]
+    fn snapshot_messages_carry_completed_at() {
+        let jsonl = [
+            r#"{"type":"session","id":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/tmp/demo"}"#,
+            r#"{"type":"message","id":"m1","parentId":null,"timestamp":"2026-01-01T00:00:01Z","message":{"role":"user","content":"跑一下测试","timestamp":1767225601000}}"#,
+            r#"{"type":"message","id":"m2","parentId":"m1","timestamp":"2026-01-01T00:00:48Z","message":{"role":"assistant","content":[{"type":"text","text":"好了"}],"timestamp":1767225602000}}"#,
+        ]
+        .join("\n");
+        let snapshot = parse_snapshot(std::io::Cursor::new(jsonl));
+        assert_eq!(snapshot.messages.len(), 2);
+        assert_eq!(snapshot.messages[1]["completedAt"], "2026-01-01T00:00:48Z");
+        // 开始时刻原样保留
+        assert_eq!(snapshot.messages[1]["timestamp"], 1_767_225_602_000i64);
     }
 }

@@ -174,7 +174,10 @@ pub fn search_project_files(cwd: String, query: String) -> Vec<files::FileHit> {
 }
 
 #[tauri::command]
-pub async fn list_workspace_dir(cwd: String, path: String) -> Result<Vec<files::WorkspaceEntry>, String> {
+pub async fn list_workspace_dir(
+    cwd: String,
+    path: String,
+) -> Result<Vec<files::WorkspaceEntry>, String> {
     tauri::async_runtime::spawn_blocking(move || files::list_workspace_dir(&cwd, &path))
         .await
         .map_err(|err| err.to_string())?
@@ -263,7 +266,9 @@ pub fn read_global_instructions() -> Result<agent_resources::InstructionDoc, Str
 }
 
 #[tauri::command]
-pub fn write_global_instructions(content: String) -> Result<agent_resources::InstructionDoc, String> {
+pub fn write_global_instructions(
+    content: String,
+) -> Result<agent_resources::InstructionDoc, String> {
     agent_resources::write_global_instructions(&content)
 }
 
@@ -306,7 +311,6 @@ pub fn read_mcp_config() -> Result<serde_json::Value, String> {
 pub fn write_mcp_config(patch: serde_json::Value) -> Result<serde_json::Value, String> {
     agent_resources::write_mcp_config(patch)
 }
-
 
 /* ---------- 内置终端 ---------- */
 

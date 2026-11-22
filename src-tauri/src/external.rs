@@ -68,7 +68,10 @@ fn expand(path: &str) -> String {
 /// 列出本机已安装的可用应用。系统文件管理器始终可用，排在最前。
 pub fn list_apps() -> Vec<ExternalApp> {
     #[cfg(target_os = "macos")]
-    let (explorer_name, explorer_icon) = ("访达", icon_data_uri("/System/Library/CoreServices/Finder.app"));
+    let (explorer_name, explorer_icon) = (
+        "访达",
+        icon_data_uri("/System/Library/CoreServices/Finder.app"),
+    );
     #[cfg(target_os = "windows")]
     let (explorer_name, explorer_icon) = ("资源管理器", None);
 
@@ -204,10 +207,18 @@ mod tests {
     /// 图标提取依赖 plutil + sips 的实际行为，只有真跑一遍才知道对不对
     #[test]
     fn extracts_finder_icon() {
-        let uri = icon_data_uri("/System/Library/CoreServices/Finder.app")
-            .expect("访达图标应能取到");
-        assert!(uri.starts_with("data:image/png;base64,"), "前缀不对：{}", &uri[..40.min(uri.len())]);
+        let uri =
+            icon_data_uri("/System/Library/CoreServices/Finder.app").expect("访达图标应能取到");
+        assert!(
+            uri.starts_with("data:image/png;base64,"),
+            "前缀不对：{}",
+            &uri[..40.min(uri.len())]
+        );
         // 一张 64px 的 PNG 不会只有几十字节
-        assert!(uri.len() > 1000, "图标数据过小，可能是空文件：{} 字节", uri.len());
+        assert!(
+            uri.len() > 1000,
+            "图标数据过小，可能是空文件：{} 字节",
+            uri.len()
+        );
     }
 }

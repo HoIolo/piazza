@@ -21,10 +21,22 @@ export function commitMessage(state: ChatSnapshot, message: AgentMessage): ChatS
     : message
   return {
     ...state,
-    messages: [...messages, sealThinking(committed, state.streaming)],
+    messages: [...messages, stampCompleted(sealThinking(committed, state.streaming))],
     streaming: alreadyStreamed ? null : state.streaming,
     compactedTokens: message.role === 'assistant' ? null : state.compactedTokens,
   }
+}
+
+/**
+ * 给刚落定的助手消息打上结束时刻。
+ *
+ * 快照路径由 Rust 按文件条目时间补 completedAt，实时路径没有那个条目，
+ * 就在这里补。缺了它，「耗时」只能拿开始时刻去算，永远显示 0 秒。
+ */
+function stampCompleted(message: ChatMessage): ChatMessage {
+  return message.role === 'assistant'
+    ? { ...message, completedAt: new Date().toISOString() }
+    : message
 }
 
 /**

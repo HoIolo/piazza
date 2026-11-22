@@ -185,7 +185,6 @@ impl TerminalState {
             let _ = session.child.wait();
         }
     }
-
 }
 
 #[cfg(test)]

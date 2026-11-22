@@ -97,10 +97,7 @@ fn scan_skills_dir(dir: &Path, scope: &str, out: &mut Vec<SkillRecord>) {
     };
     for entry in entries.filter_map(Result::ok) {
         let path = entry.path();
-        let is_symlink = entry
-            .file_type()
-            .map(|ft| ft.is_symlink())
-            .unwrap_or(false);
+        let is_symlink = entry.file_type().map(|ft| ft.is_symlink()).unwrap_or(false);
         if !path.is_dir() {
             continue;
         }
@@ -161,7 +158,9 @@ pub fn delete_skill(dir_path: &str, cwd: Option<&str>) -> Result<(), String> {
     let target = PathBuf::from(dir_path);
     let meta = std::fs::symlink_metadata(&target).map_err(|e| format!("找不到技能目录：{e}"))?;
     let allowed_global = crate::data_dir::agent_dir()?.join("skills");
-    let allowed_project = cwd.filter(|c| !c.trim().is_empty()).map(|c| PathBuf::from(c).join(".pi/skills"));
+    let allowed_project = cwd
+        .filter(|c| !c.trim().is_empty())
+        .map(|c| PathBuf::from(c).join(".pi/skills"));
 
     let parent = target.parent().ok_or("无效的技能路径")?;
     let is_allowed = parent == allowed_global || allowed_project.as_deref() == Some(parent);
@@ -220,11 +219,15 @@ pub fn list_local_extensions() -> Result<Vec<ExtensionEntry>, String> {
 pub fn delete_local_extension(path: &str) -> Result<(), String> {
     let agent = crate::data_dir::agent_dir()?;
     let root = agent.join("extensions");
-    let root = root.canonicalize().map_err(|e| format!("扩展目录不存在：{e}"))?;
+    let root = root
+        .canonicalize()
+        .map_err(|e| format!("扩展目录不存在：{e}"))?;
     let target = Path::new(path);
     let name = target.file_name().ok_or("无效的扩展名")?;
     let parent = target.parent().ok_or("无效的扩展路径")?;
-    let parent = parent.canonicalize().map_err(|e| format!("找不到扩展：{e}"))?;
+    let parent = parent
+        .canonicalize()
+        .map_err(|e| format!("找不到扩展：{e}"))?;
     if !parent.starts_with(&root) {
         return Err("只能删除 agent 目录下 extensions 里的扩展".into());
     }
@@ -232,7 +235,11 @@ pub fn delete_local_extension(path: &str) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-fn move_extension_to_trash(target: &Path, name: &std::ffi::OsStr, agent: &Path) -> Result<(), String> {
+fn move_extension_to_trash(
+    target: &Path,
+    name: &std::ffi::OsStr,
+    agent: &Path,
+) -> Result<(), String> {
     // Windows 没有 ~/.Trash。同名扩展的每次删除各自占用一个恢复目录。
     let trash = agent.join(".Trash");
     std::fs::create_dir_all(&trash).map_err(|e| format!("创建 Piazza 废纸篓失败：{e}"))?;

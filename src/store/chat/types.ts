@@ -41,6 +41,14 @@ interface ChatExtras {
    */
   steered?: boolean
   thinking?: ThinkingTiming
+  /**
+   * 这条消息落定的时刻（ISO）。算本轮耗时要用它。
+   *
+   * 消息自带的 timestamp 是**开始**时刻，助手消息就是这一轮开始生成的时间，
+   * 拿它减用户消息永远接近 0。文件快照由 Rust 按条目时间补上，
+   * 实时路径在落定时补上，两边口径一致。
+   */
+  completedAt?: string
 }
 
 /** 消息列表元素 */

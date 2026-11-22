@@ -24,6 +24,21 @@ function isUser(m: ChatMessage): m is ChatUserMessage {
   return m.role === 'user'
 }
 
+/**
+ * 这一轮落定的时刻。
+ *
+ * 优先用 completedAt：消息自带的 timestamp 是开始时刻，拿它当结束时刻
+ * 算出来永远是「耗时 0 秒」。拿不到才退回 timestamp（至少不会是负数）。
+ */
+function endTimeOf(message: ChatAssistantMessage | null): number | null {
+  if (!message) return null
+  if (message.completedAt) {
+    const parsed = Date.parse(message.completedAt)
+    if (!Number.isNaN(parsed)) return parsed
+  }
+  return message.timestamp ?? null
+}
+
 function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   const assistants = mergeToolRounds(buffer)
   const rawFinal = assistants.length > 0 ? assistants[assistants.length - 1] : null
@@ -36,7 +51,7 @@ function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   )
 
   const startedAt = user?.timestamp ?? assistants[0]?.timestamp ?? null
-  const endedAt = rawFinal?.timestamp ?? null
+  const endedAt = endTimeOf(rawFinal)
 
   return {
     user,

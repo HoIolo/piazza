@@ -7,7 +7,11 @@ use std::process::Command;
 /// 比 node 稳定得多：macOS 自带的 /usr/bin/git 由 Xcode CLT 提供，
 /// 空环境下也能直接执行，homebrew 版本作为补充。
 #[cfg(not(windows))]
-const GIT_CANDIDATES: [&str; 3] = ["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"];
+const GIT_CANDIDATES: [&str; 3] = [
+    "/usr/bin/git",
+    "/opt/homebrew/bin/git",
+    "/usr/local/bin/git",
+];
 
 #[cfg(not(windows))]
 fn git_bin() -> Option<&'static str> {
@@ -116,7 +120,6 @@ pub fn diff_stat(cwd: &str) -> Option<(u32, u32)> {
     Some((added, removed))
 }
 
-
 /// 工作区完整 diff，供右侧面板的「审阅」视图渲染。
 ///
 /// 用 `--no-color`：颜色由前端按行首字符上色，混进 ANSI 转义只会碍事。
@@ -126,24 +129,51 @@ pub fn diff(cwd: &str, path: Option<&str>) -> Result<String, String> {
 
     let git = git_bin().ok_or_else(|| "未找到 git".to_string())?;
     let mut command = git_command(git);
-    command.args(["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "HEAD"]);
+    command.args([
+        "--literal-pathspecs",
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "HEAD",
+    ]);
     if let Some(path) = path {
         command.args(["--", path]);
     }
-    let mut output = command.current_dir(cwd).output().map_err(|e| format!("执行 git 失败：{e}"))?;
+    let mut output = command
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("执行 git 失败：{e}"))?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
 
     if let Some(path) = path.filter(|_| output.stdout.is_empty()) {
         let untracked = git_command(git)
-            .args(["--literal-pathspecs", "ls-files", "--others", "--exclude-standard", "--", path])
+            .args([
+                "--literal-pathspecs",
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+                "--",
+                path,
+            ])
             .current_dir(cwd)
             .output()
             .map_err(|e| format!("执行 git 失败：{e}"))?;
-        if untracked.status.success() && !untracked.stdout.is_empty() && Path::new(cwd).join(path).is_file() {
+        if untracked.status.success()
+            && !untracked.stdout.is_empty()
+            && Path::new(cwd).join(path).is_file()
+        {
             output = git_command(git)
-                .args(["diff", "--no-index", "--no-color", "--no-ext-diff", "--", "/dev/null", path])
+                .args([
+                    "diff",
+                    "--no-index",
+                    "--no-color",
+                    "--no-ext-diff",
+                    "--",
+                    "/dev/null",
+                    path,
+                ])
                 .current_dir(cwd)
                 .output()
                 .map_err(|e| format!("执行 git 失败：{e}"))?;
@@ -207,14 +237,22 @@ pub fn list_worktrees(cwd: &str) -> Result<Vec<Worktree>, String> {
             if let Some(p) = path.take() {
                 // 首条记录即主工作区，git 保证这个顺序
                 let is_main = result.is_empty();
-                result.push(Worktree { path: p, branch: std::mem::take(&mut branch), is_main });
+                result.push(Worktree {
+                    path: p,
+                    branch: std::mem::take(&mut branch),
+                    is_main,
+                });
             }
         }
     }
     // 最后一条记录后可能没有空行
     if let Some(p) = path {
         let is_main = result.is_empty();
-        result.push(Worktree { path: p, branch, is_main });
+        result.push(Worktree {
+            path: p,
+            branch,
+            is_main,
+        });
     }
 
     Ok(result)

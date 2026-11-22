@@ -58,7 +58,13 @@ fn score(relative: &str, name: &str, query: &str) -> Option<usize> {
     None
 }
 
-fn walk(root: &Path, dir: &Path, query: &str, visited: &mut usize, hits: &mut Vec<(usize, FileHit)>) {
+fn walk(
+    root: &Path,
+    dir: &Path,
+    query: &str,
+    visited: &mut usize,
+    hits: &mut Vec<(usize, FileHit)>,
+) {
     if *visited >= MAX_VISITED {
         return;
     }
@@ -99,7 +105,14 @@ fn walk(root: &Path, dir: &Path, query: &str, visited: &mut usize, hits: &mut Ve
                 .rsplit_once('/')
                 .map(|(d, _)| d.to_string())
                 .unwrap_or_default();
-            hits.push((s, FileHit { path: relative, name, dir }));
+            hits.push((
+                s,
+                FileHit {
+                    path: relative,
+                    name,
+                    dir,
+                },
+            ));
         }
     }
 }
@@ -168,7 +181,11 @@ pub fn list_workspace_dir(cwd: &str, path: &str) -> Result<Vec<WorkspaceEntry>, 
             });
         }
     }
-    result.sort_by(|a, b| b.directory.cmp(&a.directory).then_with(|| a.name.cmp(&b.name)));
+    result.sort_by(|a, b| {
+        b.directory
+            .cmp(&a.directory)
+            .then_with(|| a.name.cmp(&b.name))
+    });
     Ok(result)
 }
 
@@ -196,7 +213,11 @@ pub fn read_html_preview(path: &str) -> Result<String, String> {
     if !is_html {
         return Err("仅支持预览 HTML 文件".into());
     }
-    read_utf8_file(&resolved, MAX_BYTES, "HTML 文件超过 4 MB，请使用系统浏览器打开")
+    read_utf8_file(
+        &resolved,
+        MAX_BYTES,
+        "HTML 文件超过 4 MB，请使用系统浏览器打开",
+    )
 }
 
 fn read_utf8_file(file: &Path, max_bytes: u64, too_large_msg: &str) -> Result<String, String> {
@@ -224,7 +245,9 @@ mod tests {
     fn workspace_browses_and_previews_its_own_files() {
         let root = env!("CARGO_MANIFEST_DIR");
         let files = list_workspace_dir(root, "").unwrap();
-        assert!(files.iter().any(|entry| entry.path == "src" && entry.directory));
+        assert!(files
+            .iter()
+            .any(|entry| entry.path == "src" && entry.directory));
         let content = preview_workspace_file(root, "Cargo.toml").unwrap();
         assert!(content.starts_with("[package]"));
         assert!(preview_workspace_file(root, "src").is_err());
