@@ -24,7 +24,12 @@ export function SidebarNav({ onNewChat, onOpenPackages }: SidebarNavProps) {
     <nav className={styles.nav}>
       {items.map(({ icon: Icon, label, hint, onClick }) => (
         <button key={label} type="button" className={styles.item} onClick={onClick} title={label}>
-          <Icon className={styles.icon} />
+          {/*
+            16px 而不是图标默认的 20px：项目行图标也是 16px，这样两条导航的
+            文字才和项目名、会话标题落在同一条 40px 的竖线上。用默认值时
+            文字被推到 44px，比下面所有文案都多出 4px。
+          */}
+          <Icon size={16} className={styles.icon} />
           <span className={styles.label}>{label}</span>
           {hint && <kbd className={styles.hint}>{hint}</kbd>}
         </button>

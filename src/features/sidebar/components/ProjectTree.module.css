@@ -25,7 +25,12 @@
   align-items: center;
   height: var(--sidebar-row-h);
   margin-bottom: var(--sp-1);
-  padding: 0 var(--sp-2);
+  /*
+   * 和项目名、会话标题、左上角字标同一条竖线：树内边距 --sp-2 + 图标列
+   * --sidebar-label-inset = 40px。原先只留 --sp-2，标题比正文靠左 24px，
+   * 在侧栏里单独凸出来一块。
+   */
+  padding: 0 var(--sp-2) 0 var(--sidebar-label-inset);
   font-size: var(--fs-nav);
   /* Codex nav-section-title: text-base font-medium text-tertiary */
   font-weight: var(--fw-medium);

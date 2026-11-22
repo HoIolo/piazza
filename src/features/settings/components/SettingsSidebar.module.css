@@ -9,15 +9,15 @@
 }
 
 /*
- * 字标与下方「返回应用」的文字左对齐：侧栏自身内边距 --sp-2 加上
- * --sidebar-label-inset，正好落在那一行文字的 40px 起点上。
+ * 字标对齐「返回应用」那一行的**图标**左缘，与主侧栏同一套规则：
+ * 侧栏内边距 --sp-2 + 行内边距 --sp-2 = 16px。
  */
 .dragZone {
   display: flex;
   align-items: center;
   height: var(--titlebar-h);
   flex: none;
-  padding: 0 var(--sp-2) 0 var(--sidebar-label-inset);
+  padding: 0 var(--sp-2);
 }
 
 .wordmark {

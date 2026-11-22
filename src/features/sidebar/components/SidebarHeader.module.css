@@ -9,12 +9,12 @@
 /*
  * Windows/Linux：左上角放品牌名；macOS 那边是交通灯，不渲染。
  *
- * 左边缘要和下方「新对话」「扩展包」及项目名的文字左对齐：
- * 头部内边距与项目树一致都是 --sp-2，再让出 --sidebar-label-inset 的图标列，
- * 字标才落在 40px 的文字列上，而不是压在图标的左侧。
+ * 左边缘对齐的是下方「新对话」「扩展包」那些**图标**的左缘，不是它们的文字。
+ * 图标列起点 = 头部内边距 --sp-2 + 导航行内边距 --sp-2 = 16px；
+ * 字标本身是文字，再让出 --sidebar-label-inset 就跑到文字列（40px）上去了。
  */
 .wordmark {
-  padding-left: var(--sidebar-label-inset);
+  padding-left: var(--sp-2);
   font-size: var(--fs-nav);
   font-weight: var(--fw-medium);
   letter-spacing: 0.01em;
