@@ -1,0 +1,37 @@
+/* 右键菜单挂在 body 下，fixed 定位，坐标由组件按鼠标位置算好写进 style */
+.panel {
+  position: fixed;
+  z-index: 220;
+  min-width: 190px;
+  padding: var(--sp-1);
+  border-radius: var(--r-palette);
+  background: var(--bg-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-nav);
+  color: var(--text-primary);
+}
+
+.panel[data-placed='false'] {
+  visibility: hidden;
+}
+
+/* 二级菜单挂在「用…打开」右侧，向上对齐首项 */
+.submenuHost {
+  position: relative;
+}
+
+.submenu {
+  position: absolute;
+  top: calc(var(--sp-1) * -1);
+  left: 100%;
+  z-index: 1;
+  min-width: 170px;
+  padding: var(--sp-1);
+  border-radius: var(--r-palette);
+  background: var(--bg-popover);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--shadow-popover);
+}

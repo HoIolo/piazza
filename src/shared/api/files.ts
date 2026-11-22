@@ -29,3 +29,14 @@ export function previewWorkspaceFile(cwd: string, path: string): Promise<string>
 export function readHtmlPreview(path: string): Promise<string> {
   return invoke('read_html_preview', { path })
 }
+
+/**
+ * 读取任意本地文件内容，供正文文件链接的「复制文件内容」用。
+ *
+ * 与 previewWorkspaceFile 的区别：那个只允许项目内的相对路径（防越权），
+ * 这个要能读正文里出现的绝对路径——链接是模型给出的，用户点「复制内容」
+ * 就是明确要看那个文件。后端仍限 512 KB 且只接受 UTF-8 文本。
+ */
+export function readAnyFile(path: string): Promise<string> {
+  return invoke('read_any_file', { path })
+}

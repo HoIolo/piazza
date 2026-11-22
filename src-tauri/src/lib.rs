@@ -61,6 +61,8 @@ pub fn run() {
             commands::preview_workspace_file,
             commands::read_html_preview,
             commands::list_external_apps,
+            commands::path_kind,
+            commands::read_any_file,
             commands::open_path_with,
             commands::read_models_config,
             commands::write_models_config,

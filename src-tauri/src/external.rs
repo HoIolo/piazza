@@ -200,9 +200,64 @@ pub fn open_with(app_path: &str, target: &str) -> Result<(), String> {
     Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
 }
 
+/// 目标路径是文件、目录，还是不存在。
+///
+/// 正文里的文件链接要按这个分流：目录给「在访达中显示」，文件才给「复制文件内容」。
+/// 单独一个命令而不是让前端猜，是因为 `Piazza.app` 这类名字看起来像文件、
+/// 实际是目录，光看扩展名会判错。
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathKind {
+    /// file / dir / missing
+    pub kind: String,
+}
+
+pub fn path_kind(path: &str) -> PathKind {
+    let kind = match std::fs::metadata(expand_home(path)) {
+        Ok(meta) if meta.is_dir() => "dir",
+        Ok(_) => "file",
+        Err(_) => "missing",
+    };
+    PathKind { kind: kind.into() }
+}
+
+/// `~/x` 与 `~` 展开成真实家目录。前端传来的路径可能带 `~`，
+/// `std::fs` 不认这种写法。
+pub fn expand_home(path: &str) -> std::path::PathBuf {
+    if path == "~" || path.starts_with("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(path.trim_start_matches("~/").trim_start_matches('~'));
+        }
+    }
+    std::path::PathBuf::from(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `.app` 看起来像文件，实际是目录——只看扩展名会判错
+    #[test]
+    fn distinguishes_dir_from_file() {
+        let dir = std::env::temp_dir().join("piazza-path-kind");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.txt");
+        std::fs::write(&file, "x").unwrap();
+
+        assert_eq!(path_kind(dir.to_str().unwrap()).kind, "dir");
+        assert_eq!(path_kind(file.to_str().unwrap()).kind, "file");
+        assert_eq!(path_kind("/definitely/not/here").kind, "missing");
+    }
+
+    /// 前端传来的路径可能是 `~/x`，std::fs 不认这种写法
+    #[test]
+    fn expands_tilde() {
+        let home = dirs::home_dir().expect("应当有家目录");
+        assert_eq!(expand_home("~"), home);
+        assert_eq!(expand_home("~/x/y"), home.join("x/y"));
+        assert_eq!(expand_home("/abs"), std::path::PathBuf::from("/abs"));
+    }
 
     /// 图标提取依赖 plutil + sips 的实际行为，只有真跑一遍才知道对不对
     #[test]

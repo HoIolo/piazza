@@ -197,6 +197,20 @@ pub async fn read_html_preview(path: String) -> Result<String, String> {
         .map_err(|err| err.to_string())?
 }
 
+/// 读取任意本地文件的内容，供正文文件链接的「复制文件内容」用
+#[tauri::command]
+pub async fn read_any_file(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || files::read_any_file(&path))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+/// 判断路径是文件、目录还是不存在
+#[tauri::command]
+pub fn path_kind(path: String) -> external::PathKind {
+    external::path_kind(&path)
+}
+
 /// 列出可用于「打开位置」的应用
 #[tauri::command]
 pub fn list_external_apps() -> Vec<external::ExternalApp> {

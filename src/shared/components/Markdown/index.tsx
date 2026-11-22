@@ -1,8 +1,9 @@
 import { isValidElement, memo, useMemo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText } from 'lucide-react'
 import { openLink } from '@/shared/utils/openLink'
+import { FileLink } from '../FileLink'
+import { isFileHref } from '../FileLink/fileTarget'
 import { MarkdownImage } from './MarkdownImage'
 import { CodeBlock } from './CodeBlock'
 import styles from './Markdown.module.css'
@@ -15,12 +16,6 @@ export interface MarkdownProps {
   caret?: boolean
   /** 当前项目目录，用于把相对路径链接补全成绝对路径 */
   cwd?: string | null
-}
-
-/** 看起来像文件路径的链接会带上文件图标，与截图中的 src/pages/index/index.vue 一致 */
-function looksLikeFilePath(href: string | undefined): boolean {
-  if (!href) return false
-  return !/^[a-z]+:\/\//i.test(href) && /\.[a-z0-9]{1,8}$/i.test(href)
 }
 
 const CLICKABLE_CODE_RE =
@@ -55,16 +50,6 @@ const components: Components = {
     const inner = isValidElement<{ className?: string }>(children) ? children.props : null
     const language = /language-([\w+#-]+)/.exec(inner?.className ?? '')?.[1] ?? ''
     return <CodeBlock language={language}>{children}</CodeBlock>
-  },
-
-  a({ href, children, ...props }) {
-    const isFile = looksLikeFilePath(href)
-    return (
-      <a href={href} className={isFile ? styles.fileLink : styles.link} {...props}>
-        {isFile && <FileText size={14} className={styles.fileIcon} />}
-        {children}
-      </a>
-    )
   },
 
   ul({ children }) {
@@ -141,6 +126,16 @@ export const Markdown = memo(function Markdown({
   const renderers = useMemo<Components>(
     () => ({
       ...components,
+      a: ({ href, children }) =>
+        isFileHref(href) ? (
+          <FileLink href={href ?? ''} cwd={cwd}>
+            {children}
+          </FileLink>
+        ) : (
+          <a href={href} className={styles.link}>
+            {children}
+          </a>
+        ),
       img: ({ src, alt }: { src?: string | Blob; alt?: string }) =>
         typeof src === 'string' ? <MarkdownImage key={src} src={src} alt={alt} cwd={cwd} /> : null,
     }),

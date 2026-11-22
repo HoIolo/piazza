@@ -4,6 +4,8 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::external;
+
 /// 不进入的目录。这些要么是构建产物、要么是依赖，命中了也不是用户想引用的文件。
 const SKIP_DIRS: [&str; 14] = [
     ".git",
@@ -189,6 +191,17 @@ pub fn list_workspace_dir(cwd: &str, path: &str) -> Result<Vec<WorkspaceEntry>, 
     Ok(result)
 }
 
+/// 读取任意本地文件的内容，供正文里文件链接的「复制文件内容」用。
+///
+/// 与 `preview_workspace_file` 的区别：那个只能读项目内的相对路径（防止越权），
+/// 这个要能读正文里出现的任意绝对路径——链接本身就是模型给出的，
+/// 用户点「复制内容」就是明确要看那个文件。仍然限大小与文本类型。
+pub fn read_any_file(path: &str) -> Result<String, String> {
+    const MAX_BYTES: u64 = 512 * 1024;
+    let file = external::expand_home(path);
+    read_utf8_file(&file, MAX_BYTES, "文件超过 512 KB，无法复制内容")
+}
+
 pub fn preview_workspace_file(cwd: &str, path: &str) -> Result<String, String> {
     const MAX_BYTES: u64 = 512 * 1024;
     let file = workspace_path(cwd, path)?;
@@ -278,5 +291,26 @@ mod tests {
     #[test]
     fn empty_query_ranks_by_depth() {
         assert!(score("a.ts", "a.ts", "").unwrap() < score("a/b/c.ts", "c.ts", "").unwrap());
+    }
+
+    /// 「复制文件内容」要能读项目外的绝对路径（正文链接常指向 /Applications 之类）
+    #[test]
+    fn reads_absolute_file_outside_workspace() {
+        let dir = std::env::temp_dir().join("piazza-read-any");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("note.md");
+        std::fs::write(&file, "# 标题\n正文").unwrap();
+
+        let text = super::read_any_file(file.to_str().unwrap()).expect("应能读取");
+        assert!(text.contains("正文"));
+    }
+
+    /// 目录不能当文件读
+    #[test]
+    fn rejects_directory_as_file() {
+        let dir = std::env::temp_dir().join("piazza-read-dir");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(super::read_any_file(dir.to_str().unwrap()).is_err());
     }
 }
