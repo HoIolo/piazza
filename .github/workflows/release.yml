@@ -24,9 +24,11 @@ jobs:
             # universal：一份 dmg 同时覆盖 Intel 与 Apple Silicon
             args: '--target universal-apple-darwin'
             targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+            triple: universal-apple-darwin
           - platform: windows-latest
             args: ''
             targets: ''
+            triple: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +47,14 @@ jobs:
           workspaces: src-tauri -> target
 
       - run: npm ci
+
+      # 打包前先确认内置运行时真的能在这个平台上跑起来。
+      # 这类故障只在目标平台暴露（路径分隔符、平台专属依赖、打包漏文件），
+      # mac 上一切正常、Windows 装完就报「pi 进程退出」。
+      - name: 内置运行时冒烟
+        run: node scripts/prepare-pi-runtime.mjs && node scripts/smoke-runtime.mjs
+        env:
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.triple }}
 
       - uses: tauri-apps/tauri-action@v0
         env:
