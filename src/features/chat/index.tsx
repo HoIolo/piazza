@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { useGitBranch } from '@/shared/hooks/useGitBranch'
 import { useMinWidth } from '@/shared/hooks/useMinWidth'
 import { basename } from '@/shared/utils/path'
 import { useAppStore } from '@/store/app.store'
+import { sessionListTitle, useProjectsStore } from '@/store/projects.store'
 import { useChatStore, useSessionActions } from '@/store/chat'
 import { Composer } from '../composer'
 import { ChatBody } from './components/ChatBody'
@@ -21,14 +22,19 @@ import styles from './ChatView.module.css'
  */
 const ENV_DOCK_MIN_WIDTH = 1080
 
+/*
+ * 标题的优先级就是侧栏的优先级：pi 认的名字 → 侧栏列表里的标题 → 生成中的预览名
+ * → 项目名。第二项不能省，绝大多数会话没有显式名字，跳过它顶栏就只剩项目名了。
+ */
 function resolveChatTitle(
   isEmpty: boolean,
   sessionName: string | undefined,
+  listTitle: string | null,
   previewName: string | null,
   projectName: string,
 ): string | null {
   if (isEmpty) return null
-  return sessionName ?? previewName ?? projectName
+  return sessionName ?? listTitle ?? previewName ?? projectName
 }
 
 /** 主区容器：顶栏 + （空状态 | 消息流）+ 输入区，够宽时右侧再停靠环境信息 */
@@ -42,11 +48,23 @@ export function ChatView() {
   const envPanelOpen = useAppStore((s) => s.envPanelOpen)
   const toggleEnvPanel = useAppStore((s) => s.toggleEnvPanel)
   const reconnectSession = useAppStore((s) => s.reconnectSession)
+  const currentSessionPath = useAppStore((s) => s.currentSessionPath)
+  const liveSessionPath = useAppStore((s) => s.liveSessionPath)
 
   const messages = useChatStore((s) => s.messages)
   const streaming = useChatStore((s) => s.streaming)
   const session = useChatStore((s) => s.session)
   const previewName = useChatStore((s) => s.previewName)
+  /*
+   * 点开会话到 pi 真正打开之间有一段空窗，这时只有「请求路径」。
+   * 和侧栏的 activeSessionPath 用同一套取值，标题才不会先显示项目名再跳变。
+   *
+   * 只订阅算出来的标题：整份 projects 每次扫描都是新数组，直接订阅会白重渲染。
+   */
+  const listPath = liveSessionPath ?? currentSessionPath
+  const listTitle = useProjectsStore(
+    useCallback((s) => sessionListTitle(s.projects, listPath), [listPath]),
+  )
   const setDraft = useChatStore((s) => s.setDraft)
   const sessionLoading = useChatStore((s) => s.sessionLoading)
   const error = useChatStore((s) => s.error)
@@ -63,7 +81,7 @@ export function ChatView() {
   return (
     <main ref={mainRef} className={styles.main} data-sidebar-open={sidebarOpen}>
       <TopBar
-        title={resolveChatTitle(isEmpty, session?.sessionName, previewName, projectName)}
+        title={resolveChatTitle(isEmpty, session?.sessionName, listTitle, previewName, projectName)}
         cwd={cwd}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}

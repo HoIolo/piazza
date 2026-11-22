@@ -53,6 +53,22 @@ function mergeKnown(scanned: ProjectGroup[], known: string[]): ProjectGroup[] {
 }
 
 /**
+ * 按会话文件路径取侧栏显示的那个标题。
+ *
+ * 会话到底叫什么由扫描决定：显式改过名就用名字，否则用第一句用户发言
+ * （见 src-tauri/src/sessions.rs 的 title 计算）。顶栏必须取同一个值——
+ * 它若自己去读 `sessionName`，没改过名的会话只会拿到 null，然后把项目名顶上去。
+ */
+export function sessionListTitle(projects: ProjectGroup[], path: string | null): string | null {
+  if (!path) return null
+  for (const group of projects) {
+    const hit = group.sessions.find((session) => session.path === path)
+    if (hit) return hit.title
+  }
+  return null
+}
+
+/**
  * 项目与会话列表。
  *
  * 放 store 而不是 hook：侧栏、@提及、项目选择器三处都要用，
