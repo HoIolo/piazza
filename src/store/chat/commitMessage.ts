@@ -1,15 +1,21 @@
 import type { AgentMessage } from '@/rpc/types'
 import { userText } from '@/shared/utils/message'
+import { consumeSteer } from './pendingSteers'
 import type { ChatAssistantMessage, ChatMessage, ChatSnapshot, ThinkingTiming } from './types'
 
 /**
  * 这条 user 消息是不是运行中插进来的（引导 / 追加）。
  *
- * 靠两个信号判断：当时还在跑，且没有本地回显可替换——空闲发问会先压一条
- * local 占位等 pi 回传换掉，而引导是在跑的时候直接投递的，不会有占位。
+ * 首选发送侧留下的记录：发的是 steer 还是 prompt，只有发的时候才知道，
+ * 拿它认领最准，也不受事件到达顺序影响。
+ *
+ * 记录对不上时退回旧判据：当时还在跑、且没有本地回显可替换——空闲发问会先
+ * 压一条 local 占位等 pi 回传换掉，而引导是在跑的时候直接投递的，不会有占位。
  */
 function isSteered(state: ChatSnapshot, message: AgentMessage, replacedEcho: boolean) {
-  return message.role === 'user' && state.isStreaming && !replacedEcho
+  if (message.role !== 'user') return false
+  if (consumeSteer(userText(message))) return true
+  return state.isStreaming && !replacedEcho
 }
 
 /**

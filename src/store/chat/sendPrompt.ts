@@ -2,6 +2,7 @@ import { rpcClient } from '@/rpc/client'
 import { RESUME_COMMAND } from '@/rpc/visibleCommands'
 import type { ImageContent, StreamingBehavior } from '@/rpc/types'
 import { errorMessage } from '@/shared/utils/error'
+import { forgetSteer, rememberSteer } from './pendingSteers'
 import { useChatStore } from './store'
 
 /** 发问前若触发自动压缩，pi 会在压缩完成后才回 preflight 响应，需预留更长超时 */
@@ -21,10 +22,17 @@ export async function dispatchPrompt(
   if (!text && !images.length) return false
   const { isStreaming: running, echoUserMessage } = useChatStore.getState()
   const echoId = !running ? echoUserMessage(text, images) : null
+  const type = promptType(running, behavior)
+  /*
+   * 引导记一笔，等 pi 回传时认领。不靠 isStreaming 判断「回传时是否还在跑」：
+   * agent_settled 有可能抢在 user 的 message_end 前面，那时已经落回 false，
+   * 引导就会被当成新一轮切开。
+   */
+  if (type === 'steer') rememberSteer(text)
   try {
     await rpcClient.send(
       {
-        type: promptType(running, behavior),
+        type,
         message: text,
         ...(images.length ? { images } : {}),
       },
@@ -33,6 +41,7 @@ export async function dispatchPrompt(
     )
     return true
   } catch (error) {
+    if (type === 'steer') forgetSteer(text)
     if (echoId) useChatStore.getState().removeLocalEcho(echoId)
     useChatStore.getState().setError(errorMessage(error))
     return false

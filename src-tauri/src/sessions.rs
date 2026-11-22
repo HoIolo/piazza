@@ -227,6 +227,8 @@ struct RawEntry {
     id: String,
     parent_id: Option<String>,
     kind: String,
+    /// 父条目的消息角色（user/assistant/toolResult…），用来识别引导消息
+    parent_role: Option<String>,
     message: Option<serde_json::Value>,
     /// 条目写入文件的时刻，也就是这条消息**落定**的时间（见 completedAt 注释）
     entry_time: Option<String>,
@@ -283,6 +285,7 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
             id,
             parent_id,
             kind,
+            parent_role: None,
             message,
             entry_time,
             first_kept_id,
@@ -316,6 +319,30 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
         }
     }
     branch.reverse();
+
+    // 回填父节点角色：识别引导消息要用，趁 by_id 还在
+    let roles: Vec<Option<String>> = entries
+        .iter()
+        .map(|e| {
+            e.message
+                .as_ref()
+                .and_then(|m| m.get("role"))
+                .and_then(|r| r.as_str())
+                .map(str::to_string)
+        })
+        .collect();
+    let parent_roles: Vec<Option<String>> = entries
+        .iter()
+        .map(|e| {
+            e.parent_id
+                .as_deref()
+                .and_then(|p| by_id.get(p))
+                .and_then(|&i| roles[i].clone())
+        })
+        .collect();
+    for (entry, role) in entries.iter_mut().zip(parent_roles) {
+        entry.parent_role = role;
+    }
 
     let mut session_name = None;
     let mut last_compaction: Option<(usize, Option<String>)> = None;
@@ -351,12 +378,15 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
     let mut messages = Vec::new();
     for idx in active_indices {
         let entry_time = entries[idx].entry_time.clone();
+        // 先取走消息，下面还要读同一条目的 parent_role，不能同时持两个借用
+        let parent_role = entries[idx].parent_role.clone();
         if let Some(mut msg) = entries[idx].message.take() {
             if msg.get("role").and_then(|r| r.as_str()) == Some("system") {
                 continue;
             }
             normalize_snapshot_message(&mut msg);
             attach_completed_at(&mut msg, entry_time.as_deref());
+            attach_steered(&mut msg, parent_role.as_deref());
             messages.push(msg);
         }
     }
@@ -364,6 +394,27 @@ fn parse_snapshot<R: BufRead>(reader: R) -> SessionSnapshot {
     SessionSnapshot {
         session_name,
         messages,
+    }
+}
+
+/// 标出「运行中插进来的引导消息」。
+///
+/// 引导是往正在跑的那一轮里补一句话，pi 把它接在**工具结果**之后，因此这条
+/// user 消息的父节点是 toolResult；而正常提问总是接在 assistant 之后。
+/// 实时路径靠发送侧记录认领，历史路径没有那份记录，只能看这个结构特征——
+/// 缺了它，重开会话后引导会被当成新一轮提问，一句话被切成两轮。
+///
+/// 只认 toolResult：父节点是 assistant 的才是常规提问，其余（compaction、
+/// session_info 之类）不猜，宁可维持原样。
+fn attach_steered(msg: &mut serde_json::Value, parent_role: Option<&str>) {
+    if parent_role != Some("toolResult") {
+        return;
+    }
+    let Some(obj) = msg.as_object_mut() else {
+        return;
+    };
+    if obj.get("role").and_then(|r| r.as_str()) == Some("user") {
+        obj.insert("steered".into(), serde_json::Value::Bool(true));
     }
 }
 
@@ -570,6 +621,30 @@ mod tests {
 
     use super::{attach_completed_at, filter_lines_before, parse_snapshot, truncate_title};
     use std::io::Write;
+
+    /// 引导消息接在工具结果之后，父节点是 toolResult；正常提问接在 assistant 之后。
+    /// 重开会话后全靠这个结构特征把它认回「同一轮」，否则会被切成两轮。
+    #[test]
+    fn marks_user_message_after_tool_result_as_steered() {
+        let mut lines = vec![
+            r#"{"type":"message","id":"u1","parentId":null,"message":{"role":"user","content":"第一问"}}"#.to_string(),
+            r#"{"type":"message","id":"a1","parentId":"u1","message":{"role":"assistant","content":[{"type":"toolCall","id":"c1","name":"bash","arguments":{}}]}}"#.to_string(),
+            r#"{"type":"message","id":"t1","parentId":"a1","message":{"role":"toolResult","toolCallId":"c1","toolName":"bash","content":[],"isError":false}}"#.to_string(),
+            r#"{"type":"message","id":"u2","parentId":"t1","message":{"role":"user","content":"跑的时候补一句"}}"#.to_string(),
+            r#"{"type":"message","id":"a2","parentId":"u2","message":{"role":"assistant","content":[]}}"#.to_string(),
+        ]
+        .join("\n");
+
+        let snap = parse_snapshot(Cursor::new(std::mem::take(&mut lines)));
+        let steered: Vec<bool> = snap
+            .messages
+            .iter()
+            .filter(|m| m.get("role").and_then(|r| r.as_str()) == Some("user"))
+            .map(|m| m.get("steered").and_then(|v| v.as_bool()).unwrap_or(false))
+            .collect();
+        // 第一条是常规提问，第二条才是引导
+        assert_eq!(steered, vec![false, true]);
+    }
 
     #[test]
     fn flattens_newlines_into_spaces() {

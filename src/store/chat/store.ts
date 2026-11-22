@@ -9,6 +9,7 @@ import type {
   ThinkingLevel,
 } from '@/rpc/types'
 import type { DraftAttachment } from '@/shared/api/attachments'
+import { clearSteers } from './pendingSteers'
 import { sessionMetadataPatch } from './sessionMetadata'
 import { reduceEvent } from './reducer'
 import { restoreTools } from './restoreTools'
@@ -59,6 +60,10 @@ export interface ChatStore extends ChatSnapshot {
   reset: (viewKey?: string) => void
 }
 
+/*
+ * 切会话时顺带丢掉待认领的引导：它们是上一条会话里发出去的，
+ * 留着只会认领到新会话里碰巧同文的提问，把普通提问错标成引导。
+ */
 const SWITCH_FREEZE_PATCH = {
   streaming: null,
   isStreaming: false,
@@ -72,6 +77,12 @@ const SWITCH_FREEZE_PATCH = {
   pendingDialog: null,
   error: null,
   ...emptyComposer,
+}
+
+/** 切走当前会话：丢掉待认领的引导，再冻结上一轮的运行态 */
+function switchAway(set: (patch: Partial<ChatStore>) => void): void {
+  clearSteers()
+  set(SWITCH_FREEZE_PATCH)
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -108,7 +119,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   setStopArmed: (stopArmed) => set({ stopArmed }),
   setSessionLoading: (sessionLoading) => set({ sessionLoading }),
   setRpcReady: (rpcReady) => set({ rpcReady }),
-  beginSwitch: () => set(SWITCH_FREEZE_PATCH),
+  beginSwitch: () => switchAway(set),
   hydrateSession: (payload) => set((prev) => buildHydratedState(prev, payload)),
   restoreLiveSession: ({ viewKey, session, snapshot }) =>
     set((prev) => ({
@@ -120,6 +131,8 @@ export const useChatStore = create<ChatStore>((set) => ({
       ...emptyComposer,
     })),
   setPendingDialog: (pendingDialog) => set({ pendingDialog }),
-  reset: (viewKey = 'init') =>
-    set({ ...emptySnapshot(), viewKey, session: null, ...emptyComposer }),
+  reset: (viewKey = 'init') => {
+    clearSteers()
+    set({ ...emptySnapshot(), viewKey, session: null, ...emptyComposer })
+  },
 }))
