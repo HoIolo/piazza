@@ -27,7 +27,7 @@ export function McpSection() {
 
   const commitServers = async (next: Record<string, McpServerEntry>) => {
     const written = await writeMcpConfig({ mcpServers: next })
-    refreshRuntimeAfterSave()
+    void refreshRuntimeAfterSave()
     setServers(written.mcpServers ?? {})
     setError(null)
   }

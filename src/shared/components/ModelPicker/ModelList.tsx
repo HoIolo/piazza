@@ -28,7 +28,15 @@ export function ModelList({
 }: ModelListProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const openSettings = useAppStore((s) => s.openSettings)
-  const emptyMessage = !cwd ? '选择项目后可使用模型' : rpcReady ? '没有可用模型' : 'Pi 会话未就绪'
+  /*
+   * 未就绪时不要说「Pi 会话未就绪」——用户不关心底层引擎，而且这句话读起来像出错。
+   * 实际情况是正在准备会话（首次打开约半秒），说「正在准备」更准确，也不吓人。
+   */
+  const emptyMessage = !cwd
+    ? '选择项目后可使用模型'
+    : rpcReady
+      ? '没有可用模型'
+      : '正在准备会话，稍等片刻'
 
   return (
     <>

@@ -122,7 +122,7 @@ function useSettingsWriters({
       queueRef.current = queueRef.current.then(async () => {
         try {
           const written = await writeAppSettings(next)
-          refreshRuntimeAfterSave()
+          void refreshRuntimeAfterSave()
           latestRef.current = written
           setSettings(written)
           flashSaved(timerRef, setSaved)

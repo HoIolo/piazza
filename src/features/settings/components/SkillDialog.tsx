@@ -68,7 +68,7 @@ export function SkillDialog({ skill, cwd, onClose, onSaved }: SkillDialogProps) 
     setError(null)
     try {
       await saveAgentSkill({ scope, cwd, slug: cleanSlug, content })
-      refreshRuntimeAfterSave()
+      void refreshRuntimeAfterSave()
       onSaved()
       onClose()
     } catch (e: unknown) {

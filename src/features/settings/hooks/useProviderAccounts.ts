@@ -133,7 +133,7 @@ export function useProviderAccounts() {
           : { type: 'account_logout', provider: provider.id },
         id,
       )
-      refreshRuntimeAfterSave()
+      void refreshRuntimeAfterSave()
       if (slot.current === id) setProviders(rows)
     } catch (reason) {
       if (slot.current === id && !cancelling.current) setError(errorMessage(reason))

@@ -33,6 +33,14 @@ export type RpcCommand =
   | { id?: string; type: 'set_session_name'; name: string }
   | { id?: string; type: 'export_html'; outputPath?: string }
   | { id?: string; type: 'get_commands' }
+  /**
+   * 让 pi 重新读 models.json 并返回最新模型列表。
+   *
+   * 这条不是 pi 原生命令，是 worker 里自己拦下来的（见 pi-runtime/worker.mjs
+   * 的 installModelRefresh）。设置里改完模型用它，不必重启整个 worker——
+   * 重启一次要 500ms，期间会话里会显示「Pi 会话未就绪」。
+   */
+  | { id?: string; type: 'refresh_models' }
 
 /* ---------- 各命令的 data 结构 ---------- */
 

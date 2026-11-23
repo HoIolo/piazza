@@ -49,7 +49,7 @@ export function Composer({ projectName, branch, showContextBar }: ComposerProps)
   const { abort, resume, isStreaming } = useChatActions()
 
   const panel = useMentionPanel({ draft, setDraft, textareaRef, rootRef })
-  const groups = useMentionItems(cwd, panel.query)
+  const groups = useMentionItems(cwd, panel.query, panel.open)
   const ime = useImeGuard()
   const slash = useSlashMenu(draft, !panel.open, groups.commands, rootRef, setDraft)
   const stopArmed = useChatStore((s) => s.stopArmed)

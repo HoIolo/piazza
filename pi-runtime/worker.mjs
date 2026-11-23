@@ -4,7 +4,23 @@ import { resumeExtension } from './resume.mjs'
 import { nameNewSession } from './title.mjs'
 import { runAccounts } from './accounts.mjs'
 import { parseArgs } from 'node:util'
-import {
+/*
+ * 从 **bundle 入口** 取 SDK，而不是包根的那个 barrel。
+ *
+ * 包根的 dist/index.js 是 157 个 re-export 的桶文件，它会把 249 个模块、
+ * 2.5MB 源码一次性交给 V8 编译（CPU profile 里 compileSourceTextModule 独占
+ * 95ms，加上 realpath/包作用域解析，整段约 380ms）。其中一多半是 CLI 与
+ * TUI 才用得上的东西，RPC 模式根本不碰。
+ *
+ * dist/bundle/index.js 是 pi 官方预先打包好的版本，同样是 157 个导出，
+ * 但模块图压到几十个 chunk，实测 173ms；再补三个 bundle 没导出的内部工具
+ * （output-guard / http-dispatcher / project-trust），整段约 285ms。
+ *
+ * 这是 worker 冷启动最大的一笔开销，直接决定「切会话要等多久」。
+ */
+const sdk = import.meta.resolve('@earendil-works/pi-coding-agent')
+const bundle = new URL('./bundle/index.js', sdk)
+const {
   createAgentSessionFromServices,
   createAgentSessionRuntime,
   createAgentSessionServices,
@@ -15,12 +31,23 @@ import {
   runRpcMode,
   SessionManager,
   SettingsManager,
-} from '@earendil-works/pi-coding-agent'
-
-// These helpers are shared with Pi's host. The bundled SDK version is locked.
-const sdk = import.meta.resolve('@earendil-works/pi-coding-agent')
-const { writeRawStdout } = await import(new URL('./core/output-guard.js', sdk))
-const { builtInExtensions } = await import(new URL('./extensions/index.js', sdk))
+} = await import(bundle)
+const { takeOverStdout, writeRawStdout } = await import(new URL('./core/output-guard.js', sdk))
+/*
+ * 只取真正用得上的三个内置扩展，不走 extensions/index.js。
+ *
+ * 那个 index 会静态导入 llama 扩展，而 llama 的 ui.js 又拉进 pi-tui 与
+ * modes/interactive（约 3.9MB 的 TUI 层）——RPC 模式一行 TUI 都不画，
+ * 却要为它付 180ms 的模块解析时间。这里按需并行取三个，实测省下这部分。
+ */
+const builtInExtensions = await Promise.all(
+  ['codemode', 'mcp', 'tool-search'].map(async (name) => ({
+    name,
+    factory: (await import(new URL(`./extensions/${name}/index.js`, sdk))).default,
+    replaceable: true,
+    builtin: true,
+  })),
+)
 const { applyHttpProxySettings, configureHttpDispatcher } = await import(new URL('./core/http-dispatcher.js', sdk))
 const { resolveProjectTrusted } = await import(new URL('./core/project-trust.js', sdk))
 
@@ -214,5 +241,56 @@ async function runSession() {
   }, { cwd: sessionManager.getCwd(), agentDir, sessionManager })
 
   for (const { message } of runtime.takeUnreportedDiagnostics()) console.error(message)
+  installModelRefresh(runtime)
   await runRpcMode(runtime)
+}
+
+
+/**
+ * 给 RPC 加一条自定义命令 `refresh_models`。
+ *
+ * 为什么需要：用户在设置里改了 models.json，回到会话时得看到新模型。
+ * 原来的做法是重连——**杀掉整个 worker 再冷启一个**，500ms 起步，
+ * 期间会话里显示「Pi 会话未就绪」。
+ *
+ * 但模型列表本来就只在 ModelRuntime 内存里，pi 的 get_available_models 读的就是
+ * 它。调一次 refresh() 重新读盘即可，进程不用动。
+ *
+ * 实现上不碰 pi 的 runRpcMode（它把 handleCommand 收在闭包里，宿主拿不到），
+ * 而是在 stdin 上先挂一个监听：识别到 refresh_models 就自己应答并吞掉这一行，
+ * 其余原样放行给 pi 的解析器。stdin 是流，多一个监听者不影响原有消费。
+ */
+function installModelRefresh(runtime) {
+  // pi 的 runRpcMode 会调 takeOverStdout，把普通 stdout 重定向到 stderr；
+  // 我们抢在它之前接管，才能保证应答走真正的 stdout 通道。
+  takeOverStdout()
+  let buffer = ''
+  process.stdin.on('data', (chunk) => {
+    buffer += chunk.toString('utf8')
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      let command
+      try {
+        command = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (command?.type !== 'refresh_models') continue
+      void respondModelRefresh(runtime, command)
+    }
+  })
+}
+
+async function respondModelRefresh(runtime, command) {
+  const reply = (body) =>
+    writeRawStdout(
+      JSON.stringify({ id: command.id, type: 'response', command: 'refresh_models', ...body }) + '\n',
+    )
+  try {
+    await runtime.services.modelRuntime.refresh({ allowNetwork: false })
+    reply({ success: true, data: { models: runtime.services.modelRuntime.getAvailableSnapshot() } })
+  } catch (error) {
+    reply({ success: false, error: error instanceof Error ? error.message : String(error) })
+  }
 }

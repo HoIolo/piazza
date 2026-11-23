@@ -50,7 +50,7 @@ export async function deleteSkill(
   if (!ok) return
   try {
     await deleteAgentSkill(skill.dirPath, cwd)
-    refreshRuntimeAfterSave()
+    void refreshRuntimeAfterSave()
     onDeleted()
   } catch (e: unknown) {
     setError(errorMessage(e))

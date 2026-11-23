@@ -94,7 +94,7 @@ export function PackagesSection({ settings }: SectionProps) {
         onDeleted={(path) => {
           setExtensions((items) => items.filter((item) => item.path !== path))
           setNonce((n) => n + 1)
-          refreshRuntimeAfterSave()
+          void refreshRuntimeAfterSave()
         }}
       />
     </>

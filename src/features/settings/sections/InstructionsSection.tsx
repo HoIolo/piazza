@@ -79,7 +79,7 @@ export function InstructionsSection() {
     setError(null)
     try {
       const updated = await writeGlobalInstructions(draft)
-      refreshRuntimeAfterSave()
+      void refreshRuntimeAfterSave()
       setDoc(updated)
       setDraft(updated.content)
       setSaved(true)

@@ -62,34 +62,49 @@ function filterSessions(projects: ProjectGroup[], keyword: string): MentionItem[
     .slice(0, 5)
 }
 
+/** 输入停顿多久才真的去搜文件 */
+const SEARCH_DEBOUNCE_MS = 120
+
 /**
  * 提及候选。
  *
- * 文件随关键词实时向 Rust 侧查询；技能与会话量小，一次取回后在前端过滤——
+ * 文件随关键词向 Rust 侧查询；技能与会话量小，一次取回后在前端过滤——
  * 每敲一个字都往返一次 RPC 并不值得。
+ *
+ * 查询要防抖：Rust 侧是一次全项目遍历（3 万条上限），实测本项目里
+ * 空查询 28ms、带关键词 5ms，听起来不多，但它是**同步命令**，
+ * 每敲一个字都排一次队，连着打字就会明显顿。120ms 停顿足够覆盖正常输入节奏。
+ *
+ * 面板关着时一律不查：`query` 那时是空串，查了也没人看，
+ * 却会在每次编辑时白白跑一次全项目扫描。
  */
-export function useMentionItems(cwd: string | null, query: string) {
+export function useMentionItems(cwd: string | null, query: string, enabled: boolean) {
   const [files, setFiles] = useState<FileHit[]>([])
   const commands = usePiCommands()
   const projects = useProjectsStore((s) => s.projects)
 
   useEffect(() => {
+    if (!enabled || !cwd) return
     let cancelled = false
-    const task = cwd ? searchProjectFiles(cwd, query) : Promise.resolve([])
-    task
-      .then((hits) => {
-        if (!cancelled) setFiles(hits)
-      })
-      .catch(() => undefined)
+    const timer = setTimeout(() => {
+      searchProjectFiles(cwd, query)
+        .then((hits) => {
+          if (!cancelled) setFiles(hits)
+        })
+        .catch(() => undefined)
+    }, SEARCH_DEBOUNCE_MS)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [cwd, query])
+  }, [cwd, query, enabled])
 
   const keyword = query.trim().toLowerCase()
+  // 面板关着时不展示旧结果：下次打开应当从当前关键词重新搜，而不是先闪一屏上次的
+  const visible = enabled ? files : []
 
   return {
-    files: files.map(fileToItem),
+    files: visible.map(fileToItem),
     commands,
     skills: filterSkills(commands, keyword),
     sessions: filterSessions(projects, keyword),

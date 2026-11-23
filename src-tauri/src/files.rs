@@ -313,4 +313,16 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         assert!(super::read_any_file(dir.to_str().unwrap()).is_err());
     }
+
+    /// 量一次全项目扫描的耗时，确认 @ 提及在每键调用下不会成为瓶颈
+    #[test]
+    #[ignore]
+    fn bench_search_project() {
+        let cwd = std::env::var("BENCH_CWD").unwrap_or_else(|_| ".".into());
+        for query in ["", "a", "app", "router"] {
+            let t = std::time::Instant::now();
+            let hits = super::search_files(&cwd, query, 40);
+            println!("query={query:8} hits={:3} {:?}", hits.len(), t.elapsed());
+        }
+    }
 }
