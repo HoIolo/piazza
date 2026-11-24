@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Settings } from 'lucide-react'
+import { Check, ChevronLeft, RotateCw, Settings } from 'lucide-react'
 import { MenuEmpty, MenuItem, MenuSeparator } from '@/design/primitives/MenuList'
 import { Spinner } from '@/design/primitives/Spinner'
 import type { Model } from '@/rpc/types'
@@ -28,6 +28,7 @@ export function ModelList({
 }: ModelListProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const openSettings = useAppStore((s) => s.openSettings)
+  const reconnectSession = useAppStore((s) => s.reconnectSession)
   /*
    * 未就绪时不要说「Pi 会话未就绪」——用户不关心底层引擎，而且这句话读起来像出错。
    * 实际情况是正在准备会话（首次打开约半秒），说「正在准备」更准确，也不吓人。
@@ -65,6 +66,17 @@ export function ModelList({
         <MenuEmpty>{error ?? emptyMessage}</MenuEmpty>
       )}
       <MenuSeparator />
+      {cwd && (!rpcReady || Boolean(error)) && (
+        <MenuItem
+          icon={<RotateCw size={14} />}
+          onClick={() => {
+            close()
+            reconnectSession()
+          }}
+        >
+          重新连接会话
+        </MenuItem>
+      )}
       <MenuItem
         icon={<Settings size={15} />}
         onClick={() => {

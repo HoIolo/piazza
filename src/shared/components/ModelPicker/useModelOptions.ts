@@ -10,13 +10,14 @@ interface ModelOptions extends AvailableModels, AvailableThinkingLevels {
 }
 
 const emptyOptions: ModelOptions = { models: [], levels: [] }
+const MODEL_QUERY_TIMEOUT_MS = 10_000
 
 export function useModelOptions(rpcReady: boolean, session: SessionState | null) {
   const sessionLoading = useChatStore((s) => s.sessionLoading)
   const sessionId = session?.sessionId
   const model = session?.model
   const hasModel = !isPlaceholderModel(model)
-  const key = JSON.stringify([sessionId, model?.provider, model?.id])
+  const key = JSON.stringify([sessionId, model?.provider, model?.id, rpcReady])
   const [loaded, setLoaded] = useState<{ key: string; options: ModelOptions }>()
 
   useEffect(() => {
@@ -24,11 +25,19 @@ export function useModelOptions(rpcReady: boolean, session: SessionState | null)
     let current = true
     const levels = hasModel
       ? rpcClient
-          .send<AvailableThinkingLevels>({ type: 'get_available_thinking_levels' })
+          .send<AvailableThinkingLevels>(
+            { type: 'get_available_thinking_levels' },
+            undefined,
+            MODEL_QUERY_TIMEOUT_MS,
+          )
           .catch(() => ({ levels: [] }))
       : Promise.resolve({ levels: [] })
     void Promise.all([
-      rpcClient.send<AvailableModels>({ type: 'get_available_models' }),
+      rpcClient.send<AvailableModels>(
+        { type: 'get_available_models' },
+        undefined,
+        MODEL_QUERY_TIMEOUT_MS,
+      ),
       levels,
     ]).then(
       ([data, { levels }]) => {

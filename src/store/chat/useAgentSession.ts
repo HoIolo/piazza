@@ -74,7 +74,10 @@ function runSessionSwitch(
     )
   }
   const watchdog = startWatchdog(isCancelled, (err) => {
+    markRpcProcessExited(slotId)
+    void rpcClient.stop(slotId).catch(() => undefined)
     const s = useChatStore.getState()
+    s.setRpcReady(false)
     s.setSessionLoading(false)
     s.setError(err)
   })

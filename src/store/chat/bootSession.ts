@@ -20,6 +20,8 @@ export function markRpcProcessExited(slotId: string): void {
 }
 
 const BOOT_TIMEOUT_MS = 20_000
+const WARM_SWITCH_TIMEOUT_MS = 6_000
+const BOOT_QUERY_TIMEOUT_MS = 15_000
 
 export function startWatchdog(
   isCancelled: () => boolean,
@@ -58,8 +60,12 @@ async function tryWarmSwitch(
   if (slotCwds.get(slotId) !== cwd) return false
   try {
     const res = sessionPath
-      ? await rpcClient.send<SwitchResult>({ type: 'switch_session', sessionPath }, slotId)
-      : await rpcClient.send<SwitchResult>({ type: 'new_session' }, slotId)
+      ? await rpcClient.send<SwitchResult>(
+          { type: 'switch_session', sessionPath },
+          slotId,
+          WARM_SWITCH_TIMEOUT_MS,
+        )
+      : await rpcClient.send<SwitchResult>({ type: 'new_session' }, slotId, WARM_SWITCH_TIMEOUT_MS)
     return !res?.cancelled
   } catch {
     slotCwds.delete(slotId)
@@ -111,7 +117,8 @@ export async function bootSession({
   previous,
   forceCold,
 }: BootOptions) {
-  const prevLaunch = slotLaunches.get(slotId) ?? Promise.resolve()
+  // 显式重连/故障恢复时不排在可能已卡死的上一次启动后面，直接冷启替换旧进程
+  const prevLaunch = forceCold ? Promise.resolve() : (slotLaunches.get(slotId) ?? Promise.resolve())
   const startup = prevLaunch.then(async () => {
     if (!current()) return
     const warmed = !forceCold && (await tryWarmSwitch(slotId, cwd, sessionPath))
@@ -127,9 +134,9 @@ export async function bootSession({
   if (!current()) return null
 
   const [rawState, messagesData] = await Promise.all([
-    rpcClient.send<SessionState>({ type: 'get_state' }, slotId),
+    rpcClient.send<SessionState>({ type: 'get_state' }, slotId, BOOT_QUERY_TIMEOUT_MS),
     sessionPath
-      ? rpcClient.send<MessagesData>({ type: 'get_messages' }, slotId)
+      ? rpcClient.send<MessagesData>({ type: 'get_messages' }, slotId, BOOT_QUERY_TIMEOUT_MS)
       : Promise.resolve<MessagesData | null>(null),
   ])
   if (!current()) return null
@@ -148,11 +155,16 @@ async function adoptModelIfMissing(state: SessionState, slotId: string): Promise
     const { models = [] } = await rpcClient.send<AvailableModels>(
       { type: 'get_available_models' },
       slotId,
+      BOOT_QUERY_TIMEOUT_MS,
     )
     const pick = models[0]
     if (!pick) return state
-    await rpcClient.send({ type: 'set_model', provider: pick.provider, modelId: pick.id }, slotId)
-    return await rpcClient.send<SessionState>({ type: 'get_state' }, slotId)
+    await rpcClient.send(
+      { type: 'set_model', provider: pick.provider, modelId: pick.id },
+      slotId,
+      BOOT_QUERY_TIMEOUT_MS,
+    )
+    return await rpcClient.send<SessionState>({ type: 'get_state' }, slotId, BOOT_QUERY_TIMEOUT_MS)
   } catch {
     // 兜底失败就保持原样，界面会显示「未选择模型」，用户还能自己点
     return state
