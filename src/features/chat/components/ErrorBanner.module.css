@@ -1,34 +1,50 @@
 @import '../../../design/keyframes/rise-in.css';
 
+/*
+ * 对齐 Codex callout 的 `errorNotice` 变体（364313.d749d31da5.js）：
+ *   `flex items-start gap-3 rounded-2xl border border-border-danger-surface
+ *    bg-background-danger-surface p-4 text-sm/5 font-medium text-danger`
+ * 即 16px 圆角、16px 内边距、红色 8%（深色 16%）底与同色描边、整块红字。
+ * 与消息内的错误卡片不同：顶部横幅是「整个会话出事了」，值得一整块红。
+ *
+ * 与正文同宽同缩进：它是消息流上方多出来的一行，左右边界要和下面的
+ * 消息对齐。正文区是 --content-max-w 减左右各 16px 内边距，
+ * 所以这里取 --content-inner-w，否则会比消息左右各宽出 16px。
+ */
 .banner {
   display: flex;
   flex-direction: column;
   flex: none;
-  margin: 0 var(--sp-5) var(--sp-3);
-  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
-  border: 1px solid color-mix(in srgb, var(--diff-del) 30%, transparent);
-  border-radius: var(--r-card);
-  background: color-mix(in srgb, var(--diff-del) 7%, var(--bg-surface));
+  width: calc(100% - var(--sp-4) * 2);
+  max-width: var(--content-inner-w);
+  margin: var(--sp-4) auto 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--danger-surface);
+  border-radius: var(--r-banner);
+  background: var(--danger-surface);
+  color: var(--danger-text);
   animation: rise-in var(--dur-base) var(--ease-out);
 }
 
 .row {
   display: flex;
   align-items: flex-start;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
 }
 
+/* Codex errorNotice 用的是 zOs（圆圈叹号）而不是实心警告，这里保持一致 */
 .icon {
   flex: none;
   margin-top: 1px;
-  color: var(--diff-del);
+  color: inherit;
 }
 
 .text {
   min-width: 0;
-  font-size: var(--fs-desc);
-  line-height: 1.5;
-  color: var(--text-primary);
+  font-size: var(--fs-body);
+  line-height: 20px;
+  font-weight: var(--fw-medium);
+  color: inherit;
   word-break: break-word;
   user-select: text;
 }
@@ -50,7 +66,8 @@
 
 .chevron {
   flex: none;
-  color: var(--text-tertiary);
+  color: inherit;
+  opacity: 0.6;
   transition: transform var(--dur-base) var(--ease);
 }
 
@@ -65,11 +82,11 @@
   flex: none;
   height: 22px;
   padding: 0 var(--sp-2);
-  border: 1px solid var(--border-strong);
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
   border-radius: var(--r-item);
   background: var(--bg-surface);
   font-size: var(--fs-desc);
-  color: var(--text-primary);
+  color: inherit;
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
 }
@@ -86,13 +103,17 @@
   width: 22px;
   height: 22px;
   border-radius: var(--r-item);
-  color: var(--text-secondary);
+  color: inherit;
+  opacity: 0.7;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
+  transition:
+    background var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease);
 }
 
 .close:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  opacity: 1;
 }
 
 /*
@@ -102,12 +123,13 @@
 .detail {
   max-height: 180px;
   margin-top: var(--sp-2);
-  margin-left: calc(15px + var(--sp-2));
+  margin-left: calc(15px + var(--sp-3));
   overflow: auto;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  color: inherit;
+  opacity: 0.75;
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;

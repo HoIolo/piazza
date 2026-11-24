@@ -46,6 +46,15 @@
   --diff-add: #00a240; /* --green-500 / --app-color-decoration-added */
   --diff-del: #ba2623; /* --red-600 / --app-color-decoration-deleted */
   --text-error: #ba2623;
+  /*
+   * 错误文字色。Codex 的 --color-text-danger = light-dark(--red-700, --red-500)，
+   * 取自 4d21324f5cf6.css。
+   */
+  --danger-text: #911e1b; /* --red-700 */
+  /* Codex --color-border-danger-surface = --color-background-danger-surface = --red-a25 */
+  --danger-surface: rgba(250, 66, 62, 0.08); /* --red-400 8% */
+  /* Codex --color-border-primary-outline = --alpha-16 = light-dark(#0d0d0d29, #ffffff29) */
+  --border-outline: rgba(13, 13, 13, 0.16);
   --send-btn: #1a1c1f;
   --send-btn-disabled: #cdcdcd;
   --composer-primary: #0d0d0d; /* --gray-1000 */
@@ -87,6 +96,8 @@
   /* Codex 输入框多行态圆角：calc(spacing * 5.5) */
   --r-input: 22px;
   --r-palette: 16px;
+  /* Codex --radius-2xl（1rem）：错误横幅等 notice 容器 */
+  --r-banner: 16px;
   --r-pill: 999px;
   --corner-shape: round;
   --corner-shape-card: round;
@@ -146,6 +157,8 @@
     0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04),
     0 4px 80px 8px rgba(0, 0, 0, 0.024);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+  /* Codex --shadow-xs: 0 1px 2px 0 #0000000d，callout 的 normal 变体用它 */
+  --shadow-hairline: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-palette: 0 12px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-popover: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 8px 24px -4px rgba(0, 0, 0, 0.14);
   --shadow-surface: 0 0 0 0.5px var(--border-sidebar), 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -239,6 +252,9 @@
   --diff-add: #40c977; /* --green-300 */
   --diff-del: #fa423e; /* --red-400 */
   --text-error: #fa423e;
+  --danger-text: #e02e2a; /* --red-500 */
+  --danger-surface: rgba(250, 66, 62, 0.16); /* --red-a50 = --red-400 16% */
+  --border-outline: rgba(255, 255, 255, 0.16); /* --alpha-16 深色端 */
 
   --badge-input-bg: #013566;
   --badge-input-text: #99ceff;
@@ -265,6 +281,7 @@
   /* Codex --elevation-composer-dark */
   --shadow-input: inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-hairline: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-palette: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.16), 0 8px 24px -4px rgba(0, 0, 0, 0.5);
 

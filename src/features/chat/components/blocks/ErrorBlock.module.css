@@ -1,56 +1,68 @@
 /*
- * 容器中性、文字红。
+ * 对齐 Codex 会话流里的 `system-error`。
  *
- * 对着 Codex 与 Cline 的做法调过来的：两家都不给错误加红框——
- * Codex（TUI）是红色 ■ 加一行红字，Cline 唯一用容器的场景也是
- * 中性引用块底色，红色只落在文字上。红框在长对话里会连成一串
- * 抢眼的方块，而错误终究只是某一轮回答的附注。
+ * 从 293398.6c14dfb2db.js 的 `function ee` 读到：它渲染的是
+ * `E.l({ layout: "verticalIcon", Icon: U.A, content })`，没有传 `type`，
+ * 于是落到 callout 的 **normal** 变体（364313.d749d31da5.js 的 MM0V）：
+ *
+ *   variant="default" → rounded-3xl（20px） + shadow-xs + py-4 ps-5 pe-3
+ *   type="normal"     → border-primary-outline（--alpha-16）+ bg-surface + text-default
+ *   标题              → text-sm font-bold
+ *   正文              → text-codex-description（次级灰）
+ *   图标              → 16px，icon-sm，内容换行时 `h-lh items-center` 跟首行对齐
+ *
+ * 也就是说：错误在 Codex 里是一张**中性卡片**，红色只出现在图标上——
+ * 长对话里连挂几张红底红框会糊成一片，而错误终究只是某一轮的附注。
+ * 我们之前是中性灰底 + 一个 7px 红点，缺了卡片的层次与图标，才显得像引用块。
  */
 .block {
   display: flex;
   align-items: flex-start;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-item);
-  background: var(--bg-code);
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-outline);
+  border-radius: var(--r-code);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-hairline);
+  font-size: var(--fs-body);
+  /* Tailwind text-sm 的行高是 20px，对应 1.43 */
+  line-height: 1.43;
+  color: var(--text-primary);
+  text-wrap: pretty;
 }
 
-/* 实心点而非描边图标：两家的错误标记都是实心（■ / ⊗），靠颜色表意 */
-.dot {
+/*
+ * 图标槽高 1lh、内部居中：16px 图标在 20px 行高里正好居中，于是与标题首行对齐。
+ * Codex 的 verticalIcon 默认是 self-center（内容只有一行时两者等价），
+ * 内容换行时它走 `flex h-lh items-center` 分支——我们常有「标题 + 上游原话 + request id」
+ * 三行，跟着首行才不悬在块中间。
+ */
+.icon {
   flex: none;
-  width: 7px;
-  height: 7px;
-  margin-top: 6px;
-  border-radius: 50%;
-  background: var(--text-error);
-}
-
-/* 中止是用户自己按的停止键，不是故障：空心 + 中性色，与真错误区分开 */
-.block[data-aborted='true'] .dot {
-  background: none;
-  border: 1.5px solid var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  height: 1.43em;
+  color: var(--danger-text);
 }
 
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 6px;
   min-width: 0;
+  flex: 1;
 }
 
 .title {
-  font-size: var(--fs-desc);
-  font-weight: var(--fw-medium);
-  color: var(--text-error);
-}
-
-.block[data-aborted='true'] .title {
-  color: var(--text-secondary);
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  line-height: inherit;
 }
 
 /* 上游原话多为英文长句，允许换行而不是截断——排查时需要看全 */
 .detail {
-  font-size: var(--fs-desc);
+  margin: 0;
   color: var(--text-secondary);
   word-break: break-word;
   user-select: text;
@@ -58,10 +70,21 @@
 
 /* 一串无意义的标识符，压到最低视觉层级；等宽是为了核对时不看错字符 */
 .requestId {
-  margin-top: var(--sp-1);
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-tertiary);
   word-break: break-all;
   user-select: text;
+}
+
+/*
+ * 用户按了停止键：不是故障，别用红色报障。
+ * Codex 对这类「非错误」走的是无容器的纯文本分支，这里保持一致——
+ * 只有一行中性灰字，不套框、不挂图标。
+ */
+.plain {
+  font-size: var(--fs-body);
+  line-height: 1.43;
+  color: var(--text-secondary);
 }

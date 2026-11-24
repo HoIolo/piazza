@@ -69,7 +69,7 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
         this.stderrListeners.forEach((cb) => cb(payload.payload, payload.slotId)),
       )
       const onExit = listen<SlotEvent<ExitInfo>>(`${prefix}://exit`, ({ payload }) => {
-        this.rejectPendingForSlot(payload.slotId, new Error('pi 进程已退出'))
+        this.rejectPendingForSlot(payload.slotId, new Error('会话进程已退出'))
         this.exitListeners.forEach((cb) => cb(payload.payload, payload.slotId))
       })
       unlisteners.push(...(await Promise.all([onMsg, onErr, onExit])))

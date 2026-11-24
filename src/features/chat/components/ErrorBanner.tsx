@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { AlertCircle, ChevronRight, RotateCw, X } from 'lucide-react'
+import { ChevronRight, RotateCw, X } from 'lucide-react'
+import { CodexIcon } from '@/design/icons/CodexIcon'
 import type { ChatError } from '@/store/chat'
 import styles from './ErrorBanner.module.css'
 
@@ -21,7 +22,7 @@ export function ErrorBanner({ error, onReconnect, onDismiss }: ErrorBannerProps)
   return (
     <div className={styles.banner} role="alert">
       <div className={styles.row}>
-        <AlertCircle size={15} className={styles.icon} />
+        <CodexIcon name="alert" size={16} className={styles.icon} />
 
         {detail ? (
           <button

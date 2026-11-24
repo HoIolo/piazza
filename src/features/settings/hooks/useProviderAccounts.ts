@@ -22,10 +22,10 @@ function describeAccountsExit(code: number | null, stderr: string): string {
   if (tail) {
     const lines = tail.split(/\r?\n/)
     const reason = lines.find((line) => /^\w*Error:/.test(line)) ?? lines[0]
-    return `pi 账号进程退出：${reason}`
+    return `账号进程退出：${reason}`
   }
-  if (code === null) return 'pi 账号进程被系统终止'
-  return `pi 账号进程异常退出（退出码 ${code}）`
+  if (code === null) return '账号进程被系统终止'
+  return `账号进程异常退出（退出码 ${code}）`
 }
 
 /** 把账号事件并进当前授权流程。没有进行中的流程时忽略——此时事件无处可去 */

@@ -28,8 +28,8 @@ export function startWatchdog(
   return setTimeout(() => {
     if (isCancelled()) return
     onTimeout({
-      message: '启动 pi 会话超时',
-      detail: `等待 ${BOOT_TIMEOUT_MS / 1000} 秒仍未就绪。pi 可能没能启动，或启动后没有响应。`,
+      message: '启动会话超时',
+      detail: `等待 ${BOOT_TIMEOUT_MS / 1000} 秒仍未就绪。Piazza 可能没能启动后台会话，或启动后没有响应。`,
       fatal: true,
     })
   }, BOOT_TIMEOUT_MS)
@@ -38,16 +38,16 @@ export function startWatchdog(
 export function describeExit({ code, stderr }: ExitInfo): ChatError {
   const detail = stderr.trim() || undefined
   if (code === null) {
-    return { message: 'pi 进程被终止', detail: detail ?? '进程被信号杀死。', fatal: true }
+    return { message: '会话进程被终止', detail: detail ?? '进程被信号杀死。', fatal: true }
   }
   if (code === 0) {
     return {
-      message: 'pi 进程已退出',
+      message: '会话进程已退出',
       detail: detail ?? '进程以退出码 0 正常结束，通常意味着与它的连接被切断。',
       fatal: true,
     }
   }
-  return { message: `pi 进程异常退出（退出码 ${code}）`, detail, fatal: true }
+  return { message: `会话进程异常退出（退出码 ${code}）`, detail, fatal: true }
 }
 
 async function tryWarmSwitch(
