@@ -99,8 +99,10 @@ pub async fn rpc_is_running(
 }
 
 #[tauri::command]
-pub fn scan_sessions() -> Result<Vec<ProjectGroup>, String> {
-    sessions::scan()
+pub async fn scan_sessions() -> Result<Vec<ProjectGroup>, String> {
+    tauri::async_runtime::spawn_blocking(sessions::scan)
+        .await
+        .map_err(|err| err.to_string())?
 }
 
 /// 把一条会话记录移进废纸篓
@@ -111,8 +113,10 @@ pub fn trash_session(path: String) -> Result<(), String> {
 
 /// 原地截断会话文件，只保留目标用户消息之前的历史，供编辑重发复用原会话
 #[tauri::command]
-pub fn truncate_session_before(path: String, entry_id: String) -> Result<(), String> {
-    sessions::truncate_before(&path, &entry_id)
+pub async fn truncate_session_before(path: String, entry_id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || sessions::truncate_before(&path, &entry_id))
+        .await
+        .map_err(|err| err.to_string())?
 }
 
 /// 从磁盘直接读取会话消息快照，用于切换会话时先秒开内容

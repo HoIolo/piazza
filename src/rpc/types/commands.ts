@@ -37,10 +37,20 @@ export type RpcCommand =
    * 让 pi 重新读 models.json 并返回最新模型列表。
    *
    * 这条不是 pi 原生命令，是 worker 里自己拦下来的（见 pi-runtime/worker.mjs
-   * 的 installModelRefresh）。设置里改完模型用它，不必重启整个 worker——
+   * 的 installCustomCommands）。设置里改完模型用它，不必重启整个 worker——
    * 重启一次要 500ms，期间会话里会显示「Pi 会话未就绪」。
    */
   | { id?: string; type: 'refresh_models' }
+  /** 原地内存回退会话树到目标用户消息之前（不重建扩展/MCP，保留当前选中模型） */
+  | {
+      id?: string
+      type: 'rewind_before'
+      userIndex?: number
+      rawText?: string
+      entryId?: string
+    }
+  /** 仅返回当前活跃分支的用户消息列表，避免编辑分支后 fork 选到旧分支 */
+  | { id?: string; type: 'get_branch_fork_messages' }
 
 /* ---------- 各命令的 data 结构 ---------- */
 
@@ -117,4 +127,10 @@ export interface ForkMessagesData {
 export interface ForkResult {
   text: string
   cancelled: boolean
+}
+
+export interface RewindBeforeResult {
+  cancelled: boolean
+  messages?: AgentMessage[]
+  sessionFile?: string | null
 }

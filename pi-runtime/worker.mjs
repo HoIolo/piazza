@@ -288,27 +288,36 @@ async function runSession() {
   }, { cwd: sessionManager.getCwd(), agentDir, sessionManager })
 
   for (const { message } of runtime.takeUnreportedDiagnostics()) console.error(message)
-  installModelRefresh(runtime)
+  installCustomCommands(runtime)
   await runRpcMode(runtime)
 }
 
+/** 必须用函数声明以便提升到顶层 `await runSession()` 之前，避免 ES 模块 TDZ */
+function findCustomHandler(type) {
+  switch (type) {
+    case 'refresh_models':
+      return respondModelRefresh
+    case 'rewind_before':
+      return respondRewindBefore
+    case 'get_branch_fork_messages':
+      return respondBranchForkMessages
+    default:
+      return undefined
+  }
+}
 
 /**
- * 给 RPC 加一条自定义命令 `refresh_models`。
+ * 给 RPC 注入 Piazza 自有快速命令（refresh_models / rewind_before / get_branch_fork_messages）。
  *
- * 为什么需要：用户在设置里改了 models.json，回到会话时得看到新模型。
- * 原来的做法是重连——**杀掉整个 worker 再冷启一个**，500ms 起步，
- * 期间会话里显示「正在准备会话，稍等片刻」。
+ * - `refresh_models`：只刷新 ModelRuntime 内存缓存，不必杀进程冷启；
+ * - `rewind_before`：原地用 `session.navigateTree` 在内存中回退会话树，保留当前选中模型与
+ *   推理强度，避免 `truncate + switch_session` 触发整套 services/扩展/MCP 销毁重建（在
+ *   Windows 上重连 MCP 与重扫文件可达数秒）；
+ * - `get_branch_fork_messages`：只返回当前活跃分支上的用户消息，避免分支编辑后 fork 选到旧分支。
  *
- * 但模型列表本来就只在 ModelRuntime 内存里，pi 的 get_available_models 读的就是
- * 它。调一次 refresh() 重新读盘即可，进程不用动。
- *
- * 实现上不碰 pi 的 runRpcMode（它把 handleCommand 收在闭包里，宿主拿不到），
- * 而是代理 process.stdin.on('data', ...)：把 refresh_models 整行截下来自己应答，
- * 其余行原样转发给 runRpcMode 的解析器。既不会让 stdin 提前进入 flowing 模式，
- * 也不会把 refresh_models 漏给 pi 导致它抢先回一条 Unknown command 报错。
+ * 代理 process.stdin.on('data', ...) 截获自定义命令，其余行原样转发给 runRpcMode。
  */
-function installModelRefresh(runtime) {
+function installCustomCommands(runtime) {
   const origOn = process.stdin.on.bind(process.stdin)
   const origOff = process.stdin.off.bind(process.stdin)
   const origRemove = process.stdin.removeListener.bind(process.stdin)
@@ -320,11 +329,16 @@ function installModelRefresh(runtime) {
     const decoder = new StringDecoder('utf8')
     let buffer = ''
     const forward = (line) => {
-      if (line.includes('"refresh_models"')) {
+      if (
+        line.includes('"refresh_models"') ||
+        line.includes('"rewind_before"') ||
+        line.includes('"get_branch_fork_messages"')
+      ) {
         try {
           const command = JSON.parse(line)
-          if (command?.type === 'refresh_models') {
-            void respondModelRefresh(runtime, command)
+          const handler = command?.type ? findCustomHandler(command.type) : undefined
+          if (handler) {
+            void handler(runtime, command)
             return
           }
         } catch {
@@ -370,15 +384,116 @@ function installModelRefresh(runtime) {
   process.stdin.removeListener = unwrap(origRemove)
 }
 
+function sendRpcReply(command, body) {
+  writeRawStdout(
+    JSON.stringify({ id: command.id, type: 'response', command: command.type, ...body }) + '\n',
+  )
+}
+
+function extractEntryText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter((block) => block?.type === 'text')
+    .map((block) => block.text ?? '')
+    .join('\n')
+}
+
+function collectActiveUserEntries(sessionManager) {
+  const projected = sessionManager.buildSessionProjection().entries
+  const result = []
+  for (const { sourceEntry } of projected) {
+    if (sourceEntry?.type !== 'message' || sourceEntry.message?.role !== 'user') continue
+    const parent = sourceEntry.parentId ? sessionManager.getEntry(sourceEntry.parentId) : undefined
+    if (parent?.type === 'message' && parent.message?.role === 'toolResult') continue
+    const text = extractEntryText(sourceEntry.message.content)
+    if (text) result.push({ entryId: sourceEntry.id, text })
+  }
+  return result
+}
+
+function resolveActiveUserEntry(entries, userIndex, rawText) {
+  const trimmed = typeof rawText === 'string' ? rawText.trim() : ''
+  if (typeof userIndex === 'number' && entries[userIndex]?.text.trim() === trimmed) {
+    return entries[userIndex]
+  }
+  if (trimmed) {
+    const exact = entries.find((item) => item.text.trim() === trimmed)
+    if (exact) return exact
+  }
+  return typeof userIndex === 'number' ? entries[userIndex] : undefined
+}
+
 async function respondModelRefresh(runtime, command) {
-  const reply = (body) =>
-    writeRawStdout(
-      JSON.stringify({ id: command.id, type: 'response', command: 'refresh_models', ...body }) + '\n',
-    )
   try {
     await runtime.services.modelRuntime.refresh({ allowNetwork: false })
-    reply({ success: true, data: { models: runtime.services.modelRuntime.getAvailableSnapshot() } })
+    sendRpcReply(command, {
+      success: true,
+      data: { models: runtime.services.modelRuntime.getAvailableSnapshot() },
+    })
   } catch (error) {
-    reply({ success: false, error: error instanceof Error ? error.message : String(error) })
+    sendRpcReply(command, {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+async function respondBranchForkMessages(runtime, command) {
+  try {
+    const messages = collectActiveUserEntries(runtime.session.sessionManager)
+    sendRpcReply(command, { success: true, data: { messages } })
+  } catch (error) {
+    sendRpcReply(command, {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+async function respondRewindBefore(runtime, command) {
+  try {
+    const session = runtime.session
+    const sm = session.sessionManager
+    const entries = collectActiveUserEntries(sm)
+    const target = command.entryId
+      ? entries.find((item) => item.entryId === command.entryId)
+      : resolveActiveUserEntry(entries, command.userIndex, command.rawText)
+    if (!target) {
+      sendRpcReply(command, { success: false, error: '无法定位该条用户消息对应的会话节点' })
+      return
+    }
+    const activeModel = session.model
+    const activeThinking = session.thinkingLevel
+    const nav = await session.navigateTree(target.entryId, { summarize: false })
+    if (nav?.cancelled) {
+      sendRpcReply(command, { success: true, data: { cancelled: true } })
+      return
+    }
+    const projected = sm.buildSessionProjection()
+    if (
+      activeModel &&
+      (!projected.model ||
+        projected.model.provider !== activeModel.provider ||
+        projected.model.id !== activeModel.id)
+    ) {
+      sm.appendModelChange(activeModel.provider, activeModel.id)
+    }
+    if (activeThinking && projected.thinkingLevel !== activeThinking) {
+      sm.appendThinkingLevelChange(activeThinking)
+    }
+    sendRpcReply(command, {
+      success: true,
+      data: {
+        cancelled: false,
+        messages: session.messages,
+        sessionFile: session.sessionFile ?? null,
+      },
+    })
+  } catch (error) {
+    sendRpcReply(command, {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }

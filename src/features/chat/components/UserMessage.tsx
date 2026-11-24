@@ -87,8 +87,7 @@ export function UserMessage({ message, userIndex, editable = false }: UserMessag
 
   const submitEdit = async (nextText: string) => {
     const combined = formatPromptAttachments(nextText, attachments)
-    const ok = await editUserMessage(userIndex, rawText, combined, images)
-    if (ok) setEditing(false)
+    await editUserMessage(userIndex, rawText, combined, images, () => setEditing(false))
   }
 
   return (
