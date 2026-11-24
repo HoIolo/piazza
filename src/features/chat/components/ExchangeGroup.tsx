@@ -115,7 +115,7 @@ export const ExchangeGroup = memo(function ExchangeGroup({
   const [expanded, setExpanded] = useState(false)
   const [opened, setOpened] = useState(active)
   const { forkFromTurn } = useChatActions()
-  const { user, intermediate, final, others } = exchange
+  const { user, intermediate, final, others, trailingSteers } = exchange
   const keepOpen = shouldKeepOpen(active, paused, final)
   const view = deriveView(exchange, active, compacting, elapsedMs, finishedMs, keepOpen)
   const changes = useMemo(
@@ -166,6 +166,10 @@ export const ExchangeGroup = memo(function ExchangeGroup({
           {...forkProps(forkable, () => void forkFromTurn(userIndex))}
         />
       )}
+
+      {trailingSteers.map((message, index) => (
+        <UserMessage key={message.localId ?? `steer-${index}`} message={message} />
+      ))}
     </section>
   )
 })

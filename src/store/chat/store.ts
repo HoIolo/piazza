@@ -41,7 +41,7 @@ export interface ChatStore extends ChatSnapshot {
 
   applyEvent: (event: AgentEvent) => void
   setMessages: (messages: AgentMessage[], viewKey?: string) => void
-  echoUserMessage: (text: string, images?: ImageContent[]) => string
+  echoUserMessage: (text: string, images?: ImageContent[], steered?: boolean) => string
   removeLocalEcho: (id: string) => void
   setSession: (session: SessionState) => void
   setError: (error: string | ChatError | null) => void
@@ -105,7 +105,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         tools: restoreTools(messages),
       }
     }),
-  echoUserMessage: (text, images = []) => echoMessage(set, text, images),
+  echoUserMessage: (text, images = [], steered = false) => echoMessage(set, text, images, steered),
   removeLocalEcho: (id) =>
     set((state) => ({ messages: state.messages.filter((m) => m.localId !== id) })),
   setSession: (session) =>

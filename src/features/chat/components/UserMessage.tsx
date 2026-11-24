@@ -14,12 +14,6 @@ export interface UserMessageProps {
   message: UserMessageType
   userIndex?: number
   editable?: boolean
-  /**
-   * 运行中插进来的一句话（引导）。气泡照常显示，只在上面加一行小标签，
-   * 与 Codex 的「Steered conversation」一致——不缩成一行灰字，
-   * 因为它同样是用户说过的话，只是发生在某一轮还没跑完的时候。
-   */
-  steered?: boolean
 }
 
 function UserMessageActions({
@@ -73,12 +67,7 @@ function extractImages(content: UserMessageType['content']): ImageContent[] {
 }
 
 /** 用户消息：右对齐的中性淡染圆角气泡，支持悬停复制与 Codex 式原位编辑分叉重发 */
-export function UserMessage({
-  message,
-  userIndex,
-  editable = false,
-  steered = false,
-}: UserMessageProps) {
+export function UserMessage({ message, userIndex, editable = false }: UserMessageProps) {
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const { editUserMessage } = useChatActions()
@@ -103,9 +92,7 @@ export function UserMessage({
   }
 
   return (
-    <div className={styles.row} data-steered={steered}>
-      {/* 引导消息上方的一行小字：说明这句是插进正在跑的那一轮，而不是新提问 */}
-      {steered && <span className={styles.steerLabel}>已引导对话</span>}
+    <div className={styles.row}>
       <div className={styles.content} data-editing={editing}>
         <MessageImages images={images} />
         <MessageFiles files={attachments} />

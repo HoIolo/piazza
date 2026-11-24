@@ -12,9 +12,15 @@ import type { ChatAssistantMessage, ChatMessage, ChatSnapshot, ThinkingTiming } 
  * 记录对不上时退回旧判据：当时还在跑、且没有本地回显可替换——空闲发问会先
  * 压一条 local 占位等 pi 回传换掉，而引导是在跑的时候直接投递的，不会有占位。
  */
-function isSteered(state: ChatSnapshot, message: AgentMessage, replacedEcho: boolean) {
+function isSteered(
+  state: ChatSnapshot,
+  message: AgentMessage,
+  replacedEcho: boolean,
+  replacedSteered: boolean,
+) {
   if (message.role !== 'user') return false
-  if (consumeSteer(userText(message))) return true
+  const consumed = consumeSteer(userText(message))
+  if (replacedSteered || consumed) return true
   return state.isStreaming && !replacedEcho
 }
 
@@ -41,8 +47,8 @@ export function commitMessage(state: ChatSnapshot, message: AgentMessage): ChatS
   if ((message as { role?: string }).role === 'system') return state
   if (isDuplicateUserMessage(state.messages, message)) return state
   const alreadyStreamed = state.streaming !== null && message.role === 'assistant'
-  const { messages, replaced: replacedEcho } = dropLocalEcho(state.messages, message)
-  const committed = isSteered(state, message, replacedEcho)
+  const { messages, replaced, replacedSteered } = dropLocalEcho(state.messages, message)
+  const committed = isSteered(state, message, replaced, replacedSteered)
     ? { ...message, steered: true }
     : message
   return {
@@ -110,8 +116,8 @@ function sealThinking(message: AgentMessage, streaming: ChatAssistantMessage | n
 function dropLocalEcho(
   messages: ChatMessage[],
   incoming: AgentMessage,
-): { messages: ChatMessage[]; replaced: boolean } {
-  if (incoming.role !== 'user') return { messages, replaced: false }
+): { messages: ChatMessage[]; replaced: boolean; replacedSteered: boolean } {
+  if (incoming.role !== 'user') return { messages, replaced: false, replacedSteered: false }
 
   const incomingText = userText(incoming)
   const matched = messages.filter(
@@ -121,11 +127,16 @@ function dropLocalEcho(
     return {
       messages: messages.filter((item) => !matched.includes(item)),
       replaced: true,
+      replacedSteered: matched.some((item) => item.role === 'user' && Boolean(item.steered)),
     }
   }
 
   const idx = messages.findIndex((item) => item.local && item.role === 'user')
-  return idx === -1
-    ? { messages, replaced: false }
-    : { messages: [...messages.slice(0, idx), ...messages.slice(idx + 1)], replaced: true }
+  if (idx === -1) return { messages, replaced: false, replacedSteered: false }
+  const target = messages[idx]
+  return {
+    messages: [...messages.slice(0, idx), ...messages.slice(idx + 1)],
+    replaced: true,
+    replacedSteered: target?.role === 'user' && Boolean(target.steered),
+  }
 }

@@ -23,8 +23,10 @@ export async function dispatchPrompt(
   const text = message.trim()
   if (!text && !images.length) return false
   const { isStreaming: running, echoUserMessage } = useChatStore.getState()
-  const echoId = !running ? echoUserMessage(text, images) : null
   const type = promptType(running, behavior)
+  // 普通发问和运行中引导都立刻在右侧落成用户气泡；仅 ⌘+Enter 显式排队留在待发队列
+  const echoId =
+    type === 'prompt' || type === 'steer' ? echoUserMessage(text, images, type === 'steer') : null
   /*
    * 引导记一笔，等 pi 回传时认领。不靠 isStreaming 判断「回传时是否还在跑」：
    * agent_settled 有可能抢在 user 的 message_end 前面，那时已经落回 false，

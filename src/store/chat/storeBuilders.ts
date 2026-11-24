@@ -8,13 +8,19 @@ import { emptySnapshot, wasPaused, type ChatMessage } from './types'
 /** 输入框的临时状态：切换会话时要一起清掉 */
 export const emptyComposer = { draft: '', attachments: [] as DraftAttachment[], stopArmed: false }
 
-export function buildLocalEcho(text: string, images: ImageContent[], localId: string): ChatMessage {
+export function buildLocalEcho(
+  text: string,
+  images: ImageContent[],
+  localId: string,
+  steered = false,
+): ChatMessage {
   return {
     role: 'user',
     content: images.length ? [...(text ? [{ type: 'text' as const, text }] : []), ...images] : text,
     timestamp: Date.now(),
     local: true,
     localId,
+    ...(steered ? { steered: true } : {}),
   }
 }
 
@@ -49,8 +55,11 @@ export function echoMessage(
   set: (updater: (state: ChatStore) => Partial<ChatStore>) => void,
   text: string,
   images: ImageContent[],
+  steered = false,
 ): string {
   const localId = crypto.randomUUID()
-  set((state) => ({ messages: [...state.messages, buildLocalEcho(text, images, localId)] }))
+  set((state) => ({
+    messages: [...state.messages, buildLocalEcho(text, images, localId, steered)],
+  }))
   return localId
 }

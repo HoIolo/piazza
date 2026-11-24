@@ -14,8 +14,10 @@ export interface Exchange {
   intermediate: ChatAssistantMessage[]
   /** 最后一轮，即汇报，始终展示 */
   final: ChatAssistantMessage | null
-  /** 夹在助手轮次之间的直接 bash 执行等其它消息 */
+  /** 夹在助手轮次之间的直接 bash 执行、已被后续步骤响应的引导消息 */
   others: ChatMessage[]
+  /** 落在最后一轮助手消息之后的引导消息（尚未等到下一轮回复），直接贴在底部展示 */
+  trailingSteers: ChatUserMessage[]
   /** 从用户发问到最后一轮结束的耗时，信息不足时为 null */
   durationMs: number | null
 }
@@ -39,16 +41,37 @@ function endTimeOf(message: ChatAssistantMessage | null): number | null {
   return message.timestamp ?? null
 }
 
+function partitionSideMessages(buffer: ChatMessage[]): {
+  others: ChatMessage[]
+  trailingSteers: ChatUserMessage[]
+} {
+  let lastAssistantIdx = -1
+  for (let i = buffer.length - 1; i >= 0; i -= 1) {
+    if (buffer[i]?.role === 'assistant') {
+      lastAssistantIdx = i
+      break
+    }
+  }
+  const others: ChatMessage[] = []
+  const trailingSteers: ChatUserMessage[] = []
+  buffer.forEach((m, idx) => {
+    if (m.role === 'bashExecution') {
+      others.push(m)
+      return
+    }
+    if (m.role === 'user' && m.steered) {
+      if (m.local || idx > lastAssistantIdx) trailingSteers.push(m)
+      else others.push(m)
+    }
+  })
+  return { others, trailingSteers }
+}
+
 function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
   const assistants = mergeToolRounds(buffer)
   const rawFinal = assistants.length > 0 ? assistants[assistants.length - 1] : null
   const { intermediate, final } = splitToolRounds(assistants.slice(0, -1), rawFinal)
-
-  // toolResult 由 ToolCallBlock 依 toolCallId 自行取用，不在这里重复渲染；
-  // 运行中插进来的引导勾在同一轮的过程区里，跟终端输出一样按原顺序排
-  const others = buffer.filter(
-    (m) => m.role === 'bashExecution' || (m.role === 'user' && m.steered),
-  )
+  const { others, trailingSteers } = partitionSideMessages(buffer)
 
   const startedAt = user?.timestamp ?? assistants[0]?.timestamp ?? null
   const endedAt = endTimeOf(rawFinal)
@@ -58,6 +81,7 @@ function build(user: ChatUserMessage | null, buffer: ChatMessage[]): Exchange {
     intermediate,
     final,
     others,
+    trailingSteers,
     durationMs: startedAt !== null && endedAt !== null ? Math.max(0, endedAt - startedAt) : null,
   }
 }

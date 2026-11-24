@@ -54,13 +54,7 @@ export function ProcessArea({
                 )
               if (message.role === 'bashExecution')
                 return <BashExecutionItem key={index} message={message} />
-              /*
-               * 引导同样用完整的用户气泡，只多一行「已引导对话」标签：
-               * 它是用户说过的话，不该缩成一行灰字（对齐 Codex）。
-               * 过程区里的消息不给编辑入口，历史轮次的分叉没意义。
-               */
-              if (message.role === 'user')
-                return <UserMessage key={index} message={message} steered />
+              if (message.role === 'user') return <UserMessage key={index} message={message} />
               return null
             })}
           </div>
