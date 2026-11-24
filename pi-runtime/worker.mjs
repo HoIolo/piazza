@@ -25,6 +25,31 @@ function writeRawStdout(text) {
 }
 
 /*
+ * Node 22+ 默认把任何未捕获的 Promise rejection 视作致命错误并立刻 exit(1)。
+ * 后台 MCP 子进程断开、代理/HTTP 长连接被对端重置（ECONNRESET）、或扩展异步回调抛错
+ * 都可能触发未捕获异常；把它们记到 stderr 而不是直接杀掉整条会话进程，
+ * 避免用户在对话中途突然看到「会话进程异常退出」。
+ * 若宿主关掉了 stdout（EPIPE），说明宿主已放弃该进程，此时应安静退出。
+ */
+function formatFatalError(reason) {
+  if (reason instanceof Error) return reason.stack || reason.message
+  return String(reason)
+}
+
+process.stdout.on('error', (err) => {
+  if (err?.code === 'EPIPE') process.exit(0)
+})
+
+process.on('unhandledRejection', (reason) => {
+  process.stderr.write(`[piazza-worker] unhandledRejection: ${formatFatalError(reason)}\n`)
+})
+
+process.on('uncaughtException', (err) => {
+  if (err?.code === 'EPIPE') process.exit(0)
+  process.stderr.write(`[piazza-worker] uncaughtException: ${formatFatalError(err)}\n`)
+})
+
+/*
  * 从 **bundle 入口** 取 SDK，而不是包根的那个 barrel。
  *
  * 包根的 dist/index.js 是 157 个 re-export 的桶文件，它会把 249 个模块、
@@ -136,6 +161,8 @@ async function askOverRpc(title, options) {
         }
         if (parsed?.type === 'extension_ui_response' && parsed.id === id) {
           process.stdin.off('data', onData)
+          // 切回暂停态，避免在 runRpcMode 挂上 reader 前把宿主的后续命令直接吞掉
+          process.stdin.pause()
           resolve(parsed.cancelled ? undefined : (parsed.value ?? parsed.confirmed))
           return
         }
