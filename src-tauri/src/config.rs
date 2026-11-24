@@ -56,6 +56,29 @@ fn level_of(settings: &serde_json::Value) -> Option<String> {
     matches!(value, "ask" | "always" | "never").then(|| value.to_string())
 }
 
+/// 读 settings.json 里的内置 Computer Use 配置：(是否启用内置 MCP, 是否显示虚拟光标)。
+/// 两者默认均为 true，开箱即用。
+pub fn computer_use_settings() -> (bool, bool) {
+    let settings = settings_path()
+        .ok()
+        .and_then(|p| read_json(&p).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    computer_use_of(&settings)
+}
+
+fn computer_use_of(settings: &serde_json::Value) -> (bool, bool) {
+    let cu = settings.get("computerUse");
+    let enabled = cu
+        .and_then(|v| v.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let visual_cursor = cu
+        .and_then(|v| v.get("visualCursor"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    (enabled, visual_cursor)
+}
+
 /// 合并顶层键，保留原文件中我们不认识的字段。
 ///
 /// GUI 只理解 models.json / settings.json 的一部分结构，用户手写的其他
@@ -78,7 +101,7 @@ pub fn merge_top_level(
 
 #[cfg(test)]
 mod tests {
-    use super::{level_of, merge_top_level, read_json, write_json};
+    use super::{computer_use_of, level_of, merge_top_level, read_json, write_json};
     use serde_json::json;
 
     /// 信任档位只认 pi 支持的三值；写错或没写都当作没指定，让 pi 用自己的默认
@@ -172,5 +195,18 @@ mod tests {
         // 临时文件必须已被 rename 消费掉，不能留在目录里
         assert!(!path.with_extension("json.tmp").exists());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reads_computer_use_defaults_and_overrides() {
+        assert_eq!(computer_use_of(&json!({})), (true, true));
+        assert_eq!(
+            computer_use_of(&json!({ "computerUse": { "enabled": false } })),
+            (false, true)
+        );
+        assert_eq!(
+            computer_use_of(&json!({ "computerUse": { "visualCursor": false } })),
+            (true, false)
+        );
     }
 }

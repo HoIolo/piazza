@@ -4,9 +4,9 @@
   "version": "0.1.11",
   "identifier": "com.piazza.app",
   "build": {
-    "beforeDevCommand": "node scripts/prepare-pi-runtime.mjs && npm run dev",
+    "beforeDevCommand": "node scripts/prepare-pi-runtime.mjs && node scripts/prepare-ocu-runtime.mjs && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "node scripts/prepare-pi-runtime.mjs && npm run build",
+    "beforeBuildCommand": "node scripts/prepare-pi-runtime.mjs && node scripts/prepare-ocu-runtime.mjs && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -33,7 +33,8 @@
     "resources": [
       "resources/task-plan.ts",
       "resources/ask-user-question.ts",
-      "resources/pi-runtime/"
+      "resources/pi-runtime/",
+      "resources/ocu-runtime/"
     ],
     "icon": [
       "icons/32x32.png",

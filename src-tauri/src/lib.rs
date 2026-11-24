@@ -2,6 +2,7 @@ mod agent_resources;
 mod attachments;
 mod browser;
 mod commands;
+mod computer_use;
 mod config;
 mod data_dir;
 mod external;
@@ -14,6 +15,7 @@ mod terminal;
 mod win_console;
 
 use commands::AppState;
+use tauri::Manager;
 
 /// 运行平台。前端据此决定标题栏形态、快捷键文案与毛玻璃降级，比解析 UA 可靠。
 #[tauri::command]
@@ -30,6 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .manage(browser::BrowserState::default())
+        .manage(computer_use::ComputerUseState::new())
         .invoke_handler(tauri::generate_handler![
             attachments::read_attachment,
             browser::browser_show,
@@ -82,7 +85,20 @@ pub fn run() {
             app_platform,
             commands::read_mcp_config,
             commands::write_mcp_config,
+            computer_use::cu_permissions,
+            computer_use::cu_request_permission,
+            computer_use::cu_focus_window,
+            computer_use::cu_unwatch_window,
+            computer_use::cu_clear_all,
+            computer_use::cu_list_windows,
         ])
-        .run(tauri::generate_context!())
-        .expect("Tauri 应用启动失败");
+        .build(tauri::generate_context!())
+        .expect("Tauri 应用初始化失败")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(cu) = app.try_state::<computer_use::ComputerUseState>() {
+                    tauri::async_runtime::block_on(cu.shutdown());
+                }
+            }
+        });
 }

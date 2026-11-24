@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { ChatView } from '@/features/chat'
 import { SideChat } from '@/features/chat/components/SideChat'
+import { ComputerUsePreview } from '@/features/computerUse'
 import { ImportPiConfigDialog } from '@/features/onboarding/ImportPiConfigDialog'
 import { UpdateDialog } from '@/features/updater/UpdateDialog'
 import { CommandPalette } from '@/features/palette'
@@ -11,6 +13,7 @@ import { WorkspaceTerminal } from '@/features/terminal/WorkspaceTerminal'
 import { isMac } from '@/shared/utils/platform'
 import { useAppStore } from '@/store/app.store'
 import { useAgentSession } from '@/store/chat'
+import { bindComputerUseEvents, useComputerUseStore } from '@/store/computerUse.store'
 import { useAutoUpdate } from './useAutoUpdate'
 import { useBootstrap } from './useBootstrap'
 import { useGlobalShortcuts } from './useGlobalShortcuts'
@@ -27,10 +30,15 @@ export function App() {
   useSessionPanelMemory()
   useAutoUpdate()
 
+  useEffect(() => {
+    void bindComputerUseEvents()
+  }, [])
+
   const rightPanelOpen = useAppStore((s) => s.rightPanelOpen)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const settingsMounted = useAppStore((s) => s.settingsMounted)
   const settingsSection = useAppStore((s) => s.settingsSection)
+  const cuChip = useComputerUseStore((s) => s.windows.length > 0 && !s.previewOpen)
 
   return (
     <div className={styles.root}>
@@ -39,6 +47,7 @@ export function App() {
         className={styles.shell}
         data-dimmed={settingsOpen}
         data-workspace-open={rightPanelOpen}
+        data-cu-chip={cuChip}
         inert={settingsOpen}
       >
         <Sidebar />
@@ -49,6 +58,7 @@ export function App() {
         </div>
         <RightPanel open={rightPanelOpen} sideChat={SideChat} terminal={WorkspaceTerminal} />
         <WorkspaceControls />
+        <ComputerUsePreview />
         <CommandPalette />
       </div>
 

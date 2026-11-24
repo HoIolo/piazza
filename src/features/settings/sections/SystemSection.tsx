@@ -10,6 +10,7 @@ import { Toggle } from '@/design/primitives/Toggle'
 import { getAgentDir } from '@/shared/api/agentResources'
 import { openPathWith } from '@/shared/api/pi'
 import type { SectionProps } from './AppearanceSection'
+import { ComputerUseCard } from './ComputerUseCard'
 import styles from './SystemSection.module.css'
 
 const RETRY_COUNT_OPTIONS = [
@@ -96,8 +97,10 @@ export function SystemSection({ settings }: SectionProps) {
   return (
     <>
       <Card title="运行时">
-        <Row title="运行时来源" description="Piazza 内置 Pi SDK 与 Node.js，无需另装" />
+        <Row title="运行时来源" description="Piazza 内置 Pi SDK、Node.js 与 Open Computer Use，无需另装" />
       </Card>
+
+      <ComputerUseCard settings={settings} />
 
       <Card title="网络代理">
         <Row

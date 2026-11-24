@@ -23,3 +23,4 @@ e2e/.shots/
 
 # 随应用打包的 Pi SDK 与 Node 运行时
 src-tauri/resources/pi-runtime/
+src-tauri/resources/ocu-runtime/

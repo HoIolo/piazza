@@ -121,6 +121,12 @@ export const SECTION_GROUPS: SectionGroup[] = [
           '上下文',
           '重试',
           '图片',
+          '桌面控制',
+          'computer use',
+          'ocu',
+          '录屏',
+          '辅助功能',
+          '光标',
         ],
       },
       {

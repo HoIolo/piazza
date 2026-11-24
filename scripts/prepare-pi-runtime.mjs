@@ -39,6 +39,7 @@ const runtimeSources = [
   'title.mjs',
   'resume.mjs',
   'context-window.mjs',
+  'computer-use.mjs',
 ]
 
 /** Tauri 传进来的目标三元组；本地 `npm run tauri dev` 时退回宿主机。 */

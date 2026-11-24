@@ -1,0 +1,25 @@
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-code);
+  font-weight: var(--fw-medium);
+  background: var(--bg-bubble);
+  color: var(--text-tertiary);
+}
+
+.badge[data-granted='true'] {
+  background: var(--badge-input-bg);
+  color: var(--badge-input-text);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-code);
+  color: var(--text-tertiary);
+}

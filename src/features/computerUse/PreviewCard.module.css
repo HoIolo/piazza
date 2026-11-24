@@ -1,0 +1,220 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  box-shadow: var(--shadow-surface);
+  transition:
+    transform var(--dur-base) var(--ease),
+    opacity var(--dur-base) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.card:not([data-stacked='true']) {
+  animation: cuCardIn var(--dur-base) var(--ease-out);
+}
+
+.card[data-stacked='true'] {
+  position: absolute;
+  inset: 0 auto auto 0;
+  box-shadow: var(--shadow-popover);
+  cursor: pointer;
+}
+
+.card[data-layer='0'] {
+  z-index: 3;
+  transform: translate3d(0, 0, 0) scale(1);
+  opacity: 1;
+}
+
+.card[data-layer='1'] {
+  z-index: 2;
+  transform: translate3d(-10px, 10px, 0) scale(0.96);
+  opacity: 0.92;
+}
+
+.card[data-layer='2'] {
+  z-index: 1;
+  transform: translate3d(-20px, 20px, 0) scale(0.92);
+  opacity: 0.84;
+}
+
+.card:hover[data-stacked='true'][data-layer='1'],
+.card:hover[data-stacked='true'][data-layer='2'] {
+  border-color: var(--blue-switch);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-context-bar);
+}
+
+.cardHeader[data-drag-handle='true'] {
+  cursor: grab;
+}
+
+.cardHeader[data-drag-handle='true']:active {
+  cursor: grabbing;
+}
+
+.appMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+  background: var(--diff-add);
+}
+
+.dot[data-active='true'] {
+  background: var(--diff-del);
+  animation: cuPulse 1.3s ease-in-out infinite;
+}
+
+.appIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.appText {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.appName {
+  font-size: var(--fs-code);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.windowTitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-surface);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.frameImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  background: var(--bg-surface);
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--fs-code);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.actionLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stateTag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-weight: var(--fw-medium);
+  background: var(--bg-bubble);
+  color: var(--text-tertiary);
+}
+
+.stateTag[data-active='true'] {
+  background: var(--badge-input-bg);
+  color: var(--badge-input-text);
+}
+
+@keyframes cuCardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cuPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card:not([data-stacked='true']),
+  .dot[data-active='true'] {
+    animation: none;
+    transition: none;
+  }
+}

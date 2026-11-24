@@ -235,6 +235,20 @@ impl RpcState {
             .env("PI_CODING_AGENT_DIR", agent_dir)
             .env_remove("NODE_PATH")
             .env_remove("NODE_OPTIONS");
+        if self.channel.message == MAIN.message {
+            let (ocu_enabled, ocu_cursor) = crate::config::computer_use_settings();
+            command.env("PIAZZA_OCU_ENABLED", if ocu_enabled { "1" } else { "0" });
+            command.env("PIAZZA_OCU_VISUAL_CURSOR", if ocu_cursor { "1" } else { "0" });
+            if let Ok(ocu_dir) = crate::computer_use::resolve_runtime_dir(&app) {
+                command.env("PIAZZA_OCU_RUNTIME_DIR", ocu_dir);
+            }
+            if let Some(cu_state) = app.try_state::<crate::computer_use::ComputerUseState>() {
+                if let Ok((port, token)) = cu_state.ensure_telemetry(&app).await {
+                    command.env("PIAZZA_OCU_EVENT_PORT", port.to_string());
+                    command.env("PIAZZA_OCU_EVENT_TOKEN", token);
+                }
+            }
+        }
         if let Some(dir) = cwd {
             command.current_dir(dir);
         }

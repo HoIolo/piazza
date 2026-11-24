@@ -1,9 +1,29 @@
 import { join } from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
+import { createComputerUseExtension } from './computer-use.mjs'
 import { applySavedContextWindow, createContextWindowExtension } from './context-window.mjs'
 import { resumeExtension } from './resume.mjs'
 import { nameNewSession } from './title.mjs'
 import { runAccounts } from './accounts.mjs'
 import { parseArgs } from 'node:util'
+
+/*
+ * 在任何模块改写 process.stdout.write 之前，先把真正的 stdout 写入函数留下来。
+ *
+ * 不能再从 ./core/output-guard.js 导入 takeOverStdout/writeRawStdout：
+ * dist/bundle/index.js 内部打包了另一份 output-guard，两份模块的
+ * stdoutTakeoverState 互不相通。若这里先调 core/output-guard.js 的 takeOverStdout()，
+ * 它会把 process.stdout.write 重定向到 stderr；随后 runRpcMode 再调 bundle 里的
+ * takeOverStdout() 时，就会把「已指向 stderr 的 write」当成原始 stdout 保存下来——
+ * 导致所有 RPC 应答全部写进 stderr，宿主读 stdout 永远收不到帧，命令全部超时。
+ *
+ * 这里只保存原始写入引用、不覆写 process.stdout.write，把接管权留给 runRpcMode。
+ */
+const rawStdoutWrite = process.stdout.write.bind(process.stdout)
+function writeRawStdout(text) {
+  if (text) rawStdoutWrite(text)
+}
+
 /*
  * 从 **bundle 入口** 取 SDK，而不是包根的那个 barrel。
  *
@@ -13,8 +33,8 @@ import { parseArgs } from 'node:util'
  * TUI 才用得上的东西，RPC 模式根本不碰。
  *
  * dist/bundle/index.js 是 pi 官方预先打包好的版本，同样是 157 个导出，
- * 但模块图压到几十个 chunk，实测 173ms；再补三个 bundle 没导出的内部工具
- * （output-guard / http-dispatcher / project-trust），整段约 285ms。
+ * 但模块图压到几十个 chunk，实测 173ms；再补两个 bundle 没导出的内部工具
+ * （http-dispatcher / project-trust），整段约 285ms。
  *
  * 这是 worker 冷启动最大的一笔开销，直接决定「切会话要等多久」。
  */
@@ -32,7 +52,6 @@ const {
   SessionManager,
   SettingsManager,
 } = await import(bundle)
-const { takeOverStdout, writeRawStdout } = await import(new URL('./core/output-guard.js', sdk))
 /*
  * 只取真正用得上的三个内置扩展，不走 extensions/index.js。
  *
@@ -198,6 +217,7 @@ async function runSession() {
         packageCommandOutput: 'capture',
         extensionFactories: [
           ...builtInExtensions,
+          createComputerUseExtension(),
           contextWindowExtension,
           ...(values['auto-title'] ? [resumeExtension] : []),
         ],
@@ -251,35 +271,76 @@ async function runSession() {
  *
  * 为什么需要：用户在设置里改了 models.json，回到会话时得看到新模型。
  * 原来的做法是重连——**杀掉整个 worker 再冷启一个**，500ms 起步，
- * 期间会话里显示「Pi 会话未就绪」。
+ * 期间会话里显示「正在准备会话，稍等片刻」。
  *
  * 但模型列表本来就只在 ModelRuntime 内存里，pi 的 get_available_models 读的就是
  * 它。调一次 refresh() 重新读盘即可，进程不用动。
  *
  * 实现上不碰 pi 的 runRpcMode（它把 handleCommand 收在闭包里，宿主拿不到），
- * 而是在 stdin 上先挂一个监听：识别到 refresh_models 就自己应答并吞掉这一行，
- * 其余原样放行给 pi 的解析器。stdin 是流，多一个监听者不影响原有消费。
+ * 而是代理 process.stdin.on('data', ...)：把 refresh_models 整行截下来自己应答，
+ * 其余行原样转发给 runRpcMode 的解析器。既不会让 stdin 提前进入 flowing 模式，
+ * 也不会把 refresh_models 漏给 pi 导致它抢先回一条 Unknown command 报错。
  */
 function installModelRefresh(runtime) {
-  // pi 的 runRpcMode 会调 takeOverStdout，把普通 stdout 重定向到 stderr；
-  // 我们抢在它之前接管，才能保证应答走真正的 stdout 通道。
-  takeOverStdout()
-  let buffer = ''
-  process.stdin.on('data', (chunk) => {
-    buffer += chunk.toString('utf8')
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      let command
-      try {
-        command = JSON.parse(line)
-      } catch {
-        continue
+  const origOn = process.stdin.on.bind(process.stdin)
+  const origOff = process.stdin.off.bind(process.stdin)
+  const origRemove = process.stdin.removeListener.bind(process.stdin)
+  const origPrepend = process.stdin.prependListener.bind(process.stdin)
+  const wrappedListeners = new Map()
+
+  process.stdin.on = (event, listener) => {
+    if (event !== 'data') return origOn(event, listener)
+    const decoder = new StringDecoder('utf8')
+    let buffer = ''
+    const forward = (line) => {
+      if (line.includes('"refresh_models"')) {
+        try {
+          const command = JSON.parse(line)
+          if (command?.type === 'refresh_models') {
+            void respondModelRefresh(runtime, command)
+            return
+          }
+        } catch {
+          // 畸形 JSON 仍交给 pi 自己按协议报错
+        }
       }
-      if (command?.type !== 'refresh_models') continue
-      void respondModelRefresh(runtime, command)
+      listener(line + '\n')
     }
-  })
+    const wrapped = (chunk) => {
+      buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk)
+      let nl = buffer.indexOf('\n')
+      while (nl !== -1) {
+        forward(buffer.slice(0, nl))
+        buffer = buffer.slice(nl + 1)
+        nl = buffer.indexOf('\n')
+      }
+    }
+    const flushEnd = () => {
+      buffer += decoder.end()
+      if (buffer.length > 0) {
+        const tail = buffer
+        buffer = ''
+        forward(tail)
+      }
+    }
+    wrappedListeners.set(listener, { wrapped, flushEnd })
+    origPrepend('end', flushEnd)
+    return origOn('data', wrapped)
+  }
+
+  const unwrap = (orig) => (event, listener) => {
+    if (event === 'data') {
+      const entry = wrappedListeners.get(listener)
+      if (entry) {
+        wrappedListeners.delete(listener)
+        origOff('end', entry.flushEnd)
+        return orig('data', entry.wrapped)
+      }
+    }
+    return orig(event, listener)
+  }
+  process.stdin.off = unwrap(origOff)
+  process.stdin.removeListener = unwrap(origRemove)
 }
 
 async function respondModelRefresh(runtime, command) {
