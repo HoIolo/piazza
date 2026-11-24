@@ -1,6 +1,6 @@
 [package]
 name = "piazza"
-version = "0.1.11"
+version = "0.1.12"
 description = "基于 pi coding agent 的 Codex 风格桌面 GUI"
 authors = ["Piazza"]
 edition = "2021"
@@ -28,7 +28,7 @@ serde = { version = "1", features = ["derive"] }
 # 一次保存就把用户手写配置的字段顺序全打乱，diff 里全是无关变更。
 serde_json = { version = "1", features = ["preserve_order"] }
 # time：给等待子进程退出与写 stdin 加超时用。缺了它，任一方挂起都会把会话锁攥死
-tokio = { version = "1", features = ["process", "io-util", "sync", "rt", "macros", "time"] }
+tokio = { version = "1", features = ["process", "io-util", "net", "sync", "rt", "macros", "time"] }
 dirs = "6"
 dunce = "1"
 thiserror = "2"
