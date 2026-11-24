@@ -29,6 +29,18 @@ use tokio::sync::Mutex;
 const LABEL: &str = "panel-browser";
 const MAX_LOCAL_FILE_BYTES: u64 = 16 * 1024 * 1024;
 
+/// 标准桌面浏览器 UA。
+///
+/// macOS WKWebView 默认 UA 不含 `Version/... Safari/...`，百度等站点会把它当成不支持
+/// HTTPS 的老旧客户端，返回 `location.replace("http://...")`，又被 WebKit HSTS 升回
+/// `https://`，形成每秒十几次的死循环重载与白屏。补齐标准 UA 后各大站点均正常渲染。
+#[cfg(target_os = "macos")]
+const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+#[cfg(target_os = "windows")]
+const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0";
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 #[derive(Default)]
 struct PreviewTarget {
     root_dir: Option<PathBuf>,
@@ -364,8 +376,19 @@ pub async fn browser_show(
     let (view, just_created) = match existing(&window, LABEL) {
         Some(view) => (view, false),
         None => {
+            let win_for_new_tab = window.clone();
             #[allow(unused_mut)]
-            let mut builder = WebviewBuilder::new(LABEL, WebviewUrl::External(parsed.clone()));
+            let mut builder = WebviewBuilder::new(LABEL, WebviewUrl::External(parsed.clone()))
+                .user_agent(BROWSER_USER_AGENT)
+                .on_new_window(move |url, _features| {
+                    // 百度搜索结果等 target="_blank" 链接在当前内嵌浏览器中打开，避免点击无反应
+                    if matches!(url.scheme(), "http" | "https") {
+                        if let Some(view) = existing(&win_for_new_tab, LABEL) {
+                            let _ = view.navigate(url);
+                        }
+                    }
+                    tauri::webview::NewWindowResponse::Deny
+                });
             // macOS 上 wry 0.57 若设置 background_color 会把 WKWebView 的 drawsBackground 关掉，
             // 反而让无底色页面变透明；保持默认不透明白底，非 macOS 再显式填白底。
             #[cfg(not(target_os = "macos"))]
