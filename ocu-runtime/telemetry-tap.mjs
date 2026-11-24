@@ -75,24 +75,44 @@ function emit(payload) {
   connectTelemetry()
 }
 
+function parseWindowNumber(raw) {
+  if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0) return raw
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  const id = /^0x[0-9a-f]+$/i.test(trimmed) ? Number.parseInt(trimmed, 16) : Number(trimmed)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
 function extractWindowId(text, argsObj) {
-  if (Number.isInteger(argsObj?.window_id) && argsObj.window_id > 0) return argsObj.window_id
+  const fromArg = parseWindowNumber(argsObj?.window_id ?? argsObj?.windowId ?? argsObj?.hwnd)
+  if (fromArg) return fromArg
   if (typeof text !== 'string' || !text) return null
   const patterns = [
-    /"window_id"\s*:\s*(\d+)/,
-    /"windowId"\s*:\s*(\d+)/,
-    /\bwindow_id[=:]\s*(\d+)/i,
-    /\bwindowId[=:]\s*(\d+)/i,
-    /\bwindow\s+id[=:]\s*(\d+)/i,
+    /"window_id"\s*:\s*"?(0x[0-9a-f]+|\d+)"?/i,
+    /"windowId"\s*:\s*"?(0x[0-9a-f]+|\d+)"?/i,
+    /"hwnd"\s*:\s*"?(0x[0-9a-f]+|\d+)"?/i,
+    /\b(?:window_id|windowId|hwnd)[=:]\s*(0x[0-9a-f]+|\d+)/i,
+    /\bwindow\s+id[=:]\s*(0x[0-9a-f]+|\d+)/i,
   ]
   for (const re of patterns) {
     const match = text.match(re)
     if (match) {
-      const id = Number(match[1])
-      if (Number.isSafeInteger(id) && id > 0) return id
+      const id = parseWindowNumber(match[1])
+      if (id) return id
     }
   }
   return null
+}
+
+function extractCoords(argsObj) {
+  if (!argsObj || typeof argsObj !== 'object') return null
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const x = num(argsObj.x) ?? num(argsObj.from_x)
+  const y = num(argsObj.y) ?? num(argsObj.from_y)
+  const toX = num(argsObj.to_x)
+  const toY = num(argsObj.to_y)
+  if (x === null || y === null) return null
+  return { x, y, ...(toX !== null && toY !== null ? { toX, toY } : {}) }
 }
 
 function inspectRequest(line) {
@@ -121,6 +141,7 @@ function inspectRequest(line) {
       appName,
       windowId: extractWindowId('', toolArgs),
       label,
+      coords: extractCoords(toolArgs),
       ts: Date.now(),
     })
   }
@@ -165,6 +186,7 @@ function inspectResponse(line) {
 const child = spawn(command, args, {
   stdio: ['pipe', 'pipe', 'pipe'],
   env: process.env,
+  windowsHide: true,
 })
 
 child.stderr.on('data', (chunk) => process.stderr.write(chunk))

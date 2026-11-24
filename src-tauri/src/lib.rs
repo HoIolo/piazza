@@ -3,6 +3,10 @@ mod attachments;
 mod browser;
 mod commands;
 mod computer_use;
+#[cfg(target_os = "windows")]
+mod computer_use_win;
+#[cfg(target_os = "windows")]
+mod computer_use_win_gfx;
 mod config;
 mod data_dir;
 mod external;

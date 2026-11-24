@@ -74,6 +74,7 @@ function sendTelemetry(payload) {
 const child = spawn(command, args, {
   stdio: ['pipe', 'pipe', 'pipe'],
   env: process.env,
+  windowsHide: true,
 })
 
 child.stderr.on('data', (chunk) => process.stderr.write(chunk))

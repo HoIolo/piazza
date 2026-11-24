@@ -198,10 +198,18 @@ function main() {
     mkdirSync(runtime, { recursive: true })
 
     for (const name of pluginScripts) {
-      copyFileSync(
-        join(pkgDir, 'plugins/open-computer-use/scripts', name),
-        join(runtime, name),
-      )
+      const src = join(pkgDir, 'plugins/open-computer-use/scripts', name)
+      const dst = join(runtime, name)
+      if (name === 'open-computer-use-repl.mjs') {
+        // 避免 Windows 上 REPL 启动子进程（telemetry-tap / open-computer-use.exe）闪现黑框
+        const content = readFileSync(src, 'utf8').replaceAll(
+          '{ cwd, env, stdio: ["pipe", "pipe", "pipe"] }',
+          '{ cwd, env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true }',
+        )
+        writeFileSync(dst, content, 'utf8')
+      } else {
+        copyFileSync(src, dst)
+      }
     }
     for (const name of overlaySources) {
       copyFileSync(join(root, 'ocu-runtime', name), join(runtime, name))

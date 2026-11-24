@@ -1,6 +1,7 @@
 use std::collections::{hash_map::RandomState, HashMap};
 use std::hash::{BuildHasher, Hasher};
 use std::path::PathBuf;
+#[cfg(target_os = "macos")]
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -8,16 +9,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, State};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
+#[cfg(target_os = "macos")]
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
+#[cfg(target_os = "macos")]
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex};
-use tokio::time::{sleep, timeout, Duration};
+#[cfg(target_os = "macos")]
+use tokio::time::timeout;
+use tokio::time::{sleep, Duration};
 
 const EVENT_STATE: &str = "piazza://cu-state";
 const EVENT_FRAME: &str = "piazza://cu-frame";
 const EVENT_STOP_REQUESTED: &str = "piazza://cu-stop-requested";
 
+#[cfg(target_os = "macos")]
 const PERMISSION_TIMEOUT: Duration = Duration::from_secs(3);
 const IDLE_CLEAR_AFTER: Duration = Duration::from_secs(60);
 const STREAM_FALLBACK_GAP_MS: u64 = 2000;
@@ -78,6 +85,7 @@ struct CuData {
     last_stream_frame_ms: HashMap<u32, u64>,
 }
 
+#[cfg(target_os = "macos")]
 struct HelperHandle {
     child: Child,
     stdin: ChildStdin,
@@ -90,7 +98,10 @@ struct TelemetryEndpoint {
 
 pub struct ComputerUseState {
     data: Arc<Mutex<CuData>>,
+    #[cfg(target_os = "macos")]
     helper: Arc<Mutex<Option<HelperHandle>>>,
+    #[cfg(target_os = "windows")]
+    win_overlay: Arc<Mutex<Option<crate::computer_use_win::WinOverlayClient>>>,
     perm_waiters: Arc<Mutex<Vec<oneshot::Sender<(bool, bool)>>>>,
     telemetry: Mutex<Option<TelemetryEndpoint>>,
     idle_gen: Arc<AtomicU64>,
@@ -106,7 +117,10 @@ impl ComputerUseState {
     pub fn new() -> Self {
         Self {
             data: Arc::new(Mutex::new(CuData::default())),
+            #[cfg(target_os = "macos")]
             helper: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "windows")]
+            win_overlay: Arc::new(Mutex::new(None)),
             perm_waiters: Arc::new(Mutex::new(Vec::new())),
             telemetry: Mutex::new(None),
             idle_gen: Arc::new(AtomicU64::new(0)),
@@ -132,7 +146,10 @@ impl ComputerUseState {
             app: app.clone(),
             token: token.clone(),
             data: Arc::clone(&self.data),
+            #[cfg(target_os = "macos")]
             helper: Arc::clone(&self.helper),
+            #[cfg(target_os = "windows")]
+            win_overlay: Arc::clone(&self.win_overlay),
             perm_waiters: Arc::clone(&self.perm_waiters),
             idle_gen: Arc::clone(&self.idle_gen),
         };
@@ -147,10 +164,20 @@ impl ComputerUseState {
 
     pub async fn shutdown(&self) {
         self.idle_gen.fetch_add(1, Ordering::SeqCst);
-        let mut guard = self.helper.lock().await;
-        if let Some(mut h) = guard.take() {
-            let _ = h.stdin.shutdown().await;
-            let _ = h.child.kill().await;
+        #[cfg(target_os = "macos")]
+        {
+            let mut guard = self.helper.lock().await;
+            if let Some(mut h) = guard.take() {
+                let _ = h.stdin.shutdown().await;
+                let _ = h.child.kill().await;
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let mut guard = self.win_overlay.lock().await;
+            if let Some(client) = guard.take() {
+                client.shutdown();
+            }
         }
     }
 
@@ -158,7 +185,10 @@ impl ComputerUseState {
         HelperCtx {
             app: app.clone(),
             data: Arc::clone(&self.data),
+            #[cfg(target_os = "macos")]
             helper: Arc::clone(&self.helper),
+            #[cfg(target_os = "windows")]
+            win_overlay: Arc::clone(&self.win_overlay),
             perm_waiters: Arc::clone(&self.perm_waiters),
         }
     }
@@ -167,7 +197,8 @@ impl ComputerUseState {
         let runtime_ready = resolve_runtime_dir(app)
             .map(|dir| dir.is_dir())
             .unwrap_or(false);
-        if cfg!(not(target_os = "macos")) {
+        #[cfg(not(target_os = "macos"))]
+        {
             return Ok(CuPermissions {
                 supported: false,
                 accessibility: false,
@@ -175,32 +206,35 @@ impl ComputerUseState {
                 runtime_ready,
             });
         }
-
-        let (tx, rx) = oneshot::channel();
-        self.perm_waiters.lock().await.push(tx);
-        let ctx = self.helper_ctx(app);
-        send_helper_cmd(&ctx, serde_json::json!({ "cmd": "check_permissions" })).await?;
-        let (accessibility, screen_recording) = timeout(PERMISSION_TIMEOUT, rx)
-            .await
-            .map_err(|_| "查询 macOS 权限超时".to_string())?
-            .map_err(|_| "权限查询通道已关闭".to_string())?;
-        Ok(CuPermissions {
-            supported: true,
-            accessibility,
-            screen_recording,
-            runtime_ready,
-        })
+        #[cfg(target_os = "macos")]
+        {
+            let (tx, rx) = oneshot::channel();
+            self.perm_waiters.lock().await.push(tx);
+            let ctx = self.helper_ctx(app);
+            send_helper_cmd(&ctx, serde_json::json!({ "cmd": "check_permissions" })).await?;
+            let (accessibility, screen_recording) = timeout(PERMISSION_TIMEOUT, rx)
+                .await
+                .map_err(|_| "查询 macOS 权限超时".to_string())?
+                .map_err(|_| "权限查询通道已关闭".to_string())?;
+            Ok(CuPermissions {
+                supported: true,
+                accessibility,
+                screen_recording,
+                runtime_ready,
+            })
+        }
     }
 
     async fn request_permission(
         &self,
         app: &AppHandle,
-        kind: &str,
+        #[allow(unused_variables)] kind: &str,
     ) -> Result<CuPermissions, String> {
         let runtime_ready = resolve_runtime_dir(app)
             .map(|dir| dir.is_dir())
             .unwrap_or(false);
-        if cfg!(not(target_os = "macos")) {
+        #[cfg(not(target_os = "macos"))]
+        {
             return Ok(CuPermissions {
                 supported: false,
                 accessibility: false,
@@ -208,24 +242,27 @@ impl ComputerUseState {
                 runtime_ready,
             });
         }
-        let (tx, rx) = oneshot::channel();
-        self.perm_waiters.lock().await.push(tx);
-        let ctx = self.helper_ctx(app);
-        send_helper_cmd(
-            &ctx,
-            serde_json::json!({ "cmd": "request_permission", "kind": kind }),
-        )
-        .await?;
-        let (accessibility, screen_recording) = timeout(PERMISSION_TIMEOUT, rx)
-            .await
-            .map_err(|_| "请求 macOS 权限超时".to_string())?
-            .map_err(|_| "权限请求通道已关闭".to_string())?;
-        Ok(CuPermissions {
-            supported: true,
-            accessibility,
-            screen_recording,
-            runtime_ready,
-        })
+        #[cfg(target_os = "macos")]
+        {
+            let (tx, rx) = oneshot::channel();
+            self.perm_waiters.lock().await.push(tx);
+            let ctx = self.helper_ctx(app);
+            send_helper_cmd(
+                &ctx,
+                serde_json::json!({ "cmd": "request_permission", "kind": kind }),
+            )
+            .await?;
+            let (accessibility, screen_recording) = timeout(PERMISSION_TIMEOUT, rx)
+                .await
+                .map_err(|_| "请求 macOS 权限超时".to_string())?
+                .map_err(|_| "权限请求通道已关闭".to_string())?;
+            Ok(CuPermissions {
+                supported: true,
+                accessibility,
+                screen_recording,
+                runtime_ready,
+            })
+        }
     }
 }
 
@@ -233,7 +270,10 @@ impl ComputerUseState {
 struct HelperCtx {
     app: AppHandle,
     data: Arc<Mutex<CuData>>,
+    #[cfg(target_os = "macos")]
     helper: Arc<Mutex<Option<HelperHandle>>>,
+    #[cfg(target_os = "windows")]
+    win_overlay: Arc<Mutex<Option<crate::computer_use_win::WinOverlayClient>>>,
     perm_waiters: Arc<Mutex<Vec<oneshot::Sender<(bool, bool)>>>>,
 }
 
@@ -242,7 +282,10 @@ struct TelemetryCtx {
     app: AppHandle,
     token: String,
     data: Arc<Mutex<CuData>>,
+    #[cfg(target_os = "macos")]
     helper: Arc<Mutex<Option<HelperHandle>>>,
+    #[cfg(target_os = "windows")]
+    win_overlay: Arc<Mutex<Option<crate::computer_use_win::WinOverlayClient>>>,
     perm_waiters: Arc<Mutex<Vec<oneshot::Sender<(bool, bool)>>>>,
     idle_gen: Arc<AtomicU64>,
 }
@@ -252,7 +295,10 @@ impl TelemetryCtx {
         HelperCtx {
             app: self.app.clone(),
             data: Arc::clone(&self.data),
+            #[cfg(target_os = "macos")]
             helper: Arc::clone(&self.helper),
+            #[cfg(target_os = "windows")]
+            win_overlay: Arc::clone(&self.win_overlay),
             perm_waiters: Arc::clone(&self.perm_waiters),
         }
     }
@@ -308,10 +354,8 @@ fn emit_state(app: &AppHandle, data: &CuData) {
     let _ = app.emit(EVENT_STATE, sorted_windows(data));
 }
 
+#[cfg(target_os = "macos")]
 async fn send_helper_cmd(ctx: &HelperCtx, cmd: serde_json::Value) -> Result<(), String> {
-    if cfg!(not(target_os = "macos")) {
-        return Ok(());
-    }
     let mut guard = ctx.helper.lock().await;
     if guard.is_none() {
         let runtime_dir = resolve_runtime_dir(&ctx.app)?;
@@ -351,6 +395,37 @@ async fn send_helper_cmd(ctx: &HelperCtx, cmd: serde_json::Value) -> Result<(), 
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+async fn send_helper_cmd(ctx: &HelperCtx, cmd: serde_json::Value) -> Result<(), String> {
+    let mut guard = ctx.win_overlay.lock().await;
+    if guard.is_none() {
+        let cb_ctx = ctx.clone();
+        let client = crate::computer_use_win::WinOverlayClient::start(move |msg| {
+            let event_ctx = cb_ctx.clone();
+            tauri::async_runtime::spawn(async move {
+                handle_helper_event(&event_ctx, msg).await;
+            });
+        })?;
+        *guard = Some(client);
+    }
+
+    let send_res = if let Some(client) = guard.as_ref() {
+        client.send(cmd)
+    } else {
+        Err("Windows 悬浮控制层未就绪".into())
+    };
+    if send_res.is_err() {
+        guard.take();
+    }
+    send_res
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+async fn send_helper_cmd(_ctx: &HelperCtx, _cmd: serde_json::Value) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 async fn read_helper_stdout(ctx: HelperCtx, stdout: tokio::process::ChildStdout) {
     let mut lines = BufReader::new(stdout).lines();
     while let Ok(Some(line)) = lines.next_line().await {
@@ -448,7 +523,15 @@ async fn handle_helper_event(ctx: &HelperCtx, msg: serde_json::Value) {
             let Some(wid) = msg.get("windowId").and_then(|v| v.as_u64()).map(|v| v as u32) else {
                 return;
             };
-            let Some(jpeg) = msg.get("jpeg").and_then(|v| v.as_str()) else {
+            let (data_b64, mime_type) = if let Some(raw) = msg.get("data").and_then(|v| v.as_str()) {
+                let mime = msg
+                    .get("mimeType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("image/png");
+                (raw, mime)
+            } else if let Some(jpeg) = msg.get("jpeg").and_then(|v| v.as_str()) {
+                (jpeg, "image/jpeg")
+            } else {
                 return;
             };
             let width = msg.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
@@ -464,8 +547,8 @@ async fn handle_helper_event(ctx: &HelperCtx, msg: serde_json::Value) {
                 EVENT_FRAME,
                 FramePayload {
                     window_id: wid,
-                    mime_type: "image/jpeg".to_string(),
-                    data: jpeg.to_string(),
+                    mime_type: mime_type.to_string(),
+                    data: data_b64.to_string(),
                     width,
                     height,
                 },
@@ -642,6 +725,8 @@ async fn handle_telemetry_event(ctx: &TelemetryCtx, msg: serde_json::Value) {
                 }
             };
 
+            let (_, visual_cursor) = crate::config::computer_use_settings();
+            let coords = msg.get("coords").cloned().unwrap_or(serde_json::Value::Null);
             let _ = send_helper_cmd(
                 &helper_ctx,
                 serde_json::json!({
@@ -650,6 +735,8 @@ async fn handle_telemetry_event(ctx: &TelemetryCtx, msg: serde_json::Value) {
                     "windowId": watch_wid,
                     "label": label,
                     "active": true,
+                    "visualCursor": visual_cursor,
+                    "coords": coords,
                 }),
             )
             .await;
@@ -698,6 +785,7 @@ async fn handle_telemetry_event(ctx: &TelemetryCtx, msg: serde_json::Value) {
 
             if need_watch {
                 if let Some(wid) = fallback_wid {
+                    let (_, visual_cursor) = crate::config::computer_use_settings();
                     let _ = send_helper_cmd(
                         &helper_ctx,
                         serde_json::json!({
@@ -706,6 +794,7 @@ async fn handle_telemetry_event(ctx: &TelemetryCtx, msg: serde_json::Value) {
                             "windowId": wid,
                             "label": label,
                             "active": true,
+                            "visualCursor": visual_cursor,
                         }),
                     )
                     .await;
