@@ -52,7 +52,9 @@ jobs:
       # 这类故障只在目标平台暴露（路径分隔符、平台专属依赖、打包漏文件），
       # mac 上一切正常、Windows 装完就报「pi 进程退出」。
       - name: 内置运行时冒烟
-        run: node scripts/prepare-pi-runtime.mjs && node scripts/smoke-runtime.mjs
+        # OCU 运行时也在打包资源里，同样在这一步准备：缺平台产物或 npm 装不上时
+        # 立刻失败，不必等十几分钟编译完才发现打包脚本跑不通
+        run: node scripts/prepare-pi-runtime.mjs && node scripts/prepare-ocu-runtime.mjs && node scripts/smoke-runtime.mjs
         env:
           TAURI_ENV_TARGET_TRIPLE: ${{ matrix.triple }}
 

@@ -68,7 +68,11 @@ function findInstalledPackage() {
   }
 
   try {
-    const npmRoot = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()
+    const npmRoot = execFileSync('npm', ['root', '-g'], {
+      encoding: 'utf8',
+      // Windows 上 npm 是 npm.cmd，Node 不允许直接 execFile 一个批处理，得走 shell
+      shell: process.platform === 'win32',
+    }).trim()
     const pkgDir = join(npmRoot, 'open-computer-use')
     if (existsSync(join(pkgDir, 'package.json'))) return pkgDir
   } catch {
@@ -78,17 +82,49 @@ function findInstalledPackage() {
   return null
 }
 
+/**
+ * 跑 npm 自己。
+ *
+ * 优先用 npm 注入的 npm_execpath（tauri 走 `npm run` 时一定有），拿 node 直接执行
+ * npm-cli.js：Windows 上 `npm` 是 npm.cmd，execFileSync 直接 spawn 会 ENOENT，
+ * 而那种写法在 mac 上又完全正常，只会到 CI 的 Windows job 才炸。
+ */
+function runNpm(args) {
+  const cli = process.env.npm_execpath
+  if (cli && cli.endsWith('.js')) {
+    execFileSync(process.execPath, [cli, ...args], { stdio: 'inherit' })
+    return
+  }
+  execFileSync('npm', args, { stdio: 'inherit', shell: process.platform === 'win32' })
+}
+
+/**
+ * 兜底装一份同版本的包到临时目录。
+ *
+ * `--prefix` 装到哪随 npm 版本变：现代 npm 落在 <prefix>/node_modules，
+ * 老式全局式布局才是 <prefix>/lib/node_modules。按平台硬编码过一次，
+ * 结果本机因为早就有全局安装从没跑到这条分支，CI 第一次打包就 ENOENT。
+ * 装完直接探测，别猜。
+ */
 function installTempPackage(stage) {
   const prefix = join(stage, 'npm-pkg')
   mkdirSync(prefix, { recursive: true })
-  execFileSync(
-    'npm',
-    ['install', '--prefix', prefix, '--no-save', '--no-audit', '--no-fund', `open-computer-use@${OCU_VERSION}`],
-    { stdio: 'inherit' },
-  )
-  return process.platform === 'win32'
-    ? join(prefix, 'node_modules/open-computer-use')
-    : join(prefix, 'lib/node_modules/open-computer-use')
+  runNpm([
+    'install',
+    '--prefix',
+    prefix,
+    '--no-save',
+    '--no-audit',
+    '--no-fund',
+    `open-computer-use@${OCU_VERSION}`,
+  ])
+  const candidates = [
+    join(prefix, 'node_modules/open-computer-use'),
+    join(prefix, 'lib/node_modules/open-computer-use'),
+  ]
+  const found = candidates.find((dir) => existsSync(join(dir, 'package.json')))
+  if (!found) throw new Error(`npm 装完 open-computer-use 却在 ${prefix} 下找不到它`)
+  return found
 }
 
 function compileDarwinHelper(runtimeDir, arch) {
@@ -176,14 +212,13 @@ function main() {
         recursive: true,
       })
       compileDarwinHelper(runtime, target.arch)
-    } else if (target.os === 'win32') {
-      const archDir = target.arch === 'arm64' ? 'arm64' : 'x64'
-      cpSync(join(pkgDir, 'dist/windows', archDir), join(runtime, 'windows', archDir), {
-        recursive: true,
-      })
     } else {
+      // 包里的目录按 amd64/arm64 命名，运行时（pi-runtime/computer-use.mjs）
+      // 按 x64/arm64 找二进制，这里落地时就统一成运行时的叫法。
+      const source = target.arch === 'arm64' ? 'arm64' : 'amd64'
       const archDir = target.arch === 'arm64' ? 'arm64' : 'x64'
-      cpSync(join(pkgDir, 'dist/linux', archDir), join(runtime, 'linux', archDir), {
+      const platform = target.os === 'win32' ? 'windows' : 'linux'
+      cpSync(join(pkgDir, 'dist', platform, source), join(runtime, platform, archDir), {
         recursive: true,
       })
     }
