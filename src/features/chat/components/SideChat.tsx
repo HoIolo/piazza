@@ -79,7 +79,9 @@ function SideTranscript({ cwd, snapshot }: { cwd: string; snapshot: ChatSnapshot
 }
 
 function SideSession({ cwd, tabId, retry }: { cwd: string; tabId?: string; retry: () => void }) {
-  const { snapshot, status, error, send, answer } = useSideChatSession(cwd)
+  const slotId = tabId ?? 'default'
+  const { snapshot, session, status, error, send, sendPrompt, answer, modelController } =
+    useSideChatSession(cwd, slotId, retry)
   const { pendingDialog, isStreaming } = snapshot
   const setTabContent = useAppStore((s) => s.setPanelTabContent)
   const hasContent = snapshot.messages.length > 0 || snapshot.streaming !== null
@@ -117,7 +119,9 @@ function SideSession({ cwd, tabId, retry }: { cwd: string; tabId?: string; retry
         <SideComposer
           blocked={status !== 'ready' || !!pendingDialog}
           running={status === 'ready' && isStreaming}
-          onSend={(message) => send({ type: 'prompt', message })}
+          session={session}
+          modelController={modelController}
+          onSend={(message, images, behavior) => sendPrompt(message, images, behavior)}
           onStop={() => send({ type: 'abort' })}
         />
       </div>

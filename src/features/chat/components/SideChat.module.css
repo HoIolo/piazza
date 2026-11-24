@@ -113,6 +113,19 @@
   corner-shape: var(--corner-shape);
   background: var(--bg-input);
   box-shadow: var(--shadow-input);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.composer[data-dragging='true'] {
+  box-shadow:
+    var(--shadow-input),
+    inset 0 0 0 1.5px var(--border-strong);
+}
+
+.attachmentError {
+  margin: var(--sp-1) var(--sp-4) 0;
+  font-size: var(--fs-desc);
+  color: var(--text-error);
 }
 
 .composer textarea {

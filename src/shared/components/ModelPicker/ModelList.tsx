@@ -13,7 +13,13 @@ interface ModelListProps {
   rpcReady: boolean
   onBack?: () => void
   onPick: (model: Model) => void
+  onReconnect?: () => void
   close: () => void
+}
+
+function emptyMessageOf(cwd: string | null, rpcReady: boolean): string {
+  if (!cwd) return '选择项目后可使用模型'
+  return rpcReady ? '没有可用模型' : '正在准备会话，稍等片刻'
 }
 
 export function ModelList({
@@ -24,20 +30,15 @@ export function ModelList({
   rpcReady,
   onBack,
   onPick,
+  onReconnect,
   close,
 }: ModelListProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const openSettings = useAppStore((s) => s.openSettings)
-  const reconnectSession = useAppStore((s) => s.reconnectSession)
-  /*
-   * 未就绪时不要说「Pi 会话未就绪」——用户不关心底层引擎，而且这句话读起来像出错。
-   * 实际情况是正在准备会话（首次打开约半秒），说「正在准备」更准确，也不吓人。
-   */
-  const emptyMessage = !cwd
-    ? '选择项目后可使用模型'
-    : rpcReady
-      ? '没有可用模型'
-      : '正在准备会话，稍等片刻'
+  const defaultReconnect = useAppStore((s) => s.reconnectSession)
+  const reconnectSession = onReconnect ?? defaultReconnect
+  const emptyMessage = emptyMessageOf(cwd, rpcReady)
+  const showReconnect = Boolean(cwd && (!rpcReady || error))
 
   return (
     <>
@@ -66,7 +67,7 @@ export function ModelList({
         <MenuEmpty>{error ?? emptyMessage}</MenuEmpty>
       )}
       <MenuSeparator />
-      {cwd && (!rpcReady || Boolean(error)) && (
+      {showReconnect && (
         <MenuItem
           icon={<RotateCw size={14} />}
           onClick={() => {
