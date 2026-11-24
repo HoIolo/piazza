@@ -11,6 +11,7 @@ import { getAgentDir } from '@/shared/api/agentResources'
 import { openPathWith } from '@/shared/api/pi'
 import type { SectionProps } from './AppearanceSection'
 import { ComputerUseCard } from './ComputerUseCard'
+import { ShellCard } from './ShellCard'
 import styles from './SystemSection.module.css'
 
 const RETRY_COUNT_OPTIONS = [
@@ -101,6 +102,8 @@ export function SystemSection({ settings }: SectionProps) {
       </Card>
 
       <ComputerUseCard settings={settings} />
+
+      <ShellCard settings={settings} />
 
       <Card title="网络代理">
         <Row

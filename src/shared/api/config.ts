@@ -64,3 +64,21 @@ export function readAppSettings(): Promise<PiSettings> {
 export function writeAppSettings(patch: PiSettings): Promise<PiSettings> {
   return invoke<PiSettings>('write_app_settings', { patch })
 }
+
+/** 一个可选的终端 Shell，由 Rust 侧探测得出 */
+export interface ShellOption {
+  kind: 'git-bash' | 'wsl'
+  label: string
+  path: string
+  note: string
+}
+
+/**
+ * 列出这台机器上可用的 Shell。
+ *
+ * 探测在 Rust 侧做：要看真实文件系统，还要顺着 PATH 反推 Git 装在哪，
+ * 这些在前端都办不到。
+ */
+export function listShells(): Promise<ShellOption[]> {
+  return invoke<ShellOption[]>('list_shells')
+}

@@ -15,6 +15,7 @@ mod git;
 mod import;
 mod rpc;
 mod sessions;
+mod shells;
 mod terminal;
 mod win_console;
 
@@ -74,6 +75,7 @@ pub fn run() {
             commands::read_models_config,
             commands::write_models_config,
             commands::read_app_settings,
+            commands::list_shells,
             commands::write_app_settings,
             commands::get_agent_dir,
             commands::pi_import_offer,

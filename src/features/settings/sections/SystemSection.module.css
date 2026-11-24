@@ -9,7 +9,18 @@
 }
 
 .pathCode {
+  display: block;
+  margin-top: 4px;
   font-family: var(--font-mono);
   font-size: var(--fs-code);
   color: var(--text-secondary);
+  word-break: break-all;
+}
+
+/* 探测失败要能一眼看到：这条路径填错，整个会话都起不来 */
+.shellWarn {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--danger);
 }

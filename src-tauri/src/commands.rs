@@ -253,6 +253,15 @@ pub fn write_app_settings(patch: serde_json::Value) -> Result<serde_json::Value,
     config::read_json(&path)
 }
 
+/// 列出可选的终端 Shell，供设置界面做切换。
+///
+/// 探测放在 Rust 侧而不是前端：要看真实文件系统，还得顺着 PATH 反推 git 的
+/// 安装位置，这些在前端都做不了。
+#[tauri::command]
+pub fn list_shells() -> Vec<crate::shells::ShellOption> {
+    crate::shells::detect()
+}
+
 #[tauri::command]
 pub fn get_agent_dir() -> Result<String, String> {
     data_dir::agent_dir().map(|p| p.to_string_lossy().into_owned())
