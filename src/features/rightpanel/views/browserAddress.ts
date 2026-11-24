@@ -2,10 +2,12 @@ export type ResolvedTarget = { kind: 'url'; value: string } | { kind: 'html'; va
 
 function isLocalHtml(input: string): boolean {
   const clean = input.replace(/^file:\/\//i, '').replace(/:\d+(?::\d+)?$/, '')
-  return (
-    (clean.startsWith('/') || clean.startsWith('~/') || input.startsWith('file://')) &&
-    /\.(?:html?)(?:$|[?#])/i.test(clean)
-  )
+  const isPath =
+    clean.startsWith('/') ||
+    clean.startsWith('~/') ||
+    /^[a-z]:[\\/]/i.test(clean) ||
+    input.startsWith('file://')
+  return isPath && /\.(?:html?)(?:$|[?#])/i.test(clean)
 }
 
 export function resolveBrowserInput(address: string): ResolvedTarget {

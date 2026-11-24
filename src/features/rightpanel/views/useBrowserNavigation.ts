@@ -1,13 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { readHtmlPreview } from '@/shared/api/files'
 import { openPathWith } from '@/shared/api/pi'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { resolveBrowserInput, type ResolvedTarget } from './browserAddress'
 
 type HistoryState = { items: ResolvedTarget[]; position: number; lastNonce: number }
-type LoadedHtml = { key: string; doc?: string; error?: string }
 
 function appendTarget(prev: HistoryState, next: ResolvedTarget, nonce: number): HistoryState {
   const curr = prev.items[prev.position]
@@ -22,25 +20,6 @@ function formatNavError(reason: unknown): string {
   return reason instanceof TypeError
     ? '请输入有效的网址或本地 .html 路径，例如 http://localhost:3000'
     : errorMessage(reason)
-}
-
-function useHtmlDoc(current: ResolvedTarget | undefined, revision: number): LoadedHtml | undefined {
-  const [loaded, setLoaded] = useState<LoadedHtml>({ key: '' })
-  const htmlKey = current?.kind === 'html' ? `${current.value}#${revision}` : ''
-
-  useEffect(() => {
-    if (current?.kind !== 'html') return
-    let active = true
-    void readHtmlPreview(current.value).then(
-      (doc) => active && setLoaded({ key: htmlKey, doc }),
-      (reason: unknown) => active && setLoaded({ key: htmlKey, error: errorMessage(reason) }),
-    )
-    return () => {
-      active = false
-    }
-  }, [current, htmlKey])
-
-  return loaded.key === htmlKey ? loaded : undefined
 }
 
 function openExternalTarget(current: ResolvedTarget | undefined, onError: (msg: string) => void) {
@@ -68,7 +47,6 @@ export function useBrowserNavigation() {
   }
 
   const current = history.items[history.position]
-  const htmlMatch = useHtmlDoc(current, revision)
 
   const step = (offset: number) => {
     const dest = history.items[history.position + offset]
@@ -76,6 +54,7 @@ export function useBrowserNavigation() {
     setHistory((prev) => ({ ...prev, position: prev.position + offset }))
     setAddress(dest.value)
     setNavError('')
+    setRevision((n) => n + 1)
   }
 
   const navigate = (event: FormEvent) => {
@@ -92,9 +71,8 @@ export function useBrowserNavigation() {
     address,
     setAddress,
     navigate,
-    error: navError || htmlMatch?.error || '',
+    error: navError,
     current,
-    htmlDoc: htmlMatch?.doc ?? null,
     revision,
     reload: () => setRevision((n) => n + 1),
     openExternal: () => openExternalTarget(current, setNavError),
