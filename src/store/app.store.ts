@@ -1,6 +1,12 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { create } from 'zustand'
 import {
+  applyThemeToDocument,
+  normalizeCustomization,
+  restoreCachedTheme,
+} from '@/design/themes/applyTheme'
+import type { ThemeCustomization, ThemeMode } from '@/design/themes/presets'
+import {
   createPanelActions,
   panelInitialState,
   type PanelActions,
@@ -31,9 +37,21 @@ import {
   type UpdaterState,
 } from './updater.slice'
 
-export type Theme = 'light' | 'dark'
+export type Theme = ThemeMode
 
 export type { RightPanelView } from './panel.slice'
+
+const INITIAL_THEME = restoreCachedTheme()
+
+function syncNativeWindowTheme(theme: ThemeMode): void {
+  try {
+    void getCurrentWindow()
+      .setTheme(theme)
+      .catch(() => undefined)
+  } catch {
+    // 非 Tauri 环境跳过
+  }
+}
 
 interface AppState
   extends
@@ -48,6 +66,8 @@ interface AppState
     UpdaterState,
     UpdaterActions {
   theme: Theme
+  /** 个性化外观（主题预设、强调色、对比度、自定义配色） */
+  appearance: ThemeCustomization
   /** 左侧栏是否展开 */
   sidebarOpen: boolean
   /** 左侧栏当前宽度（px），供右侧工作区计算最大宽度 */
@@ -71,6 +91,7 @@ interface AppState
   modelContextWindows: Record<string, number>
 
   setTheme: (theme: Theme) => void
+  setAppearance: (appearance: ThemeCustomization) => void
   setModelContextWindow: (key: string, contextWindow: number) => void
   setModelContextWindows: (map: Record<string, number>) => void
   toggleSidebar: () => void
@@ -93,7 +114,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   ...createProjectPrefsActions(set),
   ...updaterInitialState,
   ...createUpdaterActions(set, get),
-  theme: 'light',
+  theme: INITIAL_THEME.mode,
+  appearance: INITIAL_THEME.config,
   sidebarOpen: true,
   sidebarWidth: 275,
   // 默认收起：环境面板是「用户想看时才叫出来」的辅助信息，
@@ -112,19 +134,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   setModelContextWindows: (modelContextWindows) => set({ modelContextWindows }),
 
   setTheme: (theme) => {
-    document.documentElement.dataset.theme = theme
-    /*
-     * 窗口外观跟着应用主题走。毛玻璃的明暗由窗口外观决定而不是由网页决定——
-     * 不同步的话，系统是浅色而应用切了深色，侧栏就是浅色材质上压着浅色字。
-     */
-    try {
-      void getCurrentWindow()
-        .setTheme(theme)
-        .catch(() => undefined)
-    } catch {
-      // 不在 Tauri 里（浏览器调试、探针）时取不到窗口，主题照常切换即可
-    }
+    applyThemeToDocument(theme, get().appearance)
+    syncNativeWindowTheme(theme)
     set({ theme })
+  },
+
+  setAppearance: (raw) => {
+    const appearance = normalizeCustomization(raw)
+    applyThemeToDocument(get().theme, appearance)
+    set({ appearance })
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

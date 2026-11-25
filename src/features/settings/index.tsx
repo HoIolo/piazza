@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
+import { normalizeCustomization } from '@/design/themes/applyTheme'
 import { Spinner } from '@/design/primitives/Spinner'
 import { useAppStore } from '@/store/app.store'
 import { SectionContent } from './components/SectionContent'
@@ -24,12 +25,16 @@ export function SettingsView({ initialSection }: SettingsViewProps) {
   const [query, setQuery] = useState('')
   const settings = useAppSettings()
   const setTheme = useAppStore((s) => s.setTheme)
+  const setAppearance = useAppStore((s) => s.setAppearance)
   const closeSettings = useAppStore((s) => s.closeSettings)
 
   useEffect(() => {
+    if (settings.settings.appearance) {
+      setAppearance(normalizeCustomization(settings.settings.appearance))
+    }
     const theme = settings.settings.theme
     if (theme === 'dark' || theme === 'light') setTheme(theme)
-  }, [settings.settings.theme, setTheme])
+  }, [settings.settings.theme, settings.settings.appearance, setTheme, setAppearance])
 
   const meta = SECTION_META[current]
 
