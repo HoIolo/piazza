@@ -1,6 +1,7 @@
 import {
   Blocks,
   BookOpen,
+  Brain,
   FileText,
   Info,
   Keyboard,
@@ -15,6 +16,7 @@ export type SectionId =
   | 'appearance'
   | 'models'
   | 'instructions'
+  | 'memory'
   | 'skills'
   | 'mcp'
   | 'packages'
@@ -76,6 +78,13 @@ export const SECTION_GROUPS: SectionGroup[] = [
         subtitle: '编辑全局 AGENTS.md，对所有项目的会话生效',
         icon: FileText,
         keywords: ['agents.md', '系统提示', '规范', '指令', 'prompt', 'instructions'],
+      },
+      {
+        id: 'memory',
+        label: '记忆',
+        subtitle: '管理全局与当前项目的长期记忆，跨会话自动记住偏好与项目经验',
+        icon: Brain,
+        keywords: ['memory', '记忆', '长期记忆', '偏好', '项目记忆', '交接', 'handoff'],
       },
       {
         id: 'skills',

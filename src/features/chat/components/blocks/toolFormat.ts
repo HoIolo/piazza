@@ -15,7 +15,9 @@ export function summarizeArgs(toolName: string, args: Record<string, unknown>): 
   const summary =
     toolName === 'bash'
       ? pick('command')
-      : pick('file_path', 'path', 'filePath', 'pattern', 'query', 'url')
+      : toolName.startsWith('memory_')
+        ? pick('title', 'query', 'id', 'summary', 'scope')
+        : pick('file_path', 'path', 'filePath', 'pattern', 'query', 'url')
 
   if (summary) return summary.replace(/\s+/g, ' ').slice(0, 160)
 
@@ -48,6 +50,10 @@ const TOOL_VERBS: Record<string, { running: string; done: string }> = {
   fetch: { running: '正在请求', done: '已请求' },
   piazza_update_plan: { running: '正在更新清单', done: '已更新清单' },
   todo: { running: '正在更新清单', done: '已更新清单' },
+  memory_write: { running: '正在记住', done: '已记住' },
+  memory_read: { running: '正在回忆', done: '已读取记忆' },
+  memory_search: { running: '正在检索记忆', done: '已检索记忆' },
+  memory_delete: { running: '正在遗忘', done: '已删除记忆' },
 }
 
 /** 折叠行左侧的动词，如「正在运行」「已运行」 */
@@ -66,6 +72,10 @@ const TOOL_TITLES: Record<string, string> = {
   glob: '查找文件',
   grep: '搜索内容',
   list: '列出目录',
+  memory_write: '写入记忆',
+  memory_read: '读取记忆',
+  memory_search: '检索记忆',
+  memory_delete: '删除记忆',
 }
 
 export function toolTitle(toolName: string): string {
@@ -89,6 +99,10 @@ const TOOL_KINDS: Record<string, ToolKind> = {
   apply_patch: 'edit',
   fetch: 'web',
   web_search: 'web',
+  memory_read: 'read',
+  memory_search: 'search',
+  memory_write: 'edit',
+  memory_delete: 'edit',
 }
 
 export function toolKind(toolName: string): ToolKind {

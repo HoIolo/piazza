@@ -51,6 +51,8 @@ export type RpcCommand =
     }
   /** 仅返回当前活跃分支的用户消息列表，避免编辑分支后 fork 选到旧分支 */
   | { id?: string; type: 'get_branch_fork_messages' }
+  /** 侧边临时内存会话从指定主会话文件同步最新上下文（只读，不修改主会话文件，不改当前模型） */
+  | { id?: string; type: 'seed_from_session'; sessionPath: string }
 
 /* ---------- 各命令的 data 结构 ---------- */
 

@@ -12,36 +12,56 @@ import { reduceEvent } from '@/store/chat/reducer'
 import { sessionMetadataPatch } from '@/store/chat/sessionMetadata'
 import { buildLocalEcho } from '@/store/chat/storeBuilders'
 import { emptySnapshot, type ChatSnapshot } from '@/store/chat/types'
-import { buildSideModelController, connectSideSlot } from './sideChatConnect'
+import {
+  buildSideModelController,
+  connectSideSlot,
+  resolveMainSessionPath,
+} from './sideChatConnect'
 
 type SideStatus = 'starting' | 'ready' | 'disconnected'
 
+async function seedSideFromMain(slotId: string): Promise<void> {
+  const mainPath = resolveMainSessionPath()
+  if (!mainPath) return
+  await sideRpcClient
+    .send({ type: 'seed_from_session', sessionPath: mainPath }, slotId)
+    .catch(() => undefined)
+}
+
+function resolveSideCommandType(running: boolean, behavior: StreamingBehavior) {
+  if (!running) return 'prompt' as const
+  return behavior === 'steer' ? ('steer' as const) : ('follow_up' as const)
+}
+
 function useSidePrompt(
+  slotId: string,
   isStreaming: boolean,
   send: (command: RpcCommand) => Promise<boolean>,
   setSnapshot: Dispatch<SetStateAction<ChatSnapshot>>,
 ) {
   const streamingRef = useRef(false)
+  const hasSentRef = useRef(false)
   useEffect(() => {
     streamingRef.current = isStreaming
   }, [isStreaming])
 
   return useCallback(
     async (message: string, images: ImageContent[], behavior: StreamingBehavior) => {
-      const running = streamingRef.current
-      const type = !running ? 'prompt' : behavior === 'steer' ? 'steer' : 'follow_up'
-      const localId = type === 'prompt' || type === 'steer' ? crypto.randomUUID() : null
+      if (!hasSentRef.current) await seedSideFromMain(slotId)
+      const type = resolveSideCommandType(streamingRef.current, behavior)
+      const localId = type === 'follow_up' ? null : crypto.randomUUID()
       if (localId) {
         const echo = buildLocalEcho(message, images, localId, type === 'steer')
         setSnapshot((s) => ({ ...s, messages: [...s.messages, echo] }))
       }
       const ok = await send({ type, message, ...(images.length ? { images } : {}) })
-      if (!ok && localId) {
+      if (ok) hasSentRef.current = true
+      else if (localId) {
         setSnapshot((s) => ({ ...s, messages: s.messages.filter((m) => m.localId !== localId) }))
       }
       return ok
     },
-    [send, setSnapshot],
+    [slotId, send, setSnapshot],
   )
 }
 
@@ -107,7 +127,7 @@ export function useSideChatSession(cwd: string, slotId: string, onReconnect: () 
   }, [cwd, slotId])
 
   const { send, answer } = useSideRpcActions(slotId, setError, setSnapshot)
-  const sendPrompt = useSidePrompt(snapshot.isStreaming, send, setSnapshot)
+  const sendPrompt = useSidePrompt(slotId, snapshot.isStreaming, send, setSnapshot)
 
   const modelController = useMemo(
     () => buildSideModelController({ slotId, session, status, send, setSession, onReconnect }),

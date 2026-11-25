@@ -1,19 +1,23 @@
 import { sideRpcClient } from '@/rpc/client'
-import type {
-  AgentEvent,
-  AvailableModels,
-  AvailableThinkingLevels,
-  RpcCommand,
-  SessionState,
-  ThinkingLevel,
-} from '@/rpc/types'
+import { SYNC_CONTEXT_WINDOW_COMMAND } from '@/rpc/visibleCommands'
+import type { AgentEvent, AvailableModels, AvailableThinkingLevels, RpcCommand, SessionState, ThinkingLevel } from '@/rpc/types'
 import type { ModelPickerController } from '@/shared/components/ModelPicker'
 import { errorMessage } from '@/shared/utils/error'
 import { userText } from '@/shared/utils/message'
+import { useAppStore } from '@/store/app.store'
+import { persistContextWindowForModel } from '@/store/chat/contextWindow'
 import { useChatStore } from '@/store/chat/store'
 
 export const SIDE_MODEL_TIMEOUT_MS = 10_000
 const lifecycles = new Map<string, Promise<void>>()
+
+export function resolveMainSessionPath(): string | undefined {
+  return (
+    useChatStore.getState().session?.sessionFile ??
+    useAppStore.getState().currentSessionPath ??
+    undefined
+  )
+}
 
 function enqueue(slotId: string, work: () => Promise<void>) {
   const prev = lifecycles.get(slotId) ?? Promise.resolve()
@@ -25,8 +29,9 @@ function enqueue(slotId: string, work: () => Promise<void>) {
 
 async function startAndFetchState(cwd: string, slotId: string): Promise<SessionState> {
   const initialModel = useChatStore.getState().session?.model
+  const sessionPath = resolveMainSessionPath()
   await sideRpcClient.start(
-    { cwd, provider: initialModel?.provider, model: initialModel?.id, ephemeral: true },
+    { cwd, provider: initialModel?.provider, model: initialModel?.id, sessionPath, ephemeral: true },
     slotId,
   )
   return sideRpcClient.send<SessionState>({ type: 'get_state' }, slotId, 20_000)
@@ -73,6 +78,23 @@ export function connectSideSlot(
   }
 }
 
+async function applySideContextWindow(
+  slotId: string,
+  session: SessionState | null,
+  contextWindow: number,
+  setSession: (state: SessionState) => void,
+) {
+  const model = session?.model
+  if (!session || !model) return
+  setSession({ ...session, autoCompactionEnabled: true, model: { ...model, contextWindow } })
+  await persistContextWindowForModel(model.provider, model.id, contextWindow, async () => {
+    await sideRpcClient.send(
+      { type: 'prompt', message: `/${SYNC_CONTEXT_WINDOW_COMMAND}` },
+      slotId,
+    )
+  })
+}
+
 export function buildSideModelController(params: {
   slotId: string
   session: SessionState | null
@@ -110,6 +132,8 @@ export function buildSideModelController(params: {
     setThinkingLevel: async (level: ThinkingLevel) => {
       if (await send({ type: 'set_thinking_level', level })) await syncState()
     },
+    setContextWindow: (contextWindow) =>
+      applySideContextWindow(slotId, session, contextWindow, setSession),
     onReconnect,
   }
 }

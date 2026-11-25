@@ -357,6 +357,50 @@ pub fn write_mcp_config(patch: serde_json::Value) -> Result<serde_json::Value, S
     agent_resources::write_mcp_config(patch)
 }
 
+/* ---------- 内置记忆系统（全局 + 按项目隔离） ---------- */
+
+#[tauri::command]
+pub async fn list_memories(cwd: Option<String>) -> Result<crate::memory::MemoryOverview, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::memory::list(cwd.as_deref()))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn save_memory(
+    cwd: Option<String>,
+    input: crate::memory::SaveMemoryInput,
+) -> Result<crate::memory::MemoryItem, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::memory::save(cwd.as_deref(), input))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn delete_memory(
+    cwd: Option<String>,
+    scope: String,
+    id: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || crate::memory::delete(cwd.as_deref(), &scope, &id))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_memories(cwd: Option<String>, scope: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || crate::memory::clear(cwd.as_deref(), &scope))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_memory_handoff(cwd: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || crate::memory::clear_handoff(&cwd))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
 /* ---------- 内置终端 ---------- */
 
 /// 开一个终端标签。id 由前端生成并在后续读写中沿用

@@ -79,6 +79,23 @@ fn computer_use_of(settings: &serde_json::Value) -> (bool, bool) {
     (enabled, visual_cursor)
 }
 
+/// 读 settings.json 里的内置记忆开关（默认开启，关闭后可无缝改用外部记忆扩展）
+pub fn memory_enabled() -> bool {
+    let settings = settings_path()
+        .ok()
+        .and_then(|p| read_json(&p).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    memory_enabled_of(&settings)
+}
+
+fn memory_enabled_of(settings: &serde_json::Value) -> bool {
+    settings
+        .get("memory")
+        .and_then(|v| v.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+}
+
 /// 合并顶层键，保留原文件中我们不认识的字段。
 ///
 /// GUI 只理解 models.json / settings.json 的一部分结构，用户手写的其他

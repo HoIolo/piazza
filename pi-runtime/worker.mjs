@@ -1,7 +1,9 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 import { createComputerUseExtension } from './computer-use.mjs'
 import { applySavedContextWindow, createContextWindowExtension } from './context-window.mjs'
+import { createMemoryExtension } from './memory.mjs'
 import { resumeExtension } from './resume.mjs'
 import { nameNewSession } from './title.mjs'
 import { runAccounts } from './accounts.mjs'
@@ -219,7 +221,7 @@ if (values.accounts) {
 
 async function runSession() {
   const sessionManager = values['no-session']
-    ? SessionManager.inMemory(cwd)
+    ? createInMemorySession(cwd, values.session)
     : values.session ? SessionManager.open(values.session) : SessionManager.create(cwd)
 
   const runtime = await createAgentSessionRuntime(async (input) => {
@@ -246,6 +248,12 @@ async function runSession() {
           ...builtInExtensions,
           createComputerUseExtension(),
           contextWindowExtension,
+          createMemoryExtension({
+            cwd,
+            agentDir,
+            settingsManager,
+            getSessionId: () => currentSession?.sessionManager?.getSessionId?.() ?? null,
+          }),
           ...(values['auto-title'] ? [resumeExtension] : []),
         ],
         additionalExtensionPaths: values.extension ? [values.extension] : [],
@@ -301,9 +309,42 @@ function findCustomHandler(type) {
       return respondRewindBefore
     case 'get_branch_fork_messages':
       return respondBranchForkMessages
+    case 'seed_from_session':
+      return respondSeedFromSession
     default:
       return undefined
   }
+}
+
+/** 只读提取源会话当前活跃分支的条目，供侧边聊天以纯内存方式继承主会话上下文 */
+function loadBranchEntriesReadOnly(cwd, sourcePath) {
+  if (!sourcePath || !existsSync(sourcePath)) return null
+  try {
+    const raw = readFileSync(sourcePath, 'utf8')
+    if (!raw.trim()) return null
+    const parsed = []
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      try {
+        parsed.push(JSON.parse(trimmed))
+      } catch {
+        // 跳过损坏行
+      }
+    }
+    const header = parsed.find((entry) => entry?.type === 'session')
+    if (!header) return null
+    const temp = SessionManager.inMemory(cwd, undefined, parsed)
+    const branch = temp.getBranch()
+    return branch.length > 0 ? [header, ...branch] : null
+  } catch {
+    return null
+  }
+}
+
+function createInMemorySession(cwd, sourcePath) {
+  const entries = loadBranchEntriesReadOnly(cwd, sourcePath)
+  return entries ? SessionManager.inMemory(cwd, undefined, entries) : SessionManager.inMemory(cwd)
 }
 
 /**
@@ -332,7 +373,8 @@ function installCustomCommands(runtime) {
       if (
         line.includes('"refresh_models"') ||
         line.includes('"rewind_before"') ||
-        line.includes('"get_branch_fork_messages"')
+        line.includes('"get_branch_fork_messages"') ||
+        line.includes('"seed_from_session"')
       ) {
         try {
           const command = JSON.parse(line)
@@ -443,6 +485,31 @@ async function respondBranchForkMessages(runtime, command) {
   try {
     const messages = collectActiveUserEntries(runtime.session.sessionManager)
     sendRpcReply(command, { success: true, data: { messages } })
+  } catch (error) {
+    sendRpcReply(command, {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+async function respondSeedFromSession(runtime, command) {
+  try {
+    const session = runtime.session
+    const sm = session.sessionManager
+    if (sm.isPersisted()) {
+      sendRpcReply(command, { success: false, error: '仅支持对临时内存会话注入上下文' })
+      return
+    }
+    const entries = loadBranchEntriesReadOnly(sm.getCwd(), command.sessionPath)
+    if (entries) {
+      sm._loadEntries(entries)
+      session.refreshContext()
+    }
+    sendRpcReply(command, {
+      success: true,
+      data: { seeded: Boolean(entries), messageCount: session.messages.length },
+    })
   } catch (error) {
     sendRpcReply(command, {
       success: false,

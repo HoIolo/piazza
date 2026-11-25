@@ -13,6 +13,7 @@ mod external;
 mod files;
 mod git;
 mod import;
+mod memory;
 mod rpc;
 mod sessions;
 mod shells;
@@ -92,6 +93,11 @@ pub fn run() {
             app_platform,
             commands::read_mcp_config,
             commands::write_mcp_config,
+            commands::list_memories,
+            commands::save_memory,
+            commands::delete_memory,
+            commands::clear_memories,
+            commands::clear_memory_handoff,
             computer_use::cu_permissions,
             computer_use::cu_request_permission,
             computer_use::cu_focus_window,

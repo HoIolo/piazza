@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MessagesSquare } from 'lucide-react'
 import { useElapsed } from '@/shared/hooks/useElapsed'
 import { useAppStore } from '@/store/app.store'
+import { useChatStore } from '@/store/chat'
 import type { ChatSnapshot } from '@/store/chat/types'
 import { DialogCard } from './DialogCard'
 import { ExchangeGroup } from './ExchangeGroup'
@@ -34,6 +35,7 @@ function SideTranscript({ cwd, snapshot }: { cwd: string; snapshot: ChatSnapshot
     if (el && follow.current) el.scrollTop = el.scrollHeight
   }, [messages, streaming, tools])
 
+  const hasMainContext = useChatStore((s) => s.messages.some((m) => m.role === 'user'))
   const empty = messages.length === 0 && !streaming
 
   return (
@@ -50,7 +52,11 @@ function SideTranscript({ cwd, snapshot }: { cwd: string; snapshot: ChatSnapshot
         <div className={styles.welcome}>
           <MessagesSquare size={24} className={styles.welcomeIcon} />
           <h2>侧边聊天</h2>
-          <p>可以在这里追问，消息会保留在这个标签里。</p>
+          <p>
+            {hasMainContext
+              ? '已继承当前主会话上下文，可在这里独立追问或切换模型。'
+              : '可以在这里追问，消息会保留在这个标签里。'}
+          </p>
         </div>
       )}
       {exchanges.map((exchange, index) => {

@@ -127,6 +127,28 @@ export function syncCompactionForModel(provider: string, modelId: string): Promi
   })
 }
 
+/** 持久化某模型的上下文窗口与 80% 自动压缩预留，并回调热刷指定活进程 */
+export function persistContextWindowForModel(
+  provider: string,
+  modelId: string,
+  contextWindow: number,
+  syncLive: () => Promise<void> = syncLiveRuntimeContextWindow,
+  onError?: (message: string) => void,
+): Promise<void> {
+  const key = modelContextKey(provider, modelId)
+  useAppStore.getState().setModelContextWindow(key, contextWindow)
+  return enqueueSync(async () => {
+    try {
+      await writeCompactionForWindow(contextWindow, key, { saveWindow: true, forceEnable: true })
+      const patched = patchProviderModels(await readModelsConfig(), provider, modelId, contextWindow)
+      if (patched) await writeModelsConfig(patched)
+      await syncLive()
+    } catch (error) {
+      onError?.(errorMessage(error))
+    }
+  })
+}
+
 /**
  * 为当前模型保存上下文窗口档位（200k / 500k / 1M），同步按 80% 阈值写入自动压缩预留，
  * 并立即通知运行中的 pi 进程重载设置与当前模型的 contextWindow。
@@ -137,27 +159,16 @@ export function applyContextWindowPreset(contextWindow: number): Promise<void> {
   const model = session?.model
   if (!model) return Promise.resolve()
 
-  const key = modelContextKey(model.provider, model.id)
-  useAppStore.getState().setModelContextWindow(key, contextWindow)
   store.setSession({
     ...session,
     autoCompactionEnabled: true,
     model: { ...model, contextWindow },
   })
-
-  return enqueueSync(async () => {
-    try {
-      await writeCompactionForWindow(contextWindow, key, { saveWindow: true, forceEnable: true })
-      const patched = patchProviderModels(
-        await readModelsConfig(),
-        model.provider,
-        model.id,
-        contextWindow,
-      )
-      if (patched) await writeModelsConfig(patched)
-      await syncLiveRuntimeContextWindow()
-    } catch (error) {
-      useChatStore.getState().setError(errorMessage(error))
-    }
-  })
+  return persistContextWindowForModel(
+    model.provider,
+    model.id,
+    contextWindow,
+    syncLiveRuntimeContextWindow,
+    (msg) => useChatStore.getState().setError(msg),
+  )
 }
