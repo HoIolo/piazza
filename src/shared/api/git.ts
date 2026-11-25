@@ -5,14 +5,30 @@ export function readGitBranch(cwd: string): Promise<string | null> {
   return invoke<string | null>('read_git_branch', { cwd })
 }
 
-/** 列出本地分支，当前分支在首位 */
-export function listGitBranches(cwd: string): Promise<string[]> {
-  return invoke<string[]>('list_git_branches', { cwd })
+/** 与 src-tauri/src/git.rs 的 GitBranch 对应 */
+export interface GitBranch {
+  name: string
+  remote: boolean
 }
 
-/** 切换分支；create 为真时新建并检出 */
-export function checkoutGitBranch(cwd: string, branch: string, create = false): Promise<void> {
-  return invoke<void>('checkout_git_branch', { cwd, branch, create })
+/** 列出本地与远程跟踪分支：本地在前（当前分支置顶），远程在后 */
+export function listGitBranches(cwd: string): Promise<GitBranch[]> {
+  return invoke<GitBranch[]>('list_git_branches', { cwd })
+}
+
+/** 拉取远程分支最新引用（非交互） */
+export function fetchGitRemotes(cwd: string): Promise<void> {
+  return invoke<void>('fetch_git_remotes', { cwd })
+}
+
+/** 切换分支；create 为真时新建并检出，remote 为真时检出远程跟踪分支 */
+export function checkoutGitBranch(
+  cwd: string,
+  branch: string,
+  create = false,
+  remote = false,
+): Promise<void> {
+  return invoke<void>('checkout_git_branch', { cwd, branch, create, remote })
 }
 
 /** 工作区增删行数，[新增, 删除]。非 git 目录返回 null */

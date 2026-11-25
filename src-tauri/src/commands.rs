@@ -133,16 +133,34 @@ pub fn read_git_branch(cwd: String) -> Option<String> {
     git::current_branch(&cwd)
 }
 
-/// 列出本地分支，供分支选择器展示
+/// 列出本地与远程跟踪分支，供分支选择器展示
 #[tauri::command]
-pub fn list_git_branches(cwd: String) -> Result<Vec<String>, String> {
-    git::list_branches(&cwd)
+pub async fn list_git_branches(cwd: String) -> Result<Vec<git::GitBranch>, String> {
+    tauri::async_runtime::spawn_blocking(move || git::list_branches(&cwd))
+        .await
+        .map_err(|err| err.to_string())?
 }
 
-/// 切换或新建分支。会改动工作区，失败时把 git 的原始错误上报给用户
+/// 拉取远程分支最新引用
 #[tauri::command]
-pub fn checkout_git_branch(cwd: String, branch: String, create: bool) -> Result<(), String> {
-    git::checkout_branch(&cwd, &branch, create)
+pub async fn fetch_git_remotes(cwd: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || git::fetch_remotes(&cwd))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+/// 切换或新建分支（支持直接检出远程跟踪分支）。会改动工作区，失败时把 git 的原始错误上报给用户
+#[tauri::command]
+pub async fn checkout_git_branch(
+    cwd: String,
+    branch: String,
+    create: bool,
+    remote: Option<bool>,
+) -> Result<(), String> {
+    let is_remote = remote.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || git::checkout_branch(&cwd, &branch, create, is_remote))
+        .await
+        .map_err(|err| err.to_string())?
 }
 
 /// 工作区增删行数统计，用于右侧面板的「变更」

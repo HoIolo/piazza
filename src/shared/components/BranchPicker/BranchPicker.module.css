@@ -51,6 +51,50 @@
   color: var(--text-tertiary);
 }
 
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-item);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.spin {
+  animation: branch-spin 700ms linear infinite;
+}
+
+@keyframes branch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .refreshBtn {
+    transition: none;
+  }
+
+  .spin {
+    animation: none;
+  }
+}
+
 .loading {
   display: flex;
   flex-direction: column;

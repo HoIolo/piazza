@@ -55,6 +55,7 @@ pub fn run() {
             commands::read_session_snapshot,
             commands::read_git_branch,
             commands::list_git_branches,
+            commands::fetch_git_remotes,
             commands::checkout_git_branch,
             commands::read_git_diff_stat,
             commands::read_git_diff,
