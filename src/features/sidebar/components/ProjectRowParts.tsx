@@ -1,8 +1,10 @@
+import { Fragment, type PointerEvent } from 'react'
 import { ComposeIcon } from '@/design/icons'
 import type { SessionMeta } from '@/shared/api/sessions'
-import { dragHandlers } from './projectDrag'
+import { computeDropIndicatorIndex, dragRowStyle } from './projectDrag'
 import { ProjectMenu } from './ProjectMenu'
 import { SessionRow, type SessionStatus } from './SessionRow'
+import type { ActiveSidebarDrag } from './useSidebarDrag'
 import styles from './ProjectTree.module.css'
 
 /** 项目行尾的两个动作：更多菜单与「在此项目新建对话」 */
@@ -14,7 +16,7 @@ export function ProjectRowActions({
   onNewSession: () => void
 }) {
   return (
-    <div className={styles.rowActions}>
+    <div className={styles.rowActions} data-no-drag="true">
       <ProjectMenu cwd={cwd} />
       <button
         type="button"
@@ -35,6 +37,8 @@ export function ProjectRowActions({
 export interface SessionListProps {
   cwd: string
   sessions: SessionMeta[]
+  /** 含折叠区的完整排序列表，重排时不丢失折叠区已保存的顺序 */
+  allOrderedPaths: string[]
   total: number
   hasMore: boolean
   activeSessionPath: string | null
@@ -42,11 +46,13 @@ export interface SessionListProps {
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
   pinnedSessions: string[]
   /** 项目内正在拖的会话（拖的不是本项目时为 null） */
-  sessionDrag: { from: string; over: string | null } | null
-  onSessionDragStart: (path: string) => void
-  onSessionDragOver: (path: string) => void
-  onSessionDragEnd: () => void
-  onSessionDrop: (visiblePaths: string[], to: string) => void
+  sessionDrag: ActiveSidebarDrag | null
+  onSessionPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    path: string,
+    pinned: boolean,
+    allPaths: string[],
+  ) => void
   onSelectSession: (cwd: string, sessionPath: string) => void
   onTogglePinSession: (sessionPath: string) => void
   onDeleteSession: (sessionPath: string) => void
@@ -57,6 +63,7 @@ export interface SessionListProps {
 export function SessionList({
   cwd,
   sessions,
+  allOrderedPaths,
   total,
   hasMore,
   activeSessionPath,
@@ -64,10 +71,7 @@ export function SessionList({
   backgroundStatuses,
   pinnedSessions,
   sessionDrag,
-  onSessionDragStart,
-  onSessionDragOver,
-  onSessionDragEnd,
-  onSessionDrop,
+  onSessionPointerDown,
   onSelectSession,
   onTogglePinSession,
   onDeleteSession,
@@ -75,33 +79,45 @@ export function SessionList({
 }: SessionListProps) {
   if (sessions.length === 0) return null
   const visiblePaths = sessions.map((s) => s.path)
+  const indicatorIndex = computeDropIndicatorIndex(
+    visiblePaths,
+    sessionDrag?.from ?? null,
+    sessionDrag?.over ?? null,
+  )
+
   return (
-    <div className={styles.sessionList}>
-      {sessions.map((session) => {
+    <div className={styles.sessionList} data-session-list={cwd}>
+      {sessions.map((session, index) => {
         const active = session.path === activeSessionPath
+        const pinned = pinnedSessions.includes(session.path)
         const rowStatus = active ? status : (backgroundStatuses.get(session.path) ?? null)
+        const dragging = sessionDrag?.from === session.path
         return (
-          <SessionRow
-            key={session.path}
-            session={session}
-            active={active}
-            pinned={pinnedSessions.includes(session.path)}
-            status={rowStatus}
-            dragging={sessionDrag?.from === session.path}
-            dropTarget={sessionDrag?.over === session.path && sessionDrag.from !== session.path}
-            dragHandlers={dragHandlers(session.path, {
-              draggable: true,
-              onDragStart: () => onSessionDragStart(session.path),
-              onDragOver: () => onSessionDragOver(session.path),
-              onDragEnd: onSessionDragEnd,
-              onDrop: () => onSessionDrop(visiblePaths, session.path),
-            })}
-            onSelect={() => onSelectSession(cwd, session.path)}
-            onTogglePin={() => onTogglePinSession(session.path)}
-            onDelete={() => onDeleteSession(session.path)}
-          />
+          <Fragment key={session.path}>
+            {indicatorIndex === index && (
+              <div className={styles.dropIndicator} aria-hidden="true" />
+            )}
+            <SessionRow
+              session={session}
+              active={active}
+              pinned={pinned}
+              status={rowStatus}
+              dragging={dragging}
+              dragStyle={dragRowStyle(dragging, sessionDrag?.offsetY ?? 0)}
+              onPointerDown={(event) =>
+                onSessionPointerDown(event, session.path, pinned, allOrderedPaths)
+              }
+              onSelect={() => onSelectSession(cwd, session.path)}
+              onTogglePin={() => onTogglePinSession(session.path)}
+              onDelete={() => onDeleteSession(session.path)}
+            />
+          </Fragment>
         )
       })}
+
+      {indicatorIndex === sessions.length && (
+        <div className={styles.dropIndicator} aria-hidden="true" />
+      )}
 
       {total > 5 && (
         <button type="button" className={styles.more} onClick={onToggleMore}>

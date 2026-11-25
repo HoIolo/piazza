@@ -50,6 +50,8 @@ interface AppState
   theme: Theme
   /** 左侧栏是否展开 */
   sidebarOpen: boolean
+  /** 左侧栏当前宽度（px），供右侧工作区计算最大宽度 */
+  sidebarWidth: number
   /** 环境信息是否停靠在会话区右侧。只在主区够宽时生效，窄时一律走顶栏弹窗 */
   envPanelOpen: boolean
   /** ⌘K 命令面板 */
@@ -72,6 +74,7 @@ interface AppState
   setModelContextWindow: (key: string, contextWindow: number) => void
   setModelContextWindows: (map: Record<string, number>) => void
   toggleSidebar: () => void
+  setSidebarWidth: (width: number) => void
   toggleEnvPanel: () => void
   setPaletteOpen: (open: boolean) => void
   refreshGit: () => void
@@ -92,6 +95,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   ...createUpdaterActions(set, get),
   theme: 'light',
   sidebarOpen: true,
+  sidebarWidth: 275,
   // 默认收起：环境面板是「用户想看时才叫出来」的辅助信息，
   // 不该因为窗口够宽就自己占掉右侧一栏
   envPanelOpen: false,
@@ -124,6 +128,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+  setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
 
   toggleEnvPanel: () => set((s) => ({ envPanelOpen: !s.envPanelOpen })),
 

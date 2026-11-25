@@ -4,15 +4,22 @@
  * 就是主区左缘那条发丝线，所以这里也不画右边框。
  */
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: none;
   width: var(--sidebar-w);
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   transition:
     margin-left var(--dur-slow) var(--ease),
     opacity var(--dur-base) var(--ease);
+}
+
+/* 拖拽调宽期间关闭过渡，防止跟手滞后 */
+.sidebar[data-dragging='true'] {
+  transition: none;
+  user-select: none;
 }
 
 /*
@@ -22,10 +29,55 @@
 .sidebar[data-open='false'] {
   margin-left: calc(var(--sidebar-w) * -1);
   opacity: 0;
+  overflow: hidden;
+}
+
+/* 对齐 Codex sidebar-resize-handle-line：右缘 12px 命中带 + 悬停/拖拽时浮现的淡渐变发丝线 */
+.resize {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  bottom: 0;
+  width: 12px;
+  z-index: 30;
+  display: flex;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.resize::before {
+  content: '';
+  margin: auto;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--text-primary) 24%, transparent),
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.resize:hover::before,
+.resize:focus-visible::before,
+.sidebar[data-dragging='true'] .resize::before {
+  opacity: 1;
 }
 
 .hint {
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--fs-desc);
   color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .resize::before {
+    transition: none;
+  }
 }

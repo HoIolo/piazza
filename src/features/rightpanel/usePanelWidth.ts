@@ -71,9 +71,10 @@ function useSaveWidth(preferred: number | undefined, dragging: boolean) {
 
 export function usePanelWidth() {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen)
+  const storedSidebarWidth = useAppStore((state) => state.sidebarWidth)
   const windowWidth = useViewportWidth()
   const [preferred, setPreferred] = useState(readWidth)
-  const sidebarWidth = sidebarOpen ? 275 : 0
+  const sidebarWidth = sidebarOpen ? storedSidebarWidth : 0
   const max = Math.max(MIN_WIDTH, windowWidth - sidebarWidth - CHAT_MIN_WIDTH)
   const clamp = (width: number) => Math.min(max, Math.max(MIN_WIDTH, Math.round(width)))
   const width = clamp(preferred ?? Math.min(440, windowWidth * 0.36))

@@ -1,17 +1,14 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Dispatch, MouseEvent, PointerEvent, RefObject, SetStateAction } from 'react'
 import { reorderPaths } from '../projectOrder'
+import { autoScrollTree, DRAG_ACTIVATION_PX, hitTestSortItem, isInteractiveTarget } from './projectDrag'
 
-/** 拖动中的项目：被拖的 cwd 与当前落点 cwd */
-export interface ProjectDragState {
+export interface ActiveSidebarDrag {
+  kind: 'project' | 'session'
+  cwd: string | null
   from: string
   over: string | null
-}
-
-/** 项目内拖动中的会话：所属项目、被拖的路径、当前落点路径 */
-export interface SessionDragState {
-  cwd: string
-  from: string
-  over: string | null
+  offsetY: number
 }
 
 export interface ReorderHandlers {
@@ -19,53 +16,136 @@ export interface ReorderHandlers {
   onReorderSessions: (cwd: string, order: string[]) => void
 }
 
+export interface DragStartSpec {
+  kind: 'project' | 'session'
+  cwd: string | null
+  from: string
+  pinned: boolean
+  items: string[]
+}
+
+interface PendingDrag extends DragStartSpec {
+  container: HTMLElement | null
+  startX: number
+  startY: number
+  startScrollTop: number
+  activated: boolean
+  over: string | null
+}
+
+function hitTarget(pending: PendingDrag, clientY: number): string | null {
+  const pin = pending.pinned ? 'true' : 'false'
+  const attr = pending.kind === 'project' ? 'data-project-node' : 'data-session-path'
+  return hitTestSortItem(pending.container, `[${attr}][data-pinned="${pin}"]`, attr, clientY)
+}
+
+function commitReorder(pending: PendingDrag, handlers: ReorderHandlers) {
+  if (!pending.over || pending.over === pending.from) return
+  const next = reorderPaths(pending.items, pending.from, pending.over)
+  if (next === pending.items) return
+  if (pending.kind === 'project') handlers.onReorder(next)
+  else if (pending.cwd) handlers.onReorderSessions(pending.cwd, next)
+}
+
+function attachDragListeners(
+  pending: PendingDrag,
+  treeRef: RefObject<HTMLDivElement | null>,
+  handlersRef: RefObject<ReorderHandlers>,
+  setDrag: Dispatch<SetStateAction<ActiveSidebarDrag | null>>,
+  onSettled: (activated: boolean) => void,
+): () => void {
+  let active: PendingDrag | null = pending
+
+  const finish = (commit: boolean) => {
+    cleanup()
+    const curr = active
+    active = null
+    setDrag(null)
+    if (!curr) return
+    onSettled(curr.activated)
+    if (commit && curr.activated) commitReorder(curr, handlersRef.current)
+  }
+
+  const onMove = (e: globalThis.PointerEvent) => {
+    if (!active) return
+    const dy = e.clientY - active.startY
+    if (!active.activated) {
+      if (Math.hypot(e.clientX - active.startX, dy) < DRAG_ACTIVATION_PX) return
+      active.activated = true
+      window.getSelection()?.removeAllRanges()
+    }
+    e.preventDefault()
+    autoScrollTree(treeRef.current, e.clientY)
+    const offsetY = dy + ((treeRef.current?.scrollTop ?? 0) - active.startScrollTop)
+    active.over = hitTarget(active, e.clientY)
+    setDrag({ kind: active.kind, cwd: active.cwd, from: active.from, over: active.over, offsetY })
+  }
+  const onUp = () => finish(true)
+  const onCancel = () => finish(false)
+  const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && finish(false)
+  const cleanup = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('keydown', onKey)
+  }
+
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('keydown', onKey)
+  return cleanup
+}
+
 /**
- * 侧栏的两级拖动：项目之间换位，以及项目内部会话之间换位。
- *
- * 状态和落点计算放在这里，ProjectTree 只负责把它们接到行上——那段 JSX 本来
- * 就够长了，再塞进两套拖动的分支会读不懂。
+ * 基于 Pointer Events 的侧栏纵向拖拽排序（对齐 Codex Electron 的 @dnd-kit PointerSensor 逻辑）：
+ * - 6px 位移阈值触发，不影响普通点击；
+ * - 绕开 Tauri v2 原生 dragDropEnabled 对 HTML5 draggable 的拦截，macOS/Windows 均稳定；
+ * - 置顶区与普通区各自闭环命中，避免指示线误导；自动滚动时补偿 scrollTop 保持 1:1 跟手。
  */
-export function useSidebarDrag({ onReorder, onReorderSessions }: ReorderHandlers) {
-  const [projectDrag, setProjectDrag] = useState<ProjectDragState | null>(null)
-  const [sessionDrag, setSessionDrag] = useState<SessionDragState | null>(null)
+export function useSidebarDrag(
+  treeRef: RefObject<HTMLDivElement | null>,
+  handlers: ReorderHandlers,
+) {
+  const [drag, setDrag] = useState<ActiveSidebarDrag | null>(null)
+  const suppressClickUntilRef = useRef(0)
+  const handlersRef = useRef(handlers)
+  const cleanupRef = useRef<(() => void) | null>(null)
 
-  /*
-   * 项目拖完：把 from 挪到 to 的位置并回报整份 cwd 顺序。
-   *
-   * 存整份顺序而不是「谁插到谁前面」：将来加了新项目也能算出它该落在哪，
-   * 不必回放一串相对操作。
-   */
-  const dropProject = (cwds: string[], to: string) => {
-    const from = projectDrag?.from
-    setProjectDrag(null)
-    if (!from || from === to) return
-    const next = reorderPaths(cwds, from, to)
-    if (next !== cwds) onReorder(next)
-  }
+  useEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
+  useEffect(() => () => cleanupRef.current?.(), [])
 
-  /*
-   * 会话拖完：只回报「这个项目当前显示出来的那一段」。
-   *
-   * 用显示顺序而不是整份会话列表，是因为折叠时只露前几条——拿看不见的那些
-   * 一起重排，用户会发现某些会话莫名挪了位置。
-   *
-   * cwd 必须与拖动来源一致：会话归属由它所在的项目决定，跨项目拖动没有意义
-   * （移动文件是另一回事），放任它就会把目标项目的路径记到来源项目名下。
-   */
-  const dropSession = (cwd: string, visiblePaths: string[], to: string) => {
-    const from = sessionDrag?.from
-    const origin = sessionDrag?.cwd
-    setSessionDrag(null)
-    if (!from || !origin || origin !== cwd || from === to) return
-    onReorderSessions(cwd, reorderPaths(visiblePaths, from, to))
-  }
+  const startDrag = useCallback(
+    (event: PointerEvent<HTMLElement>, spec: DragStartSpec) => {
+      if (event.button !== 0 || isInteractiveTarget(event.target)) return
+      const container =
+        spec.kind === 'project'
+          ? treeRef.current
+          : event.currentTarget.closest<HTMLElement>('[data-session-list]')
+      cleanupRef.current?.()
+      const startScrollTop = treeRef.current?.scrollTop ?? 0
+      cleanupRef.current = attachDragListeners(
+        { ...spec, container, startX: event.clientX, startY: event.clientY, startScrollTop, activated: false, over: null },
+        treeRef,
+        handlersRef,
+        setDrag,
+        (activated) => {
+          cleanupRef.current = null
+          if (activated) suppressClickUntilRef.current = Date.now() + 200
+        },
+      )
+    },
+    [treeRef],
+  )
 
-  return {
-    projectDrag,
-    setProjectDrag,
-    sessionDrag,
-    setSessionDrag,
-    dropProject,
-    dropSession,
-  }
+  const onClickCapture = useCallback((event: MouseEvent) => {
+    if (Date.now() < suppressClickUntilRef.current) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+  }, [])
+
+  return { drag, startDrag, onClickCapture }
 }

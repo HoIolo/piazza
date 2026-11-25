@@ -1,7 +1,7 @@
+import type { CSSProperties, PointerEvent } from 'react'
 import { CircleHelp, ShieldCheck } from 'lucide-react'
 import { PinIcon } from '@/design/icons'
 import { Spinner } from '@/design/primitives/Spinner'
-import type { dragHandlers } from './projectDrag'
 import type { SessionMeta } from '@/shared/api/sessions'
 import { SessionTitle } from './SessionTitle'
 import { SessionRowMenu } from './SessionRowMenu'
@@ -16,10 +16,9 @@ export interface SessionRowProps {
   status: SessionStatus
   /** 正在被拖动 */
   dragging?: boolean
-  /** 拖动经过它、松手会落在这里 */
-  dropTarget?: boolean
-  /** 拖动事件属性，由 ProjectRowParts 用 dragHandlers 生成 */
-  dragHandlers?: ReturnType<typeof dragHandlers>
+  /** 拖动中的纵向位移样式 */
+  dragStyle?: CSSProperties
+  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void
   onSelect: () => void
   onTogglePin: () => void
   onDelete: () => void
@@ -56,8 +55,8 @@ export function SessionRow(props: SessionRowProps) {
     active,
     pinned,
     dragging,
-    dropTarget,
-    dragHandlers,
+    dragStyle,
+    onPointerDown,
     onSelect,
     onTogglePin,
     onDelete,
@@ -69,10 +68,11 @@ export function SessionRow(props: SessionRowProps) {
       role="button"
       tabIndex={0}
       data-session-path={session.path}
+      data-pinned={pinned}
       data-active={active}
       data-dragging={dragging}
-      data-drop-target={dropTarget}
-      {...dragHandlers}
+      style={dragStyle}
+      onPointerDown={onPointerDown}
       aria-current={active ? 'true' : undefined}
       onClick={onSelect}
       onKeyDown={(e) => {
@@ -85,7 +85,7 @@ export function SessionRow(props: SessionRowProps) {
       {pinned && <PinIcon size={14} className={styles.pin} />}
       <SessionTitle title={session.title} />
 
-      <span className={styles.trailing}>
+      <span className={styles.trailing} data-no-drag="true">
         <span className={styles.status}>
           <Trailing {...props} />
         </span>

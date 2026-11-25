@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { trashSession } from '@/shared/api/sessions'
 import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
@@ -17,6 +18,7 @@ import { SidebarNav } from './components/SidebarNav'
 import { addProject } from '@/shared/utils/addProject'
 import { usePendingSession, withPendingSessions } from './pendingSession'
 import { applyProjectOrder, byCreatedDesc } from './projectOrder'
+import { useSidebarWidth } from './useSidebarWidth'
 import styles from './Sidebar.module.css'
 
 /** 左侧栏容器：只做组装与事件转接，具体渲染交给四个子组件 */
@@ -45,6 +47,7 @@ export function Sidebar() {
   const bgSessions = useBackgroundSessions()
   const bgStatusMap = new Map(bgSessions.map((bg) => [bg.path, bg.status]))
   const pending = usePendingSession()
+  const resize = useSidebarWidth()
 
   /*
    * 隐藏的剔除、置顶的提前。
@@ -86,6 +89,7 @@ export function Sidebar() {
       activeSessionPath={activeSessionPath}
       status={status}
       backgroundStatuses={bgStatusMap}
+      pinnedProjects={pinned}
       pinnedSessions={pinnedSessions}
       sessionOrder={sessionOrder}
       onSelectProject={selectProject}
@@ -99,7 +103,13 @@ export function Sidebar() {
   )
 
   return (
-    <aside className={styles.sidebar} data-open={sidebarOpen} inert={!sidebarOpen}>
+    <aside
+      className={styles.sidebar}
+      data-open={sidebarOpen}
+      data-dragging={resize.dragging}
+      style={{ '--sidebar-w': `${resize.width}px` } as CSSProperties}
+      inert={!sidebarOpen}
+    >
       <SidebarHeader onSearch={() => setPaletteOpen(true)} onToggleSidebar={toggleSidebar} />
       <SidebarNav onNewChat={startNewSession} onOpenPackages={() => openSettings('packages')} />
 
@@ -118,6 +128,7 @@ export function Sidebar() {
       )}
 
       <SidebarFooter onOpenSettings={() => openSettings()} />
+      {sidebarOpen && <div className={styles.resize} {...resize.handle} />}
     </aside>
   )
 }

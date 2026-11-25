@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, type PointerEvent } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { FolderIcon, FolderOpenIcon } from '@/design/icons'
 import type { ProjectGroup } from '@/shared/api/sessions'
-import { dragHandlers } from './projectDrag'
-import { ProjectRowActions, SessionList } from './ProjectRowParts'
 import { applySessionOrder } from '../projectOrder'
+import { dragRowStyle } from './projectDrag'
+import { ProjectRowActions, SessionList } from './ProjectRowParts'
 import type { SessionStatus } from './SessionRow'
+import type { ActiveSidebarDrag } from './useSidebarDrag'
 import styles from './ProjectTree.module.css'
 
 /** 初始露出及每次点击「展开显示」递增的会话条数（对齐 Codex：每次多展开 5 个） */
@@ -13,16 +14,12 @@ const PAGE_SIZE = 5
 
 export interface ProjectNodeProps {
   project: ProjectGroup
-  /** 是否允许拖动排序（侧栏里始终为真；@提及等只读场景不传） */
-  draggable?: boolean
+  pinned?: boolean
   /** 正在被拖动 */
   dragging?: boolean
-  /** 拖动经过它、松手会落在这里 */
-  dropTarget?: boolean
-  onDragStart?: () => void
-  onDragOver?: () => void
-  onDragEnd?: () => void
-  onDrop?: () => void
+  /** 拖动中的纵向位移（px） */
+  dragOffsetY?: number
+  onProjectPointerDown?: (event: PointerEvent<HTMLDivElement>) => void
   activeSessionPath: string | null
   status: SessionStatus
   backgroundStatuses: ReadonlyMap<string, SessionStatus>
@@ -31,11 +28,13 @@ export interface ProjectNodeProps {
   /** 这个项目内用户拖出来的会话顺序 */
   sessionOrder: string[]
   /** 项目内正在拖的会话（只在拖的是本项目时才非空） */
-  sessionDrag: { from: string; over: string | null } | null
-  onSessionDragStart: (path: string) => void
-  onSessionDragOver: (path: string) => void
-  onSessionDragEnd: () => void
-  onSessionDrop: (visiblePaths: string[], to: string) => void
+  sessionDrag: ActiveSidebarDrag | null
+  onSessionPointerDown: (
+    event: PointerEvent<HTMLDivElement>,
+    path: string,
+    pinned: boolean,
+    allPaths: string[],
+  ) => void
   onSelectProject: (cwd: string) => void
   onSelectSession: (cwd: string, sessionPath: string) => void
   onTogglePinSession: (sessionPath: string) => void
@@ -44,23 +43,17 @@ export interface ProjectNodeProps {
 
 export function ProjectNode({
   project,
-  draggable = false,
+  pinned = false,
   dragging = false,
-  dropTarget = false,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
-  onDrop,
+  dragOffsetY = 0,
+  onProjectPointerDown,
   activeSessionPath,
   status,
   backgroundStatuses,
   pinnedSessions,
   sessionOrder,
   sessionDrag,
-  onSessionDragStart,
-  onSessionDragOver,
-  onSessionDragEnd,
-  onSessionDrop,
+  onSessionPointerDown,
   onSelectProject,
   onSelectSession,
   onTogglePinSession,
@@ -77,29 +70,34 @@ export function ProjectNode({
 
   /*
    * 顺序：先按用户拖出来的（没拖过则按创建时间倒序），再把置顶的整组提前。
-   *
-   * 置顶放在最后一步而不是塞进排序回调：它是显式操作，只决定「谁在最前」，
-   * 置顶区内部仍沿用拖出来的相对顺序，拖一次不会因为置顶而失效。
+   * 置顶放在最后一步：置顶区内部仍沿用拖出来的相对顺序。
    */
   const ordered = applySessionOrder(project.sessions, sessionOrder, (s) => s.createdMs).sort(
     (a, b) => Number(pinnedSessions.includes(b.path)) - Number(pinnedSessions.includes(a.path)),
   )
+  const allOrderedPaths = ordered.map((s) => s.path)
   const sessions = ordered.slice(0, visibleCount)
   const total = ordered.length
   const hasMore = total > visibleCount
 
   return (
-    <div className={styles.project} data-open={open}>
+    <div
+      className={styles.project}
+      data-project-node={project.cwd}
+      data-pinned={pinned}
+      data-open={open}
+      data-dragging={dragging}
+      style={dragRowStyle(dragging, dragOffsetY)}
+    >
       <div
         className={styles.projectRow}
         data-project-cwd={project.cwd}
         data-open={open}
         data-dragging={dragging}
-        data-drop-target={dropTarget}
         role="button"
         tabIndex={0}
         aria-expanded={open}
-        {...dragHandlers(project.cwd, { draggable, onDragStart, onDragOver, onDragEnd, onDrop })}
+        onPointerDown={onProjectPointerDown}
         onClick={toggleOpen}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
@@ -124,6 +122,7 @@ export function ProjectNode({
       {open && (
         <SessionList
           sessions={sessions}
+          allOrderedPaths={allOrderedPaths}
           total={total}
           hasMore={hasMore}
           cwd={project.cwd}
@@ -132,10 +131,7 @@ export function ProjectNode({
           backgroundStatuses={backgroundStatuses}
           pinnedSessions={pinnedSessions}
           sessionDrag={sessionDrag}
-          onSessionDragStart={onSessionDragStart}
-          onSessionDragOver={onSessionDragOver}
-          onSessionDragEnd={onSessionDragEnd}
-          onSessionDrop={onSessionDrop}
+          onSessionPointerDown={onSessionPointerDown}
           onSelectSession={onSelectSession}
           onTogglePinSession={onTogglePinSession}
           onDeleteSession={onDeleteSession}
