@@ -1,6 +1,15 @@
 /** pi RPC 的命令类型与命令级响应数据，对应文档 Commands 章节 */
 import type { AgentMessage, ImageContent, Model, ThinkingLevel } from './messages'
 
+export interface StartOptions {
+  cwd: string
+  provider?: string
+  model?: string
+  sessionPath?: string
+  /** 临时会话，不落会话文件 */
+  ephemeral?: boolean
+}
+
 export type StreamingBehavior = 'steer' | 'followUp'
 
 export type RpcCommand =

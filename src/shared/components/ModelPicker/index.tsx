@@ -31,6 +31,7 @@ function modelLabel(model: Model | null | undefined): string {
 function useResolvedPicker(controller?: ModelPickerController) {
   const mainSession = useChatStore((s) => s.session)
   const mainReady = useChatStore((s) => s.rpcReady)
+  const mainFailed = useChatStore((s) => s.error?.fatal)
   const mainActions = useSessionActions()
   const source = controller ?? {
     session: mainSession,
@@ -49,7 +50,10 @@ function useResolvedPicker(controller?: ModelPickerController) {
   return {
     session: source.session,
     rpcReady: source.rpcReady,
-    options,
+    options:
+      !controller && !mainReady && mainFailed
+        ? { ...options, error: '会话连接失败' }
+        : options,
     canShowControls: source.rpcReady && !isPlaceholderModel(source.session?.model),
     setModel: source.setModel,
     setThinkingLevel: source.setThinkingLevel,

@@ -4,7 +4,7 @@ import { errorMessage } from '@/shared/utils/error'
 import { useAppStore } from '@/store/app.store'
 import { bootSession, getSlotCwd, markRpcProcessExited, startWatchdog } from './bootSession'
 import { detachForeground, reattachBackground } from './sessionPool'
-import { hasPendingWork } from './types'
+import { hasPendingWork, type ChatError } from './types'
 import { useAgentEvents } from './useAgentEvents'
 import { useChatStore } from './store'
 import {
@@ -65,7 +65,7 @@ function runSessionSwitch(
 
   let cancelled = false
   const isCancelled = () => cancelled
-  if (reconnect) useChatStore.getState().setRpcReady(false)
+  if (reconnect) useChatStore.setState({ rpcReady: false, error: null })
   const hitCache = reconnect || prepareSwitchView(sessionPath, viewKey)
   const skeletonTimer = startSkeletonGuard(viewKey, hitCache, isCancelled)
   if (!hitCache) {
@@ -73,21 +73,22 @@ function runSessionSwitch(
       clearTimeout(skeletonTimer),
     )
   }
-  const watchdog = startWatchdog(isCancelled, (err) => {
+  const fail = (error: ChatError) => {
+    if (cancelled) return
+    cancelled = true
+    clearTimeout(skeletonTimer)
     markRpcProcessExited(slotId)
     void rpcClient.stop(slotId).catch(() => undefined)
-    const s = useChatStore.getState()
-    s.setRpcReady(false)
-    s.setSessionLoading(false)
-    s.setError(err)
-  })
+    useChatStore.setState({ rpcReady: false, sessionLoading: false, error })
+  }
+  const watchdog = startWatchdog(isCancelled, fail)
 
   void bootSession({ slotId, cwd, sessionPath, current: () => !cancelled, previous, forceCold })
     .then((loaded) => {
       if (!cancelled && loaded) commitLoadedSession(viewKey, loaded)
     })
     .catch((e: unknown) => {
-      if (!cancelled) useChatStore.getState().setError(errorMessage(e))
+      fail({ message: errorMessage(e), fatal: true })
     })
     .finally(() => {
       clearTimeout(skeletonTimer)

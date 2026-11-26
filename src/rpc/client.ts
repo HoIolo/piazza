@@ -1,17 +1,8 @@
-import { invoke } from '@tauri-apps/api/core'
+import { Channel as IpcChannel, invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { subscribe, type Pending } from './pending'
 import { COMMAND_TIMEOUT_MS, MAIN, SIDE, type Channel } from './channels'
-import type { AgentEvent, RpcCommand, RpcFrame, RpcResponse } from './types'
-
-export interface StartOptions {
-  cwd: string
-  provider?: string
-  model?: string
-  sessionPath?: string
-  /** 临时会话，不落会话文件 */
-  ephemeral?: boolean
-}
+import type { AgentEvent, RpcCommand, RpcFrame, RpcResponse, StartOptions } from './types'
 
 /** pi 退出时 Rust 侧带回的信息，字段需与 rpc.rs 的 ExitPayload 一致 */
 export interface ExitInfo {
@@ -35,6 +26,7 @@ interface SlotEvent<T> {
 class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcCommand> {
   private activeSlot = 'default'
   private pending = new Map<string, Pending>()
+  private frameChannels = new Map<string, IpcChannel<RpcFrame>>()
   private eventListeners = new Set<(event: Event, slotId: string) => void>()
   private stderrListeners = new Set<(text: string, slotId: string) => void>()
   private exitListeners = new Set<(info: ExitInfo, slotId: string) => void>()
@@ -69,6 +61,7 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
         this.stderrListeners.forEach((cb) => cb(payload.payload, payload.slotId)),
       )
       const onExit = listen<SlotEvent<ExitInfo>>(`${prefix}://exit`, ({ payload }) => {
+        this.frameChannels.delete(payload.slotId)
         this.rejectPendingForSlot(payload.slotId, new Error('会话进程已退出'))
         this.exitListeners.forEach((cb) => cb(payload.payload, payload.slotId))
       })
@@ -86,7 +79,7 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
     }
     const response = frame as RpcResponse
     const entry = response.id ? this.pending.get(response.id) : undefined
-    if (!entry) return
+    if (!entry || entry.slotId !== slotId) return
     this.pending.delete(response.id as string)
     clearTimeout(entry.timer)
     if (response.success) entry.resolve(response.data)
@@ -113,7 +106,16 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
       sessionPath: options.sessionPath ?? null,
       ephemeral: options.ephemeral ?? false,
     }
-    await invoke('rpc_start', { opts, ...this.target(slotId) })
+    const frames = new IpcChannel<RpcFrame>((frame) => {
+      if (this.frameChannels.get(slotId) === frames) this.dispatch(frame, slotId)
+    })
+    this.frameChannels.set(slotId, frames)
+    try {
+      await invoke('rpc_start', { opts, frames, ...this.target(slotId) })
+    } catch (error) {
+      if (this.frameChannels.get(slotId) === frames) this.frameChannels.delete(slotId)
+      throw error
+    }
   }
 
   /** 发送命令并等待其应答 */
@@ -131,15 +133,14 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
       }, timeoutMs)
       this.pending.set(id, { slotId, resolve: resolve as (v: unknown) => void, reject, timer })
     })
-    const delivery = this.notify({ ...command, id }, slotId).catch((reason: unknown) => {
+    void this.notify({ ...command, id }, slotId).catch((reason: unknown) => {
       const entry = this.pending.get(id)
       if (!entry) return
       this.pending.delete(id)
       clearTimeout(entry.timer)
       entry.reject(reason instanceof Error ? reason : new Error(String(reason)))
     })
-    const [result] = await Promise.all([waiter, delivery])
-    return result
+    return waiter
   }
 
   /** 单向投递，不等待应答。扩展 UI 的回应属于这一类：pi 收下就继续跑，不回 response 帧 */
@@ -166,6 +167,7 @@ class PiRpcClient<Event = AgentEvent, Command extends { type: string } = RpcComm
   }
 
   async stop(slotId = this.activeSlot): Promise<void> {
+    this.frameChannels.delete(slotId)
     this.rejectPendingForSlot(slotId, new Error('会话已停止'))
     await invoke('rpc_stop', this.target(slotId))
   }

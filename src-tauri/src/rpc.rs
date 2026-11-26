@@ -4,8 +4,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use tauri::ipc::{Channel as IpcChannel, InvokeResponseBody};
 use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
@@ -124,6 +125,7 @@ impl RpcState {
 /// stdout reader 收尾时要用的东西：判断是否意外退出、取退出码、取死因
 struct ExitContext {
     channel: Channel,
+    frames: Option<IpcChannel>,
     slot_id: String,
     generation: Arc<AtomicU64>,
     my_generation: u64,
@@ -143,6 +145,7 @@ impl RpcState {
         app: AppHandle,
         opts: StartOptions,
         slot_id: &str,
+        frames: Option<IpcChannel>,
     ) -> Result<(), String> {
         let handle = self.get_or_create_slot(slot_id).await;
         let mut slot = handle.inner.lock().await;
@@ -273,6 +276,7 @@ impl RpcState {
             stdout,
             ExitContext {
                 channel: self.channel,
+                frames,
                 slot_id: slot_id.to_string(),
                 generation: Arc::clone(&handle.generation),
                 my_generation: generation,
@@ -329,12 +333,6 @@ impl RpcState {
     }
 }
 
-/// 按 JSONL 严格分帧读取 stdout。
-///
-/// pi 的 RPC 协议明确规定：**只以 LF 作为记录分隔符**，并允许输入带
-/// 可选的 CR。绝不能使用通用行读取器——Node 的 readline 会额外在
-/// U+2028 / U+2029 处断行，而这两个字符在 JSON 字符串内是合法内容，
-/// 那样会把一帧劈成两半导致解析失败。这里手工按字节扫描 0x0A。
 /// 决定子进程的工作目录。
 ///
 /// 空串必须当成「不用改」，不能直接交给 `Command::current_dir`：
@@ -357,22 +355,19 @@ fn spawn_cwd(cwd: &str) -> Result<Option<&str>, String> {
 
 fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: ExitContext) {
     tauri::async_runtime::spawn(async move {
-        let mut reader = BufReader::new(stdout);
-        let mut buf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
-        let mut chunk = vec![0u8; READ_CHUNK];
+        let mut reader = BufReader::with_capacity(READ_CHUNK, stdout);
 
+        // 只按 LF 分帧，并且每个字节只扫描一次。历史会话可能含几十 MB 的截图。
         loop {
-            let n = match reader.read(&mut chunk).await {
+            let mut frame = Vec::new();
+            match reader.read_until(b'\n', &mut frame).await {
                 Ok(0) | Err(_) => break,
-                Ok(n) => n,
-            };
+                Ok(_) => {}
+            }
             if ctx.generation.load(Ordering::SeqCst) != ctx.my_generation {
                 return;
             }
-            buf.extend_from_slice(&chunk[..n]);
-            for frame in take_frames(&mut buf) {
-                emit_frame(&app, ctx.channel, &ctx.slot_id, &frame);
-            }
+            emit_frame(&app, &ctx, frame);
         }
 
         /*
@@ -389,10 +384,6 @@ fn spawn_frame_reader(app: AppHandle, stdout: tokio::process::ChildStdout, ctx: 
             // 代号已前进说明是主动切换，旧 reader 不能取走新进程。
             if ctx.generation.load(Ordering::SeqCst) != ctx.my_generation {
                 return;
-            }
-            // 进程结束时可能还有一帧没有 LF。
-            if !buf.is_empty() {
-                emit_frame(&app, ctx.channel, &ctx.slot_id, &buf);
             }
             slot.take()
         };
@@ -443,56 +434,43 @@ fn clip_tail(text: &str) -> String {
     text.chars().skip(total - STDERR_TAIL_CHARS).collect()
 }
 
-/// 从缓冲区切出所有完整帧，未以 LF 收尾的尾部保留在 buf 中等待后续数据。
-///
-/// 只以 `0x0A` 分割，并剥离可选的尾随 CR。绝不能改用通用行读取器——
-/// 例如 Node 的 readline 会额外在 U+2028 / U+2029 处断行，而这两个字符
-/// 在 JSON 字符串内是合法内容，那样会把一帧劈成两半导致解析失败。
-fn take_frames(buf: &mut Vec<u8>) -> Vec<Vec<u8>> {
-    let mut frames = Vec::new();
-    let mut start = 0usize;
-
-    while let Some(offset) = buf[start..].iter().position(|&b| b == b'\n') {
-        let end = start + offset;
-        let raw = &buf[start..end];
-        let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
-        if !raw.is_empty() {
-            frames.push(raw.to_vec());
-        }
-        start = end + 1;
-    }
-
-    buf.drain(..start);
-    frames
-}
-
-/// 解析并转发单帧。剥离可选的尾随 CR 以兼容 CRLF 输入。
-fn emit_frame(app: &AppHandle, channel: Channel, slot_id: &str, raw: &[u8]) {
-    let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
-    if raw.is_empty() {
+fn emit_frame(app: &AppHandle, ctx: &ExitContext, mut frame: Vec<u8>) {
+    let body = frame.strip_suffix(b"\n").unwrap_or(&frame);
+    let len = body.strip_suffix(b"\r").unwrap_or(body).len();
+    if len == 0 {
         return;
     }
-    match serde_json::from_slice::<serde_json::Value>(raw) {
-        Ok(value) => {
-            let _ = app.emit(
-                channel.message,
-                SlotEvent {
-                    slot_id: slot_id.to_string(),
-                    payload: value,
-                },
-            );
-        }
-        Err(e) => {
-            let text = String::from_utf8_lossy(raw);
-            let _ = app.emit(
-                channel.stderr,
-                SlotEvent {
-                    slot_id: slot_id.to_string(),
-                    payload: format!("帧解析失败：{e} | 原始内容：{text}"),
-                },
-            );
-        }
+    frame.truncate(len);
+    if let Err(error) = forward_frame(app, ctx, frame) {
+        let _ = app.emit(
+            ctx.channel.stderr,
+            SlotEvent {
+                slot_id: ctx.slot_id.clone(),
+                payload: format!("转发 Pi 响应失败：{error}"),
+            },
+        );
     }
+}
+
+fn forward_frame(app: &AppHandle, ctx: &ExitContext, frame: Vec<u8>) -> Result<(), String> {
+    if let Some(channel) = &ctx.frames {
+        // Tauri Channel 通过 IPC 拉取大帧，避免用 WebView 执行超长脚本派发事件。
+        serde_json::from_slice::<serde::de::IgnoredAny>(&frame).map_err(|e| e.to_string())?;
+        let json = String::from_utf8(frame).map_err(|e| e.to_string())?;
+        return channel
+            .send(InvokeResponseBody::Json(json))
+            .map_err(|e| e.to_string());
+    }
+
+    let payload: serde_json::Value = serde_json::from_slice(&frame).map_err(|e| e.to_string())?;
+    app.emit(
+        ctx.channel.message,
+        SlotEvent {
+            slot_id: ctx.slot_id.clone(),
+            payload,
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn spawn_stderr_reader(
@@ -533,78 +511,26 @@ fn spawn_stderr_reader(
 
 #[cfg(test)]
 mod tests {
-    use super::{clip_tail, spawn_cwd, take_frames, wait_code, EXIT_WAIT, STDERR_TAIL_CHARS};
+    use super::{clip_tail, spawn_cwd, wait_code, EXIT_WAIT, READ_CHUNK, STDERR_TAIL_CHARS};
     use std::process::Stdio;
+    use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::process::Command;
 
-    fn frames_of(input: &str) -> (Vec<String>, String) {
-        let mut buf = input.as_bytes().to_vec();
-        let frames = take_frames(&mut buf)
-            .into_iter()
-            .map(|f| String::from_utf8(f).unwrap())
-            .collect();
-        (frames, String::from_utf8(buf).unwrap())
-    }
-
-    #[test]
-    fn splits_on_lf_only() {
-        let (frames, rest) = frames_of("{\"a\":1}\n{\"b\":2}\n");
-        assert_eq!(frames, vec!["{\"a\":1}", "{\"b\":2}"]);
-        assert!(rest.is_empty());
-    }
-
-    #[test]
-    fn strips_trailing_cr() {
-        let (frames, _) = frames_of("{\"a\":1}\r\n");
-        assert_eq!(frames, vec!["{\"a\":1}"]);
-    }
-
-    /// U+2028 / U+2029 在 JSON 字符串里合法，绝不能当作分隔符
-    #[test]
-    fn keeps_unicode_line_separators_intact() {
-        let (frames, _) = frames_of("{\"t\":\"a\u{2028}b\u{2029}c\"}\n");
-        assert_eq!(frames.len(), 1);
-        assert_eq!(frames[0], "{\"t\":\"a\u{2028}b\u{2029}c\"}");
-    }
-
-    /// 未以 LF 收尾的尾部要留在缓冲区，等待下一次读取补齐
-    #[test]
-    fn keeps_incomplete_tail_in_buffer() {
-        let (frames, rest) = frames_of("{\"a\":1}\n{\"partial\"");
-        assert_eq!(frames, vec!["{\"a\":1}"]);
-        assert_eq!(rest, "{\"partial\"");
-    }
-
-    #[test]
-    fn reassembles_frame_across_reads() {
-        let mut buf = b"{\"long\":\"".to_vec();
-        assert!(take_frames(&mut buf).is_empty());
-
-        buf.extend_from_slice(b"value\"}\n");
-        let frames = take_frames(&mut buf);
-        assert_eq!(frames.len(), 1);
-        assert_eq!(
-            String::from_utf8(frames[0].clone()).unwrap(),
-            "{\"long\":\"value\"}"
+    #[tokio::test]
+    async fn reads_large_frame_and_unterminated_final_frame() {
+        let large = format!(
+            "{{\"text\":\"{}\u{2028}\u{2029}\"}}\r\n",
+            "x".repeat(READ_CHUNK * 20)
         );
-        assert!(buf.is_empty());
-    }
-
-    /// 单帧远超读取块大小（如大文件内容）时不应被截断
-    #[test]
-    fn handles_oversized_frame() {
-        let payload = "x".repeat(200_000);
-        let frame = format!("{{\"d\":\"{payload}\"}}");
-        let (frames, rest) = frames_of(&format!("{frame}\n"));
-        assert_eq!(frames.len(), 1);
-        assert_eq!(frames[0], frame);
-        assert!(rest.is_empty());
-    }
-
-    #[test]
-    fn skips_empty_lines() {
-        let (frames, _) = frames_of("\n\n{\"a\":1}\n\n");
-        assert_eq!(frames, vec!["{\"a\":1}"]);
+        let last = "{\"type\":\"response\"}";
+        let input = format!("{large}{last}");
+        let mut reader = BufReader::with_capacity(READ_CHUNK, input.as_bytes());
+        let mut frame = Vec::new();
+        reader.read_until(b'\n', &mut frame).await.unwrap();
+        assert_eq!(frame, large.as_bytes());
+        frame.clear();
+        reader.read_until(b'\n', &mut frame).await.unwrap();
+        assert_eq!(frame, last.as_bytes());
     }
 
     #[test]

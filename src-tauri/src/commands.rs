@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State};
+use tauri::{ipc::JavaScriptChannelId, AppHandle, State, Webview};
 
 use crate::agent_resources;
 use crate::config;
@@ -48,11 +48,13 @@ const DEFAULT_SLOT: &str = "default";
 #[tauri::command]
 pub async fn rpc_start(
     app: AppHandle,
+    webview: Webview,
     state: State<'_, AppState>,
     mut opts: StartOptions,
     side: Option<bool>,
     accounts: Option<bool>,
     slot_id: Option<String>,
+    frames: Option<JavaScriptChannelId>,
 ) -> Result<(), String> {
     let slot = slot_id.as_deref().unwrap_or(DEFAULT_SLOT);
     if accounts.unwrap_or(false) {
@@ -61,7 +63,11 @@ pub async fn rpc_start(
             .to_string_lossy()
             .into_owned();
     }
-    state.channel(side, accounts).start(app, opts, slot).await
+    let frames = frames.map(|id| id.channel_on(webview));
+    state
+        .channel(side, accounts)
+        .start(app, opts, slot, frames)
+        .await
 }
 
 #[tauri::command]
