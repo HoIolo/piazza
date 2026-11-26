@@ -15,9 +15,12 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# macos-private-api：透明窗口要用到，侧栏的毛玻璃靠它透出系统材质
 # unstable：右侧「浏览器」面板要 add_child 建原生子 webview（iframe 会被 frame-ancestors 拦死）
-tauri = { version = "2", features = ["macos-private-api", "unstable"] }
+# 不再要 macos-private-api：它只在 macOS 透明窗口/私有标题栏（transparent、
+# windowEffects、titleBarStyle: Overlay）下才用得上，而那些配置在加 Windows 支持时
+# 已经统一成跨平台的一套（tauri.conf.json 里只剩普通窗口），留着只会让 macOS 包
+# 白带一份私有 API。
+tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 # 自动更新：updater 负责检查/下载/安装，process 负责装完重启自己
