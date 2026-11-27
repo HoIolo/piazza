@@ -1,5 +1,19 @@
 import { Type } from 'typebox'
 import {
+  buildDeltaTranscript,
+  getAutoExtractMode,
+  runAutoExtract,
+  shouldTriggerAutoExtract,
+} from './memory-auto.mjs'
+import {
+  bumpDreamSessionCounter,
+  isAutoDreamEnabled,
+  runDreamConsolidation,
+  shouldRunAutoDream,
+} from './memory-dream.mjs'
+import { formatSessionSearchHits, searchPastSessionsRaw } from './memory-sessions.mjs'
+import {
+  containsSensitiveSecret,
   deleteMemoryEntry,
   listScopeMemories,
   memoryRevisionStamp,
@@ -27,8 +41,9 @@ const CATEGORY_PRIORITY = {
 }
 
 const MEMORY_GUIDANCE = [
-  '## 长期记忆使用准则',
-  '- 上方高优先级记忆已直接内联全文，开局即生效；若下方存在「其余索引」，仅在与当前任务相关时调用 `memory_read(scope, id)` 或 `memory_search(query)` 按需取回。',
+  '## 长期记忆与历史检索准则',
+  '- 上方高优先级记忆已以会话级冻结快照内联全文，开局即生效；若下方存在「其余索引」，按需调用 `memory_read(scope, id)` 或 `memory_search(query)` 取回。',
+  '- 若需要回查过往对话里排查过的细节、报错或讨论背景，可调用 `session_search(query)` 检索本项目本地历史会话（平时 0 消耗，按需触发）。',
   '- **何时必须立刻调用 `memory_write`**：',
   '  1. 用户明确说出「记住…」「以后都…」「不要再…」等指令时，**本轮直接调用 `memory_write` 落盘**，切勿只口头答应；',
   '  2. 用户纠正你的错误做法时，沉淀为 `gotcha` 或 `preference`（写清规则与原因）；',
@@ -58,11 +73,6 @@ function sortByRecallPriority(items) {
   })
 }
 
-/**
- * 自适应「内联全文 + 溢出索引」渲染：
- * - 记忆条目不多时（大多数用户场景），核心偏好/规范/避坑直接以全文内联，首轮即生效、零额外工具调用；
- * - 记忆变多超出预算后，高优先级条目内联，其余折叠为紧凑索引（标明 id），供模型按需 memory_read/search。
- */
 function renderScopeMemories(heading, items, inlineBudget) {
   if (items.length === 0) return ''
   const ordered = sortByRecallPriority(items)
@@ -105,7 +115,6 @@ function buildMemoryPromptBlock(root, cwd, currentSessionId) {
     if (projectSec) sections.push(projectSec)
 
     const handoff = readProjectHandoff(root, cwd)
-    // 仅当交接快照属于「当前同一会话」时注入，绝不把旧会话的压缩快照污染到新对话里
     if (handoff?.content && handoff.sessionId && currentSessionId && handoff.sessionId === currentSessionId) {
       const capped =
         handoff.content.length > MAX_HANDOFF_CHARS
@@ -129,7 +138,6 @@ function extractMessageText(content) {
     .join('\n')
 }
 
-/** 压缩前零 LLM 确定性交接快照：保留最近目标、未完成待办与最新进展，防压缩失忆 */
 function buildCompactionHandoff(branchEntries) {
   const entries = Array.isArray(branchEntries) ? branchEntries : []
   const recentUsers = []
@@ -187,36 +195,160 @@ function disabledResult() {
 }
 
 /**
- * Piazza 内置双层记忆扩展：
- * - 全局（global/）+ 按工作区隔离（projects/<slug>-<hash8>/），纯 Markdown，零外部依赖；
- * - 自适应「高优全文内联 + 溢出索引」，首轮即可生效且不浪费工具轮次；
- * - KV Cache 稳定快照 + 轻量目录指纹自动感知 GUI/外部即时修改；
- * - 中英文混合分词 + 2-gram 加权检索；
- * - 按 sessionId 绑定的压缩前零 LLM 交接快照，不污染新对话。
+ * Piazza 内置第一梯队双层记忆扩展：
+ * 1. Frozen Snapshot（Hermes / Magic Context 护缓存机制）：会话启动与压缩后冻结 systemPrompt 快照，
+ *    会话中 Agent 写入或后台自动提炼仅落盘、不打穿当前会话 Prompt Cache，而用户在设置页手动改动可即时感知；
+ * 2. 低频门控后台自动提炼（Claude Code + Codex）：0-token 本地强信号/批量门控 + 优先轻量模型 + reasoning: off；
+ * 3. 纯本地 `session_search` 历史会话检索（Hermes 思路）：平时 0 消耗，按需查本项目过往对话；
+ * 4. 低频自动 + 设置页一键手动 Dream 整理去重（Claude Code Auto-Dream）。
  */
-export function createMemoryExtension({ cwd, agentDir, settingsManager, getSessionId }) {
+export function createMemoryExtension({
+  cwd,
+  agentDir,
+  settingsManager,
+  getSessionId,
+  getSession,
+  getModelRuntime,
+  isPersisted,
+  onController,
+}) {
   const root = resolveMemoryRoot(agentDir)
-  let snapshot = null
-  let snapshotStamp = ''
-  let dirty = true
+  let frozenBlock = null
+  let frozenSessionKey = ''
+  let acknowledgedStamp = ''
+  let compactionEpoch = 0
+
+  let lastExtractedMsgCount = 0
+  let lastExtractAtMs = 0
+  let extractInFlight = false
+  let dreamInFlight = false
 
   const resolveSessionId = (ctx) =>
-    ctx?.sessionManager?.getSessionId?.() ?? getSessionId?.() ?? null
+    ctx?.sessionManager?.getSessionId?.() ?? getSessionId?.() ?? ''
 
-  const getStableSnapshot = (sessionId) => {
-    const stamp = memoryRevisionStamp(root, cwd, sessionId)
-    if (dirty || snapshot === null || stamp !== snapshotStamp) {
-      snapshot = buildMemoryPromptBlock(root, cwd, sessionId)
-      snapshotStamp = stamp
-      dirty = false
+  const currentPersisted = (ctx) => {
+    if (typeof ctx?.sessionManager?.isPersisted === 'function') {
+      return ctx.sessionManager.isPersisted()
     }
-    return snapshot
+    return typeof isPersisted === 'function' ? isPersisted() : true
+  }
+
+  /** 内部写入（memory_write / auto-extract / dream）后静默推进已确认指纹，绝不破坏当前会话 Prompt Cache */
+  const acknowledgeSelfMutation = (sessionId) => {
+    acknowledgedStamp = memoryRevisionStamp(root, cwd, sessionId)
+  }
+
+  const unfreezeSnapshot = () => {
+    frozenBlock = null
+    frozenSessionKey = ''
+    acknowledgedStamp = ''
+  }
+
+  const getFrozenSnapshot = (sessionId) => {
+    const key = `${sessionId || ''}#${compactionEpoch}`
+    const stamp = memoryRevisionStamp(root, cwd, sessionId)
+    // 仅在首次/切换会话/压缩后，或用户在设置页/外部编辑器手动改盘导致 stamp 偏离时才重建快照
+    if (frozenBlock === null || key !== frozenSessionKey || stamp !== acknowledgedStamp) {
+      frozenBlock = buildMemoryPromptBlock(root, cwd, sessionId)
+      frozenSessionKey = key
+      acknowledgedStamp = stamp
+    }
+    return frozenBlock
+  }
+
+  const consolidateNow = async () => {
+    if (dreamInFlight) {
+      return { ok: false, error: '记忆整理正在进行中，请稍候' }
+    }
+    dreamInFlight = true
+    try {
+      const session = getSession?.()
+      const res = await runDreamConsolidation({
+        root,
+        cwd,
+        modelRuntime: getModelRuntime?.(),
+        currentModel: session?.model,
+      })
+      acknowledgeSelfMutation(resolveSessionId())
+      return res
+    } finally {
+      dreamInFlight = false
+    }
+  }
+
+  if (typeof onController === 'function') {
+    onController({ consolidateNow, unfreezeSnapshot })
+  }
+
+  const triggerBackgroundExtract = (messages, reason, sessionId) => {
+    if (extractInFlight || !isMemoryEnabled(settingsManager)) return
+    const mode = getAutoExtractMode(settingsManager)
+    if (mode === 'off') return
+    const list = Array.isArray(messages) ? messages : []
+    if (list.length < lastExtractedMsgCount) lastExtractedMsgCount = 0
+    const delta = buildDeltaTranscript(list, lastExtractedMsgCount)
+    if (delta.hadManualMemoryWrite) {
+      lastExtractedMsgCount = list.length
+      return
+    }
+    const decision = shouldTriggerAutoExtract({
+      mode,
+      delta,
+      lastExtractAtMs,
+      reason,
+    })
+    if (!decision.run) return
+
+    const session = getSession?.()
+    const modelRuntime = getModelRuntime?.()
+    if (!session?.model || !modelRuntime?.completeSimple) return
+
+    lastExtractedMsgCount = list.length
+    lastExtractAtMs = Date.now()
+    extractInFlight = true
+    void runAutoExtract({
+      root,
+      cwd,
+      delta,
+      modelRuntime,
+      currentModel: session.model,
+      reason: decision.why,
+    })
+      .then((res) => {
+        if (res.saved.length > 0 || res.deleted.length > 0) {
+          acknowledgeSelfMutation(sessionId)
+        }
+      })
+      .catch(() => {
+        // 后台提炼静默降级，绝不干扰主对话
+      })
+      .finally(() => {
+        extractInFlight = false
+      })
   }
 
   return function piazzaMemoryExtension(pi) {
-    pi.on('session_start', (_event, ctx) => {
-      dirty = true
-      if (isMemoryEnabled(settingsManager)) getStableSnapshot(resolveSessionId(ctx))
+    pi.on('session_start', (event, ctx) => {
+      unfreezeSnapshot()
+      const session = getSession?.()
+      lastExtractedMsgCount = Array.isArray(session?.messages) ? session.messages.length : 0
+      const sid = resolveSessionId(ctx)
+      if (!isMemoryEnabled(settingsManager)) return
+      getFrozenSnapshot(sid)
+
+      if (!currentPersisted(ctx) || dreamInFlight || !isAutoDreamEnabled(settingsManager)) return
+      if (event?.reason === 'startup' || event?.reason === 'new') {
+        const state = bumpDreamSessionCounter(root)
+        const gate = shouldRunAutoDream({ root, cwd, state })
+        if (gate.run && getModelRuntime?.()) {
+          // 延后数秒异步整理，避免和首轮冷启竞争 CPU / 网络
+          setTimeout(() => {
+            const cur = getSession?.()
+            if (!cur?.model || dreamInFlight) return
+            void consolidateNow().catch(() => undefined)
+          }, 4_000)
+        }
+      }
     })
 
     pi.on('before_agent_start', async (event, ctx) => {
@@ -226,22 +358,47 @@ export function createMemoryExtension({ cwd, agentDir, settingsManager, getSessi
         // 忽略设置重载失败
       }
       if (!isMemoryEnabled(settingsManager)) return undefined
-      const block = getStableSnapshot(resolveSessionId(ctx))
+      const block = getFrozenSnapshot(resolveSessionId(ctx))
       if (!block) return undefined
       return { systemPrompt: `${event.systemPrompt}\n\n${block}` }
     })
 
+    pi.on('agent_end', (event, ctx) => {
+      if (!currentPersisted(ctx)) return
+      const session = getSession?.()
+      const messages = Array.isArray(session?.messages) && session.messages.length > 0
+        ? session.messages
+        : event?.messages
+      triggerBackgroundExtract(messages, 'agent_end', resolveSessionId(ctx))
+    })
+
     pi.on('session_before_compact', (event, ctx) => {
-      if (!isMemoryEnabled(settingsManager) || !cwd) return
-      try {
-        const handoff = buildCompactionHandoff(event.branchEntries)
-        if (handoff) {
-          writeProjectHandoff(root, cwd, handoff, resolveSessionId(ctx))
-          dirty = true
+      if (!isMemoryEnabled(settingsManager)) return
+      const sid = resolveSessionId(ctx)
+      if (cwd) {
+        try {
+          const handoff = buildCompactionHandoff(event.branchEntries)
+          if (handoff) {
+            writeProjectHandoff(root, cwd, handoff, sid)
+          }
+        } catch {
+          // 交接快照失败不应阻断压缩流程
         }
-      } catch {
-        // 交接快照失败不应阻断压缩流程
       }
+      if (currentPersisted(ctx) && Array.isArray(event.branchEntries)) {
+        const msgs = event.branchEntries
+          .filter((e) => e?.type === 'message' && e.message)
+          .map((e) => e.message)
+        triggerBackgroundExtract(msgs, 'compact', sid)
+      }
+    })
+
+    pi.on('session_compact', (_event, ctx) => {
+      compactionEpoch += 1
+      unfreezeSnapshot()
+      const session = getSession?.()
+      lastExtractedMsgCount = Array.isArray(session?.messages) ? session.messages.length : 0
+      if (isMemoryEnabled(settingsManager)) getFrozenSnapshot(resolveSessionId(ctx))
     })
 
     pi.registerTool({
@@ -269,8 +426,15 @@ export function createMemoryExtension({ cwd, agentDir, settingsManager, getSessi
       }),
       async execute(_toolCallId, params) {
         if (!isMemoryEnabled(settingsManager)) return disabledResult()
+        if (containsSensitiveSecret(`${params.title}\n${params.summary || ''}\n${params.content}`)) {
+          return {
+            content: [{ type: 'text', text: '拒绝写入：检测到疑似 API Key、Token 或私钥等敏感凭证，请脱敏后再保存。' }],
+            details: { rejectedSecret: true },
+          }
+        }
         const saved = saveMemoryEntry(root, cwd, params)
-        dirty = true
+        // 写盘后静默推进已确认指纹，保持当前会话冻结前缀不打穿 Prompt Cache
+        acknowledgeSelfMutation(resolveSessionId())
         return {
           content: [
             {
@@ -376,7 +540,7 @@ export function createMemoryExtension({ cwd, agentDir, settingsManager, getSessi
       async execute(_toolCallId, { scope, id }) {
         if (!isMemoryEnabled(settingsManager)) return disabledResult()
         const res = deleteMemoryEntry(root, cwd, scope, id)
-        dirty = true
+        acknowledgeSelfMutation(resolveSessionId())
         return {
           content: [
             {
@@ -385,6 +549,30 @@ export function createMemoryExtension({ cwd, agentDir, settingsManager, getSessi
             },
           ],
           details: res,
+        }
+      },
+    })
+
+    pi.registerTool({
+      name: 'session_search',
+      label: '检索历史会话',
+      description:
+        '检索本项目（或全部项目）本地保存的历史对话记录（.jsonl），用于回查之前排障过程、历史决策背景或上次讨论内容。平时零消耗，仅按需调用。',
+      parameters: Type.Object({
+        query: Type.String({ minLength: 1, description: '要回查的中英文关键词或短语' }),
+        scope: Type.Optional(
+          Type.Union([Type.Literal('project'), Type.Literal('all')], {
+            description: 'project 仅搜当前项目历史会话（默认）；all 跨项目搜索',
+          }),
+        ),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10 })),
+      }),
+      async execute(_toolCallId, { query, scope = 'project', limit = 5 }) {
+        if (!isMemoryEnabled(settingsManager)) return disabledResult()
+        const hits = searchPastSessionsRaw(agentDir, cwd, query, scope, limit, resolveSessionId())
+        return {
+          content: [{ type: 'text', text: formatSessionSearchHits(hits, query) }],
+          details: { count: hits.length, sessionIds: hits.map((h) => h.sessionId) },
         }
       },
     })

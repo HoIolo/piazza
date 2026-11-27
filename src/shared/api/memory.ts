@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
+import { rpcClient } from '@/rpc/client'
+import type { ConsolidateMemoriesResult } from '@/rpc/types'
 
 export type MemoryScope = 'global' | 'project'
+export type AutoExtractMode = 'smart' | 'signal' | 'off'
 export type MemoryCategory =
   | 'preference'
   | 'decision'
@@ -45,6 +48,12 @@ export interface MemoryHandoff {
   updatedAt: string
 }
 
+export interface MemoryDreamState {
+  lastRunAt: string | null
+  sessionsSinceDream: number
+  lastSummary: string
+}
+
 export interface MemoryOverview {
   enabled: boolean
   memoryRoot: string
@@ -53,6 +62,7 @@ export interface MemoryOverview {
   projectName: string | null
   items: MemoryItem[]
   handoff: MemoryHandoff | null
+  dream?: MemoryDreamState | null
 }
 
 export interface SaveMemoryInput {
@@ -83,4 +93,13 @@ export function clearMemories(cwd: string | null, scope: MemoryScope): Promise<v
 
 export function clearMemoryHandoff(cwd: string): Promise<void> {
   return invoke<void>('clear_memory_handoff', { cwd })
+}
+
+/** 经由当前运行中的主 worker 执行一次 Dream 记忆去重与合并 */
+export function consolidateMemories(): Promise<ConsolidateMemoriesResult> {
+  return rpcClient.send<ConsolidateMemoriesResult>(
+    { type: 'consolidate_memories' },
+    undefined,
+    35_000,
+  )
 }

@@ -62,6 +62,8 @@ export type RpcCommand =
   | { id?: string; type: 'get_branch_fork_messages' }
   /** 侧边临时内存会话从指定主会话文件同步最新上下文（只读，不修改主会话文件，不改当前模型） */
   | { id?: string; type: 'seed_from_session'; sessionPath: string }
+  /** 手动触发一次 Dream 长期记忆去重与合并整理 */
+  | { id?: string; type: 'consolidate_memories' }
 
 /* ---------- 各命令的 data 结构 ---------- */
 
@@ -144,4 +146,14 @@ export interface RewindBeforeResult {
   cancelled: boolean
   messages?: AgentMessage[]
   sessionFile?: string | null
+}
+
+export interface ConsolidateMemoriesResult {
+  ok: boolean
+  merged: number
+  updated: number
+  deleted: number
+  modelUsed: string | null
+  summary: string
+  lastRunAt: string
 }

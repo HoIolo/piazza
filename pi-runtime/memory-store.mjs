@@ -481,3 +481,53 @@ export function memoryRevisionStamp(root, cwd, sessionId = '') {
   parts.push(String(sessionId || ''))
   return parts.join('|')
 }
+
+const SECRET_PATTERNS = [
+  /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{18,}\b/,
+  /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+  /\bAIza[0-9A-Za-z_-]{30,}\b/,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b/,
+  /(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\s*[:=]\s*['"]?(?!<|\$\{|YOUR_|xxx|\*+)[A-Za-z0-9._/+=-]{16,}/i,
+]
+
+/** 确定性密钥拦截器：防止后台提炼或整理把凭证/Token 误写入长期记忆 */
+export function containsSensitiveSecret(text) {
+  const value = String(text || '')
+  if (!value) return false
+  return SECRET_PATTERNS.some((re) => re.test(value))
+}
+
+/** 读写 Dream 自动整理状态（<memoryRoot>/.dream-state.json） */
+export function readDreamState(root) {
+  const path = join(root, '.dream-state.json')
+  if (!existsSync(path)) {
+    return { lastRunAt: null, sessionsSinceDream: 0, lastSummary: '' }
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'))
+    return {
+      lastRunAt: typeof parsed?.lastRunAt === 'string' ? parsed.lastRunAt : null,
+      sessionsSinceDream:
+        typeof parsed?.sessionsSinceDream === 'number' && parsed.sessionsSinceDream >= 0
+          ? Math.floor(parsed.sessionsSinceDream)
+          : 0,
+      lastSummary: typeof parsed?.lastSummary === 'string' ? parsed.lastSummary : '',
+    }
+  } catch {
+    return { lastRunAt: null, sessionsSinceDream: 0, lastSummary: '' }
+  }
+}
+
+export function writeDreamState(root, state) {
+  const path = join(root, '.dream-state.json')
+  const payload = {
+    lastRunAt: state.lastRunAt ?? null,
+    sessionsSinceDream: Math.max(0, Math.floor(Number(state.sessionsSinceDream) || 0)),
+    lastSummary: String(state.lastSummary || ''),
+  }
+  atomicWrite(path, `${JSON.stringify(payload, null, 2)}\n`)
+  return payload
+}

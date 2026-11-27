@@ -54,6 +54,7 @@ const TOOL_VERBS: Record<string, { running: string; done: string }> = {
   memory_read: { running: '正在回忆', done: '已读取记忆' },
   memory_search: { running: '正在检索记忆', done: '已检索记忆' },
   memory_delete: { running: '正在遗忘', done: '已删除记忆' },
+  session_search: { running: '正在检索历史会话', done: '已检索历史会话' },
 }
 
 /** 折叠行左侧的动词，如「正在运行」「已运行」 */
@@ -76,6 +77,7 @@ const TOOL_TITLES: Record<string, string> = {
   memory_read: '读取记忆',
   memory_search: '检索记忆',
   memory_delete: '删除记忆',
+  session_search: '检索历史会话',
 }
 
 export function toolTitle(toolName: string): string {
@@ -103,6 +105,7 @@ const TOOL_KINDS: Record<string, ToolKind> = {
   memory_search: 'search',
   memory_write: 'edit',
   memory_delete: 'edit',
+  session_search: 'search',
 }
 
 export function toolKind(toolName: string): ToolKind {

@@ -34,6 +34,16 @@ pub struct MemoryHandoff {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDreamState {
+    pub last_run_at: Option<String>,
+    #[serde(default)]
+    pub sessions_since_dream: u32,
+    #[serde(default)]
+    pub last_summary: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryOverview {
@@ -44,6 +54,7 @@ pub struct MemoryOverview {
     pub project_name: Option<String>,
     pub items: Vec<MemoryItem>,
     pub handoff: Option<MemoryHandoff>,
+    pub dream: Option<MemoryDreamState>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -485,6 +496,11 @@ fn read_handoff(project_dir: &Path) -> Option<MemoryHandoff> {
     })
 }
 
+fn read_dream_state(root: &Path) -> Option<MemoryDreamState> {
+    let raw = std::fs::read_to_string(root.join(".dream-state.json")).ok()?;
+    serde_json::from_str::<MemoryDreamState>(&raw).ok()
+}
+
 pub fn list_in(root: &Path, cwd: Option<&str>) -> MemoryOverview {
     let global_dir = root.join("global");
     let mut items = scan_scope_dir(&global_dir, "global");
@@ -512,6 +528,7 @@ pub fn list_in(root: &Path, cwd: Option<&str>) -> MemoryOverview {
         project_name,
         items,
         handoff,
+        dream: read_dream_state(root),
     }
 }
 
@@ -712,6 +729,23 @@ mod tests {
             );
             assert!(err.is_err(), "should reject id={bad}");
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reads_dream_state_written_by_runtime() {
+        let root = temp_root("dream");
+        let json = r#"{
+  "lastRunAt": "2026-11-26T13:30:00Z",
+  "sessionsSinceDream": 3,
+  "lastSummary": "整理完成：合并 1 组，清理 2 条"
+}"#;
+        std::fs::write(root.join(".dream-state.json"), json).unwrap();
+        let overview = list_in(&root, None);
+        let dream = overview.dream.expect("should parse .dream-state.json");
+        assert_eq!(dream.last_run_at.as_deref(), Some("2026-11-26T13:30:00Z"));
+        assert_eq!(dream.sessions_since_dream, 3);
+        assert_eq!(dream.last_summary, "整理完成：合并 1 组，清理 2 条");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

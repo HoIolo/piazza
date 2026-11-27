@@ -2,15 +2,11 @@ import { useMemo, useState } from 'react'
 import { Plus, Search } from 'lucide-react'
 import { Pill } from '@/design/primitives/Pill'
 import { Segmented } from '@/design/primitives/Segmented'
-import type { MemoryItem, MemoryScope } from '@/shared/api/memory'
+import type { AutoExtractMode, MemoryItem, MemoryScope } from '@/shared/api/memory'
 import { useAppStore } from '@/store/app.store'
-import {
-  ClearScopeButton,
-  HandoffCard,
-  MemoryListCard,
-  MemorySettingsCard,
-} from '../components/MemoryCards'
+import { ClearScopeButton, HandoffCard, MemoryListCard } from '../components/MemoryCards'
 import { MemoryDialog } from '../components/MemoryDialog'
+import { MemorySettingsCard } from '../components/MemorySettingsCard'
 import type { SectionProps } from './AppearanceSection'
 import listStyles from './CapabilityList.module.css'
 import memStyles from './MemorySection.module.css'
@@ -25,15 +21,79 @@ function matchesMemory(item: MemoryItem, filter: ScopeFilter, q: string): boolea
   return haystack.toLowerCase().includes(q)
 }
 
-/** 长期记忆管理：双层（全局 + 当前项目）开关、检索、新建/编辑/删除与压缩交接预览 */
+function normalizeAutoMode(raw: unknown): AutoExtractMode {
+  return raw === 'signal' || raw === 'off' ? raw : 'smart'
+}
+
+function MemoryToolbar({
+  filter,
+  projectLabel,
+  query,
+  filteredCount,
+  confirmClear,
+  onFilterChange,
+  onQueryChange,
+  onConfirmToggle,
+  onClear,
+  onNew,
+}: {
+  filter: ScopeFilter
+  projectLabel: string
+  query: string
+  filteredCount: number
+  confirmClear: boolean
+  onFilterChange: (next: ScopeFilter) => void
+  onQueryChange: (q: string) => void
+  onConfirmToggle: (v: boolean) => void
+  onClear: (scope: MemoryScope) => void
+  onNew: () => void
+}) {
+  return (
+    <div className={listStyles.toolbar}>
+      <div className={listStyles.toolbarLeft}>
+        <Segmented
+          value={filter}
+          options={[
+            { value: 'all', label: '全部' },
+            { value: 'global', label: '全局' },
+            { value: 'project', label: projectLabel },
+          ]}
+          onChange={(v) => onFilterChange(v as ScopeFilter)}
+        />
+        <div className={listStyles.searchWrap}>
+          <Search size={14} className={listStyles.searchIcon} />
+          <input
+            className={listStyles.searchInput}
+            placeholder="筛选记忆标题、标签或正文…"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className={memStyles.toolbarActions}>
+        <ClearScopeButton
+          filter={filter}
+          count={filteredCount}
+          confirming={confirmClear}
+          onConfirmToggle={onConfirmToggle}
+          onClear={onClear}
+        />
+        <Pill icon={<Plus size={14} />} onClick={onNew}>
+          新建记忆
+        </Pill>
+      </div>
+    </div>
+  )
+}
+
+/** 长期记忆管理：双层开关、节能自动提炼、Dream 整理去重、检索与压缩交接预览 */
 export function MemorySection({ settings }: SectionProps) {
   const cwd = useAppStore((s) => s.currentCwd)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const enabled = settings.read('memory.enabled', true)
-  const { overview, loading, error, reload, removeItem, clearScope, dropHandoff } = useMemories(
-    cwd,
-    settingsOpen,
-  )
+  const autoExtract = normalizeAutoMode(settings.read('memory.autoExtract', 'smart'))
+  const autoDream = settings.read('memory.autoDream', true)
+  const mem = useMemories(cwd, settingsOpen)
   const [filter, setFilter] = useState<ScopeFilter>('all')
   const [query, setQuery] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
@@ -42,83 +102,49 @@ export function MemorySection({ settings }: SectionProps) {
     item: null,
   })
 
-  const items = useMemo(() => overview?.items ?? [], [overview])
+  const items = useMemo(() => mem.overview?.items ?? [], [mem.overview])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items.filter((item) => matchesMemory(item, filter, q))
   }, [items, filter, query])
   const globalCount = items.filter((i) => i.scope === 'global').length
   const projectCount = items.length - globalCount
-  const projectLabel = overview?.projectName ? `当前项目 (${overview.projectName})` : '当前项目'
+  const projectName = mem.overview?.projectName ?? null
+  const projectLabel = projectName ? `当前项目 (${projectName})` : '当前项目'
 
   return (
     <>
       <MemorySettingsCard
-        enabled={enabled}
-        globalCount={globalCount}
-        projectCount={projectCount}
-        memoryRoot={overview?.memoryRoot}
+        enabled={enabled} autoExtract={autoExtract} autoDream={autoDream}
+        globalCount={globalCount} projectCount={projectCount}
+        memoryRoot={mem.overview?.memoryRoot} dream={mem.overview?.dream}
+        consolidating={mem.consolidating} dreamNotice={mem.dreamNotice}
         onToggle={(v) => settings.update('memory.enabled', v)}
+        onAutoExtractChange={(mode) => settings.update('memory.autoExtract', mode)}
+        onAutoDreamChange={(v) => settings.update('memory.autoDream', v)}
+        onConsolidate={() => void mem.runConsolidate()}
       />
-
-      <div className={listStyles.toolbar}>
-        <div className={listStyles.toolbarLeft}>
-          <Segmented
-            value={filter}
-            options={[
-              { value: 'all', label: '全部' },
-              { value: 'global', label: '全局' },
-              { value: 'project', label: projectLabel },
-            ]}
-            onChange={(v) => {
-              setFilter(v as ScopeFilter)
-              setConfirmClear(false)
-            }}
-          />
-          <div className={listStyles.searchWrap}>
-            <Search size={14} className={listStyles.searchIcon} />
-            <input
-              className={listStyles.searchInput}
-              placeholder="筛选记忆标题、标签或正文…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className={memStyles.toolbarActions}>
-          <ClearScopeButton
-            filter={filter}
-            count={filtered.length}
-            confirming={confirmClear}
-            onConfirmToggle={setConfirmClear}
-            onClear={(scope) => void clearScope(scope)}
-          />
-          <Pill icon={<Plus size={14} />} onClick={() => setEditing({ open: true, item: null })}>
-            新建记忆
-          </Pill>
-        </div>
-      </div>
-
-      {error && <p className={listStyles.error}>{error}</p>}
-
+      <MemoryToolbar
+        filter={filter} projectLabel={projectLabel} query={query}
+        filteredCount={filtered.length} confirmClear={confirmClear}
+        onFilterChange={(next) => { setFilter(next); setConfirmClear(false) }}
+        onQueryChange={setQuery} onConfirmToggle={setConfirmClear}
+        onClear={(scope) => void mem.clearScope(scope)}
+        onNew={() => setEditing({ open: true, item: null })}
+      />
+      {mem.error && <p className={listStyles.error}>{mem.error}</p>}
       <MemoryListCard
-        loading={loading}
-        totalCount={items.length}
-        items={filtered}
+        loading={mem.loading} totalCount={items.length} items={filtered}
         onEdit={(item) => setEditing({ open: true, item })}
-        onDelete={(item) => void removeItem(item)}
+        onDelete={(item) => void mem.removeItem(item)}
       />
-
-      <HandoffCard handoff={overview?.handoff} onClear={() => void dropHandoff()} />
-
+      <HandoffCard handoff={mem.overview?.handoff} onClear={() => void mem.dropHandoff()} />
       {editing.open && (
         <MemoryDialog
-          item={editing.item}
-          cwd={cwd}
-          projectName={overview?.projectName ?? null}
+          item={editing.item} cwd={cwd} projectName={projectName}
           defaultScope={filter === 'global' ? 'global' : 'project'}
           onClose={() => setEditing({ open: false, item: null })}
-          onSaved={reload}
+          onSaved={mem.reload}
         />
       )}
     </>

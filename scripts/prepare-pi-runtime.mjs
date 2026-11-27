@@ -41,6 +41,9 @@ const runtimeSources = [
   'context-window.mjs',
   'computer-use.mjs',
   'memory-store.mjs',
+  'memory-sessions.mjs',
+  'memory-auto.mjs',
+  'memory-dream.mjs',
   'memory.mjs',
 ]
 

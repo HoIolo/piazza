@@ -86,9 +86,12 @@ export const SECTION_GROUPS: SectionGroup[] = [
       {
         id: 'memory',
         label: '记忆',
-        subtitle: '管理全局与当前项目的长期记忆，跨会话自动记住偏好与项目经验',
+        subtitle: '管理全局与当前项目的长期记忆、后台自动提炼与 Dream 去重整理',
         icon: Brain,
-        keywords: ['memory', '记忆', '长期记忆', '偏好', '项目记忆', '交接', 'handoff'],
+        keywords: [
+          'memory', '记忆', '长期记忆', '偏好', '项目记忆', '交接', 'handoff',
+          '自动提炼', 'dream', '去重', '整理', '历史会话', 'session_search',
+        ],
       },
       {
         id: 'skills',

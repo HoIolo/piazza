@@ -233,6 +233,8 @@ async function runSession() {
     })
     const diagnostics = []
     let currentSession = null
+    let currentModelRuntime = null
+    let memoryController = null
     const contextWindowExtension = createContextWindowExtension({
       getSession: () => currentSession,
       settingsManager,
@@ -253,6 +255,12 @@ async function runSession() {
             agentDir,
             settingsManager,
             getSessionId: () => currentSession?.sessionManager?.getSessionId?.() ?? null,
+            getSession: () => currentSession,
+            getModelRuntime: () => currentModelRuntime,
+            isPersisted: () => currentSession?.sessionManager?.isPersisted?.() ?? !values['no-session'],
+            onController: (ctrl) => {
+              memoryController = ctrl
+            },
           }),
           ...(values['auto-title'] ? [resumeExtension] : []),
         ],
@@ -274,6 +282,7 @@ async function runSession() {
       } : undefined,
     })
     const { modelRuntime, resourceLoader } = services
+    currentModelRuntime = modelRuntime
     const model = values.model
       ? values.provider
         ? modelRuntime.getModel(values.provider, values.model)
@@ -283,6 +292,7 @@ async function runSession() {
       services, sessionManager, sessionStartEvent, model,
     })
     currentSession = created.session
+    created.session._piazzaMemoryController = memoryController
     applySavedContextWindow(created.session, settingsManager)
     if (values['auto-title']) {
       nameNewSession(created.session, modelRuntime, () => runtime.session === created.session, (pending) => {
@@ -311,6 +321,8 @@ function findCustomHandler(type) {
       return respondBranchForkMessages
     case 'seed_from_session':
       return respondSeedFromSession
+    case 'consolidate_memories':
+      return respondConsolidateMemories
     default:
       return undefined
   }
@@ -374,7 +386,8 @@ function installCustomCommands(runtime) {
         line.includes('"refresh_models"') ||
         line.includes('"rewind_before"') ||
         line.includes('"get_branch_fork_messages"') ||
-        line.includes('"seed_from_session"')
+        line.includes('"seed_from_session"') ||
+        line.includes('"consolidate_memories"')
       ) {
         try {
           const command = JSON.parse(line)
@@ -485,6 +498,27 @@ async function respondBranchForkMessages(runtime, command) {
   try {
     const messages = collectActiveUserEntries(runtime.session.sessionManager)
     sendRpcReply(command, { success: true, data: { messages } })
+  } catch (error) {
+    sendRpcReply(command, {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+async function respondConsolidateMemories(runtime, command) {
+  try {
+    const ctrl = runtime.session?._piazzaMemoryController
+    if (!ctrl?.consolidateNow) {
+      sendRpcReply(command, { success: false, error: '当前会话未挂载内置记忆控制器' })
+      return
+    }
+    const result = await ctrl.consolidateNow()
+    if (!result?.ok) {
+      sendRpcReply(command, { success: false, error: result?.error || '记忆整理未完成' })
+      return
+    }
+    sendRpcReply(command, { success: true, data: result })
   } catch (error) {
     sendRpcReply(command, {
       success: false,

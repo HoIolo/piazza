@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import {
   clearMemories,
   clearMemoryHandoff,
+  consolidateMemories,
   deleteMemory,
   listMemories,
   type MemoryItem,
@@ -15,6 +16,9 @@ function useMemoryMutations(
   reload: () => void,
   setError: Dispatch<SetStateAction<string | null>>,
 ) {
+  const [consolidating, setConsolidating] = useState(false)
+  const [dreamNotice, setDreamNotice] = useState<string | null>(null)
+
   const run = useCallback(
     async (task: () => Promise<void>) => {
       try {
@@ -39,11 +43,26 @@ function useMemoryMutations(
     () => (cwd ? run(() => clearMemoryHandoff(cwd)) : Promise.resolve()),
     [cwd, run],
   )
+  const runConsolidate = useCallback(async () => {
+    setConsolidating(true)
+    setDreamNotice(null)
+    setError(null)
+    try {
+      const res = await consolidateMemories()
+      const via = res.modelUsed ? `（${res.modelUsed}）` : ''
+      setDreamNotice(`${res.summary}${via}`)
+      reload()
+    } catch (e: unknown) {
+      setError(`记忆整理失败：${errorMessage(e)}`)
+    } finally {
+      setConsolidating(false)
+    }
+  }, [reload, setError])
 
-  return { removeItem, clearScope, dropHandoff }
+  return { removeItem, clearScope, dropHandoff, runConsolidate, consolidating, dreamNotice }
 }
 
-/** 管理记忆列表加载、删除、清空作用域与清除压缩交接；每次打开设置自动刷新以同步 Agent 刚写入的记忆 */
+/** 管理记忆列表加载、删除、清空作用域、清除压缩交接与一键 Dream 整理；打开设置自动刷新 */
 export function useMemories(cwd: string | null, visible = true) {
   const [overview, setOverview] = useState<MemoryOverview | null>(null)
   const [loading, setLoading] = useState(true)
