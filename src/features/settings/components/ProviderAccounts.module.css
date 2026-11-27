@@ -17,3 +17,28 @@
 .error {
   color: var(--diff-del);
 }
+
+.providerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.connectedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--diff-add) 12%, transparent);
+  color: var(--diff-add);
+  font-size: var(--fs-code);
+  font-weight: var(--fw-medium);
+}
+
+.connectedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--diff-add);
+}

@@ -21,13 +21,23 @@ function ProviderRow({
   busy: boolean
   change: (provider: AccountProvider, method?: AuthMethod) => Promise<void>
 }) {
-  const option = provider.methods.find((option) => option.type === method)
+  const option = provider.methods.find((entry) => entry.type === method)
   if (!option) return null
   const stored = provider.stored === method
   return (
     <Row
-      title={provider.name}
-      description={stored ? '已保存授权' : option.label}
+      title={
+        <span className={styles.providerTitle}>
+          <span>{provider.name}</span>
+          {stored && (
+            <span className={styles.connectedBadge}>
+              <span className={styles.connectedDot} aria-hidden="true" />
+              {method === 'oauth' ? '已连接' : '已配置'}
+            </span>
+          )}
+        </span>
+      }
+      description={stored ? '已保存授权，可随时重新授权或移除' : option.label}
       control={
         <div className={styles.actions}>
           {stored && (
@@ -82,9 +92,6 @@ export function ProviderAccounts({ method }: { method: AuthMethod }) {
           {accounts.error}
         </p>
       )}
-      {flow && (
-        <AccountAuthorization flow={flow} onCancel={accounts.cancel} onAnswer={accounts.answer} />
-      )}
       <TextField
         value={query}
         onChange={setQuery}
@@ -112,6 +119,7 @@ export function ProviderAccounts({ method }: { method: AuthMethod }) {
           </div>
         )}
       </Card>
+      <AccountAuthorization flow={flow} onCancel={accounts.cancel} onAnswer={accounts.answer} />
     </div>
   )
 }

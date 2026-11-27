@@ -1,23 +1,73 @@
 /*
- * 连接授权卡片：头部讲清「在连谁、卡在哪一步」，正文是要用户动手的那一样东西
- * （点开浏览器 / 抄设备码 / 选登录方式），主动作永远只有右下角一颗。
+ * 连接授权 / API Key 配置居中弹窗：
+ * 保持挂载并用 data-open 驱动遮罩与弹窗缩放淡入淡出，避免硬切与内联撑开页面列表。
  */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  background: var(--bg-overlay);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    visibility 0ms linear var(--dur-base);
+}
+
+.overlay[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0ms linear 0ms;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100%);
+  max-height: min(560px, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-palette);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-palette);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+
+.dialog[data-open='true'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
 
 .head {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-4) var(--sp-2);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-/* 厂商图标位：等待时是转圈，拿到授权地址后换成盾牌 */
 .badge {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--r-item);
   background: var(--bg-hover);
   color: var(--text-secondary);
@@ -29,7 +79,7 @@
 }
 
 .title {
-  font-size: var(--fs-body);
+  font-size: var(--fs-section);
   font-weight: var(--fw-medium);
   line-height: 1.35;
   color: var(--text-primary);
@@ -42,11 +92,18 @@
   color: var(--text-secondary);
 }
 
+.body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .notice {
   display: grid;
   justify-items: start;
   gap: var(--sp-3);
-  padding: 0 var(--sp-4) var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
 }
 
 .lead {
@@ -63,7 +120,6 @@
   gap: var(--sp-2);
 }
 
-/* 设备码要能被念出来、抄下来：等宽、加粗、拉开字距 */
 .code {
   padding: var(--sp-2) var(--sp-3);
   border: 1px dashed var(--border-strong);
@@ -96,17 +152,18 @@
   user-select: text;
 }
 
-/*
- * 追问表单：上游 provider 在流程中途要一个答案（选登录方式、贴 Key、填验证码）。
- * 与上方的说明之间画一条通栏分隔，读起来像「下一步」，而不是同一段话的续行。
- */
+.promptForm {
+  display: flex;
+  flex-direction: column;
+}
+
 .prompt {
   display: grid;
   gap: var(--sp-2);
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
 }
 
-.notice + .prompt {
+.notice + .promptForm {
   border-top: 1px solid var(--border);
 }
 
@@ -123,9 +180,17 @@
   color: var(--text-tertiary);
 }
 
-.promptActions {
+.footer {
   display: flex;
   justify-content: flex-end;
   gap: var(--sp-2);
-  margin-top: var(--sp-1);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog {
+    transition: none;
+  }
 }

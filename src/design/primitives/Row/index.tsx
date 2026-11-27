@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import styles from './Row.module.css'
 
 export interface RowProps {
-  title: string
+  title: ReactNode
   /** 副标题说明，可含链接等富文本 */
   description?: ReactNode
   /** 右侧控件：开关、下拉、分段控件等 */

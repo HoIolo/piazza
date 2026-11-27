@@ -11,7 +11,9 @@ import { errorMessage } from '@/shared/utils/error'
 import { refreshRuntimeAfterSave } from '@/store/chat/refreshRuntime'
 
 export interface AccountFlow {
+  providerId: string
   name: string
+  method: AuthMethod
   notice?: AccountNotice
   prompt?: { id: string; prompt: AccountPrompt }
 }
@@ -99,17 +101,8 @@ function useAccountConnection() {
   }, [retry])
 
   return {
-    slot,
-    providers,
-    setProviders,
-    flow,
-    setFlow,
-    error,
-    setError,
-    retry: () => {
-      setError('')
-      setRetry((n) => n + 1)
-    },
+    slot, providers, setProviders, flow, setFlow, error, setError,
+    retry: () => { setError(''); setRetry((n) => n + 1) },
   }
 }
 
@@ -125,7 +118,7 @@ export function useProviderAccounts() {
     cancelling.current = false
     setError('')
     setBusy(true)
-    if (method) setFlow({ name: provider.name })
+    if (method) setFlow({ providerId: provider.id, name: provider.name, method })
     try {
       const rows = await accountsRpc.send<AccountProvider[]>(
         method
