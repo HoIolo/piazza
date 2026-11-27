@@ -1,23 +1,136 @@
 # Piazza
 
-基于 [pi coding agent](https://github.com/earendil-works/pi) 的桌面 GUI，界面复刻 OpenAI Codex 桌面版，并把 pi 的自定义模型配置变成可视化编辑。
+**pi coding agent 的桌面客户端。** 装完双击就能用——安装包内置 Pi SDK 与 Node.js，不需要另装运行时。
 
-Piazza 的安装包内置 Pi SDK 和 Node.js，装完即可启动，无需另装运行时。支持 macOS（universal，Intel + Apple Silicon）与 Windows x64。
+Piazza 把 [pi](https://github.com/earendil-works/pi) 装进一个 Codex 风格的窗口：左边是项目与会话，中间是对话，右边是审阅、文件、浏览器和终端。模型、技能、扩展、MCP 与历史会话都在 `~/.piazza/agent`，与 pi CLI 的配置互不干扰。
 
-配置目录与 pi CLI 隔离：凭据、设置、技能、扩展、MCP 与会话都在 `~/.piazza/agent`（可用 `PIAZZA_DATA_DIR` 覆盖）。首次启动会提示把 `~/.pi/agent` 里的已有配置搬过来——只复制，不动 CLI 那份。会话仍是 pi 的原生 JSONL，只换目录、不换格式。
+> A desktop client for the [pi coding agent](https://github.com/earendil-works/pi): bundled runtime, three-pane UI, and visual editors for models, skills, MCP and project trust. macOS + Windows.
+
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey?style=flat-square)](#安装)
+[![Release](https://img.shields.io/github/v/release/HoIolo/piazza?style=flat-square)](https://github.com/HoIolo/piazza/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![pi](https://img.shields.io/badge/pi-1.6.0-black?style=flat-square)](https://github.com/earendil-works/pi)
+
+> 当前是早期版本（0.1.x），配置格式与 API 仍可能变动，请以 Releases 说明为准。
+
+<p align="center">
+  <img src="docs/screenshot.png" alt="Piazza 主界面：左侧项目与会话，中间对话，右侧工作区" width="100%">
+</p>
+
+## 功能
+
+**对话**
+
+- 一次输入就是一轮：过程自动收起，只留最后一份汇报，「耗时 Ns」可展开全过程
+- 工具调用与思考各占一行，点开看结果；文件改动聚合成 diff 卡片
+- 运行中继续输入是**引导**，`⌘Enter` 是**排队**；`Esc` 连按两次才真正停止
+- 扩展索取输入时（`ctx.ui.select()` 之类）弹问答卡片，侧栏同步显示「需要用户输入」
+- 聊天区左侧的会话刻度：悬停看该轮摘要，点击跳转
+- 会话可重命名、导出 HTML；项目可用本机已装的编辑器打开
+
+**上下文**
+
+- `@` 同时搜项目文件、技能、提示词模板与历史会话
+- 附件支持拖拽、粘贴与选择，图片可直接预览
+- 输入框内显示上下文窗口占用，设置里可调自动压缩与重试
+- **长期记忆**：按偏好 / 决策 / 避坑 / 流程分类，靠强信号后台补记并定期合并过时条目，也可手动维护
+
+**工作区**
+
+- 项目 → 会话两级侧栏，会话按真实 cwd 归组，支持拖拽排序与调宽
+- git 分支列举与切换、worktree 切换与新建、工作区变更行数
+- 右侧五个标签：审阅（diff）、文件、浏览器、侧边聊天、终端
+- 终端是真实 PTY；Windows 上可选 Git Bash 或 WSL
+- 浏览器用原生子 webview，绕开 `frame-ancestors` 的限制
+- 侧边聊天是独立进程，模型与附件不会串到主会话
+
+**扩展与系统**
+
+- 技能、提示词模板、MCP、扩展包、`AGENTS.md` 指令文档全部可视化增删改
+- 模型配置可视化：provider / model / 上下文窗口（200K、400K、1M 或自定义）；写前备份、原子落盘，保留手写字段与键顺序
+- 主题预设与自定义配色，浅色/深色同步切换
+- 电脑操控：内置 Open Computer Use，agent 操作桌面时用浮窗实时预览受控窗口（需要辅助功能与屏幕录制权限）
+- 自动更新（签名校验）；首次启动可从 `~/.pi/agent` 导入既有配置
 
 ## 安装
 
-从 [Releases](https://github.com/HoIolo/piazza/releases) 下载对应平台的安装包。
+| 平台                           | 产物                         |
+| ------------------------------ | ---------------------------- |
+| macOS（Intel + Apple Silicon） | `Piazza_x.y.z_universal.dmg` |
+| Windows x64                    | `Piazza_x.y.z_x64-setup.exe` |
 
-- **macOS**：`Piazza_x.y.z_universal.dmg`。目前没有做 Apple 公证，首次打开需在 Finder 里右键 →「打开」，或执行
-  `xattr -dr com.apple.quarantine /Applications/Piazza.app`。
-- **Windows**：`Piazza_x.y.z_x64-setup.exe`。没有代码签名，SmartScreen 会提示，点「更多信息 → 仍要运行」即可。
+从 [Releases](https://github.com/HoIolo/piazza/releases) 下载。目前没有做 Apple 公证与 Windows 代码签名：
 
-应用会在启动后静默检查更新，发现新版本才弹窗（设置 → 关于 可关闭，也可以在那里手动检查）。
-更新包由 Tauri updater 校验签名后安装，装完重启生效。
+- **macOS**：首次打开需在 Finder 里右键 →「打开」，或执行
+  `xattr -dr com.apple.quarantine /Applications/Piazza.app`
+- **Windows**：SmartScreen 会拦一次，点「更多信息 → 仍要运行」
 
-## 构建环境
+应用启动后静默检查更新，发现新版本才弹窗（可在 设置 → 关于 关闭或手动检查）。更新包由 Tauri updater 校验签名后安装，重启生效。
+
+## 三分钟上手
+
+1. `⌘O` 选一个项目目录
+2. 打开 设置 → 模型，添加一个 provider 与模型；订阅账号可走授权登录
+3. 在输入框右下角选模型与推理强度，说第一句话
+4. `⌘\` 打开右侧工作区：审阅里看改动，`⌘T` 开终端
+
+### 快捷键
+
+macOS 用 `⌘`，Windows 用 `Ctrl`。
+
+| 快捷键      | 动作                                  |
+| ----------- | ------------------------------------- |
+| `⌘K`        | 命令面板（含扩展命令、技能、提示词）  |
+| `⌘,`        | 设置                                  |
+| `⌘N`        | 新会话                                |
+| `⌘O`        | 添加项目                              |
+| `⌘B` / `⌘\` | 开关左侧栏 / 右侧工作区               |
+| `⌘P`        | 右侧「文件」                          |
+| `⌘T`        | 终端                                  |
+| `⌃⇧G`       | 右侧「审阅」                          |
+| `⌘R`        | 重载窗口                              |
+| `Esc`       | 逐层退出（菜单 → 面板 → 设置 → 运行） |
+
+## 数据与配置
+
+| 路径              | 用途                                                                         |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `~/.piazza/agent` | `models.json`、`settings.json`、`sessions/`、`skills/`、`extensions/`、`mcp` |
+| `PIAZZA_DATA_DIR` | 覆盖数据根目录，想并行跑两套配置时用                                         |
+
+- 会话仍是 **pi 原生 JSONL**：想用 CLI 接着聊，把 agent 目录指过去即可
+  （`PI_CODING_AGENT_DIR=~/.piazza/agent pi`）。
+- 与 `~/.pi/agent` 完全隔离。首次启动的导入只复制，不改动 CLI 那一份。
+
+## 它和 pi 是什么关系
+
+Piazza 不是 pi 的 fork：agent loop、工具、扩展机制、会话格式全部来自 pi，Piazza 只负责界面与桥接。
+
+```
+React UI  ──invoke / event──▶  Rust (Tauri)  ──JSONL over stdio──▶  内置 Node.js + Pi SDK
+```
+
+- 前端不直接和 Node 通信，所有调用都经 Rust 侧的子进程桥接。
+- pi 的版本固定在 `pi-runtime/package.json`（当前 `@earendil-works/pi-coding-agent` 1.6.0），
+  内置 Node 的版本写死在 `scripts/prepare-pi-runtime.mjs`，两者一起升级、一起测试。
+- 想改界面：`src/`；想改协议或子进程：`src-tauri/src/rpc.rs`；想改 agent 行为：`pi-runtime/worker.mjs`。
+
+数据流、模块职责与几个协议上的坑，见 [docs/architecture.md](docs/architecture.md)。
+
+## 边界
+
+Codex 桌面版有、而 pi 没有的入口，Piazza 一律**不做占位按钮**——点了没反应比没有这个入口更让人困惑：
+
+| Codex 的入口                   | 处置                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| 拉取请求、已安排任务、通知     | 不做（pi 没有对应机制）                                 |
+| 新工作树、关联云端、发送至云端 | 换成真实存在的 git worktree 切换与新建                  |
+| 三档操作审批                   | 换成 pi 真实存在的「项目信任」（`defaultProjectTrust`） |
+| 计划模式、录制技能、宠物       | 不做                                                    |
+
+缺的能力走 pi 的扩展体系补，而不是在 GUI 里假装存在。
+
+## 开发
 
 | 依赖                        | 说明               |
 | --------------------------- | ------------------ |
@@ -26,133 +139,58 @@ Piazza 的安装包内置 Pi SDK 和 Node.js，装完即可启动，无需另装
 | Xcode CLT                   | macOS 构建工具链   |
 | MSVC Build Tools + WebView2 | Windows 构建工具链 |
 
-## 开发
-
 ```bash
 npm install
-npm run dev:app        # 启动开发模式（macOS 上会自动签名，见下）
+npm run dev:app        # 带壳开发模式（macOS 会自动签名，见下）
 npm run build:mac      # macOS：universal dmg + 更新包
-npm run tauri build    # 其他平台 / 不需要签名的构建
+npm run tauri build    # 其他平台，或不需要签名的构建
 ```
 
-**签名**：macOS 上 ad-hoc 签名会让 TCC 把每次构建当成新 app，
-于是「允许访问桌面文件夹」会反复弹。`dev:app` 与 `build:mac` 会自动从钥匙串
-挑一个可用证书（Developer ID Application 优先，其次 Apple Development）签名，
-授权一次即长期有效。CI 出的发布包用同一张 Apple Distribution 证书签名
-（经 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY`
-三个 Secret 注入），所以本地构建与下载版对系统来说也是同一个 app。
+**关于签名**：macOS 上 ad-hoc 签名会让 TCC 把每次构建当成新 app，「允许访问桌面文件夹」于是反复弹。
+`dev:app` 与 `build:mac` 会自动从钥匙串挑一张可用证书（Developer ID Application 优先，其次 Apple Development）签名，
+授权一次即长期有效。CI 发布的包用同一张 Apple Distribution 证书，所以本地构建和下载版对系统来说也是同一个 app。
 
-首次构建会下载并校验固定版本的 Node.js，再按锁文件安装 Pi SDK。这段准备逻辑在
-`scripts/prepare-pi-runtime.mjs`（跨平台：macOS 用 tar.xz，Windows 用 zip；universal 构建会用 lipo
-把两个官方 node 二进制拼成 universal），版本号写在脚本顶部和 `pi-runtime/package.json` 里。
+首次构建会下载并校验固定版本的 Node.js，再按锁文件安装 Pi SDK。这段逻辑在
+`scripts/prepare-pi-runtime.mjs`（跨平台：macOS 用 tar.xz，Windows 用 zip；universal 构建会用 `lipo`
+把两个官方 node 二进制拼成 universal）。
 
-发布走 GitHub Actions：推一个 `v*` tag，`.github/workflows/release.yml` 会在 macOS（universal）与
-Windows 上并行构建，最后由 `scripts/build-latest-json.mjs` 汇总成唯一一份 `latest.json` 供自动更新读取。
-更新包签名需要两个仓库 Secret：`TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
-
-质量门槛
+### 质量门槛
 
 ```bash
-npm run typecheck                      # tsc --noEmit
-npm run lint                           # ESLint，零警告
+npm run typecheck                       # tsc --noEmit
+npm run lint                            # ESLint，零警告
 npx prettier --check "src/**/*.{ts,tsx,css}"
-cd src-tauri && cargo clippy -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 ```
 
-## 架构
+### 端到端探针
 
-前端与 pi 之间不直接通信，全部经由 Rust 侧的子进程桥接：
+`e2e/` 下的探针在浏览器里跑真实前端，只把 Tauri 桥接层换成桩，回放的帧来自真实 `pi --mode rpc` 抓包
+（见 `e2e/frames.jsonl`）。前提是 `npm run dev` 已在 1420 端口跑着，然后用 Playwright 的 `run_code`
+指向对应文件。每个探针都对应一类「曾经真的出过事」的回归。
 
-```
-React UI  ──invoke/event──  Rust (Tauri)  ──JSONL over stdio──  内置 Node.js + Pi SDK
-```
+桩里的事件必须包成 `{ slotId, payload }`——`rpcClient.dispatch` 会拆这一层；漏了它，命令能发出去但应答永远回不到调用方。
+改协议或改 `rpcClient` 的事件封装时，探针要一起改。
 
-### Rust 侧（`src-tauri/src/`）
+上面的截图由 `e2e/readme-shot.js` 生成：同样的桩，只是不断言、只出图。改完界面想更新截图就跑它。
 
-| 文件          | 职责                                                                                         |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| `rpc.rs`      | 子进程管理、JSONL 严格分帧、事件转发                                                         |
-| `config.rs`   | `models.json` / `settings.json` 的原子读写                                                   |
-| `data_dir.rs` | 应用数据根与 agent 目录（`~/.piazza/agent`），worker 通过 `PI_CODING_AGENT_DIR` 拿到同一个值 |
-| `import.rs`   | 首次启动把 `~/.pi/agent` 的配置与会话复制进应用目录                                          |
-| `sessions.rs` | 扫描 `<agent>/sessions` 并按真实 cwd 分组                                                    |
-| `git.rs`      | 分支读取/列举/切换、worktree 管理、工作区增删统计                                            |
-| `files.rs`    | 项目内文件搜索，供输入框的 @ 提及使用                                                        |
-| `external.rs` | 探测已安装的编辑器，用 `open -a` 打开项目                                                    |
-| `browser.rs`  | 右侧面板的原生子 webview（iframe 会被 frame-ancestors 拦死）                                 |
+发布走 GitHub Actions：推一个 `v*` tag，`.github/workflows/release.yml` 会在 macOS（universal）与 Windows
+上并行构建，最后由 `scripts/build-latest-json.mjs` 汇总成一份 `latest.json` 供自动更新读取。
 
-**五个容易踩的坑，已在代码中处理：**
+## 参与贡献
 
-1. **后台运行时**。Tauri 按应用资源绝对路径启动 Node.js 和 `pi-runtime/worker.mjs`，每个会话槽位保留自己的进程及工作目录。
+- 动手前先读 [AGENTS.md](AGENTS.md)：动效、设计令牌、分层与 ESLint 红线都在那里，人和 agent 用同一套规则。
+- 提交前请跑完上面的质量门槛；提交信息用 `feat(scope): …` / `fix(scope): …` 这类 conventional commits。
+- 大改动先开 issue 说清动机与影响面，避免写完才发现方向不对。
 
-2. **JSONL 分帧**：pi 的 RPC 协议规定**只以 LF 作为记录分隔符**。不能使用通用行读取器——例如 Node 的 `readline` 会额外在 `U+2028`/`U+2029` 处断行，而这两个字符在 JSON 字符串内是合法内容，会把一帧劈成两半。`rpc.rs` 手工按字节扫描 `0x0A`，并有 7 个单元测试覆盖（含 CRLF、U+2028、跨读取重组、200KB 超大帧）。
+## 致谢
 
-3. **`message_update` 与文档不符**：pi 官方文档称该事件带有 `message`（当前完整消息）和 `assistantMessageEvent.partial`。**v0.82.1 实测两者都不存在**，只有 `{ type, contentIndex, delta }`。若照文档实现，会在 `event.message.role` 处直接抛 TypeError。因此 `store/chat/stream.ts` 自行按 `contentIndex` 累积内容，并用 `*_end` 事件携带的完整文本覆盖累积结果以纠正偏差。
+- [pi](https://github.com/earendil-works/pi) —— agent 运行时、RPC 协议与会话格式都来自这里（MIT）
+- Codex 桌面版 —— 交互与视觉的参考对象。Piazza 与 OpenAI 无关，也不是官方产品
+- [Tauri](https://tauri.app)、[React](https://react.dev)、[xterm.js](https://xtermjs.org)
+- [open-computer-use](https://www.npmjs.com/package/open-computer-use) —— 桌面操控与窗口预览
 
-4. **SDK 兼容性**。后台入口复用 Pi 的会话运行时、RPC 和内置扩展，并按固定版本加载与该版本配套的代理及项目信任逻辑。
+## License
 
-5. **切换会话会误报「进程已退出」**：`rpc_start` 会先 kill 旧进程，旧进程 stdout 关闭同样触发退出事件。`rpc.rs` 给每次会话分配递增的代号，reader 结束时比对代号，只有仍是当前代（即非主动切换）才上报，否则每切一次会话都会弹一次假错误。
-
-### 没有对应能力的按钮一律不做
-
-Codex 的部分入口在 pi 里没有对应物，这些位置**不保留占位按钮**——点了没反应比没有这个入口更让人困惑：
-
-| Codex 的入口                         | pi 的情况                    | 处置                                                      |
-| ------------------------------------ | ---------------------------- | --------------------------------------------------------- |
-| 拉取请求、已安排任务                 | 无                           | 移除                                                      |
-| 通知铃铛                             | 无通知机制                   | 移除                                                      |
-| 新工作树、关联 Codex web、发送至云端 | 只在本地跑                   | 「本地」换成 git worktree 切换/新建                       |
-| 三档操作审批                         | 无沙箱、无操作级审批         | 换成真实存在的「项目信任」（`defaultProjectTrust`）       |
-| 向用户提问（`request_user_input`）   | 无同名工具，但有扩展 UI 协议 | 用 `select`/`confirm`/`input`/`editor` 呈现同样的问答卡片 |
-| 目标、计划模式、录制技能、宠物       | 无                           | 移除                                                      |
-| 浏览器、电脑操控                     | 无                           | 移除                                                      |
-| 插件                                 | 有 packages                  | 指向设置的「扩展包」分区                                  |
-
-### 会话目录名不可反解
-
-会话存储路径是把 cwd 的 `/` 替换成 `-` 得到的，该变换**有损**：
-`--Users-haha-Desktop-xinlian-h5-live-streaming--` 的真实 cwd 是
-`/Users/haha/Desktop/xinlian/h5-live-streaming`（两级目录）。
-因此 `sessions.rs` 从每个 `.jsonl` 的首行 header 读取真实 `cwd`，而不是从目录名反推。
-
-### 前端（`src/`）
-
-分层依赖严格单向，上层可依赖下层，反之不可：
-
-```
-design/primitives  →  无业务、无 store、无 RPC
-shared/            →  工具、Tauri API 封装、通用组件
-rpc/ + store/      →  通信与状态
-features/          →  业务 UI（彼此不互相依赖）
-app/               →  仅组装与布线
-```
-
-`design/primitives` 反向依赖 `features`/`store` 会被 ESLint 直接拦截。
-
-## 约定
-
-- 组件文件 ≤150 行；逻辑函数 ≤50 行（JSX 组件放宽至 100，理由见 `eslint.config.js`）
-- 颜色、圆角、间距一律走 `design/tokens.css` 的 CSS 变量，代码中不出现硬编码色值
-- 动效时长与缓动同样走令牌（`--dur-*` / `--ease-*`）。开启系统「减弱动态效果」时全局降级为无动画，仅 Spinner / Skeleton 保留循环——静止的进度指示会被误读成程序卡死
-- RPC 类型以 `src/rpc/types/` 为唯一来源，不在别处重复定义
-- 禁用 `any`；副作用只在 hooks 中，组件不直接调用 RPC
-
-## 已实现
-
-- 三栏布局：项目/会话侧栏、聊天区、右侧工作区面板（审阅/终端/文件）
-- 环境信息（变更行数、工作模式、分支）：会话区够宽时停靠在右侧成卡片，顶栏按钮开关；窄时退回顶栏弹窗
-- **聊天区按轮次组织**：一次 prompt 可能产生多个 turn，完成后收起过程、只留最后一轮汇报，顶部「耗时 Ns」可展开全过程；复制/分支按钮只在整次交互末尾出现一次
-- 工具调用与思考都是一行文字（`已运行 pwd ⌄`），进行中带扫光动画，点开才显示结果卡片
-- 发送后底部留白 40vh，回答增长时自然吃掉，滚动持续跟到底
-- 会话刻度：聊天区左侧一列横杠，悬停出该轮摘要、点击跳转，主区变窄时自动收起
-- ⌘K 命令面板（含 pi 的扩展命令、技能、提示词模板）
-- 输入区控件全部接真实能力：项目切换、worktree 工作模式、分支列举/切换/新建、模型与推理强度、项目信任级别
-- `@` 提及与「+」菜单共用一个面板，可搜项目文件、技能与提示词、历史会话
-- 扩展索取输入时（`ctx.ui.select()` 等）弹出问答卡片，侧栏同步显示转圈或「需要用户输入」
-- 会话操作：双击标题重命名、导出 HTML、用已安装的编辑器打开项目
-- 设置内嵌于主界面（非独立窗口）：内置运行时、默认模型、主题、压缩与重试、扩展包、项目信任
-- **模型配置**：可视化增删改 `~/.piazza/agent/models.json` 的 provider 与 model。页面只是概览卡片，增改在对话框里完成、按保存即落盘；上下文窗口给 200K / 400K / 1M 三档加自定义。写前备份为 `.bak`，经临时文件原子落盘，保留 GUI 不认识的用户手写字段与键顺序
-
-## 未实现
-
-pi 侧无对应能力的 Codex 分区（见上文表格）一律未做，且不留占位入口。
+[MIT](LICENSE)
