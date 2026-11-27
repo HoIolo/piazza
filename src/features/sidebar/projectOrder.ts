@@ -18,10 +18,9 @@ export function byCreatedDesc<T extends OrderableProject>(a: T, b: T): number {
 }
 
 /**
- * 按用户保存的顺序排，未出现在 order 里的追加在末尾。
+ * 按用户保存的顺序排，未出现在 order 里的（刚新增的项目）排在最前面。
  *
- * 末尾那部分保持传入顺序——它们通常是「拖完之后才添加」的项目，
- * 插到最前面会把用户刚排好的列表顶下去。
+ * 新增项目保持传入顺序（最新的在最前），避免用户刚点完「添加项目」却被埋到底部。
  */
 export function applyProjectOrder<T extends OrderableProject>(projects: T[], order: string[]): T[] {
   if (order.length === 0) return projects
@@ -30,17 +29,18 @@ export function applyProjectOrder<T extends OrderableProject>(projects: T[], ord
     const ra = rank.get(a.cwd)
     const rb = rank.get(b.cwd)
     if (ra === undefined && rb === undefined) return 0
-    if (ra === undefined) return 1
-    if (rb === undefined) return -1
+    if (ra === undefined) return -1
+    if (rb === undefined) return 1
     return ra - rb
   })
 }
 
 /**
- * 会话列表的顺序：用户拖过的在前，没拖过的按创建时间倒序追加在后。
+ * 会话列表的顺序：未出现在 order 里的新增会话按创建时间倒序排在最前面，
+ * 已拖过顺序的历史会话保持用户排好的相对顺序跟在后面。
  *
- * 与项目同一套规则。置顶不在这里处理——置顶是显式操作，由调用方再把置顶的
- * 提到前面，组内仍然沿用这里算出来的顺序。
+ * 置顶不在这里处理——置顶是显式操作，由调用方再把置顶的提到最前，
+ * 组内仍然沿用这里算出来的顺序。
  */
 export function applySessionOrder<T extends { path: string }>(
   sessions: T[],
@@ -49,15 +49,14 @@ export function applySessionOrder<T extends { path: string }>(
 ): T[] {
   if (order.length === 0) return [...sessions].sort((a, b) => createdMs(b) - createdMs(a))
   const rank = new Map(order.map((path, index) => [path, index]))
-  const ranked = [...sessions].sort((a, b) => {
+  return [...sessions].sort((a, b) => {
     const ra = rank.get(a.path)
     const rb = rank.get(b.path)
     if (ra === undefined && rb === undefined) return createdMs(b) - createdMs(a)
-    if (ra === undefined) return 1
-    if (rb === undefined) return -1
+    if (ra === undefined) return -1
+    if (rb === undefined) return 1
     return ra - rb
   })
-  return ranked
 }
 
 /** 把 from 挪到 to 的位置，返回新数组。拖动落点就靠它算 */

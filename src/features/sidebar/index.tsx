@@ -17,7 +17,7 @@ import { SidebarHeader } from './components/SidebarHeader'
 import { SidebarNav } from './components/SidebarNav'
 import { addProject } from '@/shared/utils/addProject'
 import { usePendingSession, withPendingSessions } from './pendingSession'
-import { applyProjectOrder, byCreatedDesc } from './projectOrder'
+import { applyProjectOrder } from './projectOrder'
 import { useSidebarWidth } from './useSidebarWidth'
 import styles from './Sidebar.module.css'
 
@@ -58,9 +58,9 @@ export function Sidebar() {
    * 置顶区内部仍沿用上面算出来的顺序。
    */
   const visible = applyProjectOrder(
-    withPendingSessions(projects, [...bgSessions, pending])
-      .filter((p) => !hiddenProjects.includes(p.cwd))
-      .sort(byCreatedDesc),
+    withPendingSessions(projects, [...bgSessions, pending]).filter(
+      (p) => !hiddenProjects.includes(p.cwd),
+    ),
     projectOrder,
   ).sort((a, b) => Number(pinned.includes(b.cwd)) - Number(pinned.includes(a.cwd)))
 
